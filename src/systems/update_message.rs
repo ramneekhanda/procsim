@@ -37,7 +37,7 @@ pub fn update_message_path(mut query_conn: Query<(Entity, &mut Message, &NodeCon
                            mut commands: Commands,
 ) {
   let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-  let text_alignment = TextAlignment::Center;
+  //let text_alignment = TextAlignment::Center;
 
   let text_style = TextStyle {
     font: font.clone(),
@@ -77,14 +77,14 @@ pub fn update_message_path(mut query_conn: Query<(Entity, &mut Message, &NodeCon
       let icon_child = commands.spawn((
         ShapeBundle {
           path: GeometryBuilder::build_as(&shape),
-          transform: Transform::from_xyz(0., 0., 100.0),
+          //transform: Transform::from_xyz(0., 0., 100.0),
           ..default()
         },
         Stroke::new(Color::BLACK, 3.0),
       )).id();
 
       let text_child = commands.spawn(Text2dBundle {
-        text: Text::from_section(mesg.str.clone(), text_style.clone()).with_alignment(text_alignment),
+        text: Text::from_section(mesg.str.clone(), text_style.clone()).with_justify(JustifyText::Center), //.with_alignment(text_alignment),
         transform: Transform::from_translation(Vec3::new(0.0, -20., 100.)),
         ..default()
       }).id();

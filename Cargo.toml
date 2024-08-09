@@ -9,18 +9,18 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { version = "0.11" }
-bevy-inspector-egui = "0.20"
-bevy_egui = "0.22.0"
+bevy = { version = "0.14.0" }
+bevy-inspector-egui = "0.25.1"
+bevy_egui = "0.28.0"
 rand = "0.8.5"
-rfd = "0.12"
+rfd = "0.14.1"
 wasm-bindgen-futures = "0.4.37"
-egui_code_editor = "0.1.7"
-rustpython-vm = "0.3.0"
-bevy_tweening = "0.8.0"
+egui_code_editor = "0.2.9"
+rustpython-vm = "0.4.0"
+bevy_tweening = "0.11.0"
 web-sys = "0.3.64"
-bevy_prototype_lyon = "0.9.0"
-bevy_mod_picking = {git = "https://github.com/aevyrie/bevy_mod_picking/"}
+bevy_prototype_lyon = "0.12.0"
+bevy_mod_picking = "0.20"
 lyon_algorithms = "1"
 serde = "1.0"
 serde_yaml = "0.9"

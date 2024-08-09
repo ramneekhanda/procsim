@@ -12,7 +12,7 @@ pub struct DemoTimer {
 
 pub fn demo_send_message(time: Res<Time>,
                          mut q: ResMut<DemoTimer>,
-                         mut query_messages: Query<(Entity, With<Message>)>,
+                         mut query_messages: Query<(Entity, &Message)>,
                          mut query_conn: Query<(Entity, &mut NodeConnector)>,
                          mut commands: Commands) {
   if query_conn.iter().count() < 2 {
