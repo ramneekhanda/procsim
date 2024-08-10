@@ -1,5 +1,4 @@
 [workspace]
-members = ["libs/python_interp"]
 
 [package]
 name = "dsa"
@@ -16,14 +15,14 @@ rand = "0.8.5"
 rfd = "0.14.1"
 wasm-bindgen-futures = "0.4.37"
 egui_code_editor = "0.2.9"
-rustpython-vm = "0.4.0"
 bevy_tweening = "0.11.0"
 web-sys = "0.3.64"
-bevy_prototype_lyon = "0.12.0"
+bevy_prototype_lyon = { git = "https://github.com/ramneekhanda/bevy_prototype_lyon.git" }
 bevy_mod_picking = "0.20"
 lyon_algorithms = "1"
 serde = "1.0"
 serde_yaml = "0.9"
+rhai = "1.19.0" 
 
 [profile.dev]
 opt-level = 1
@@ -33,3 +32,5 @@ opt-level = 3
 
 [package.metadata.commands]
 watch = "cargo watch -x 'run --target wasm32-unknown-unknown --release'"
+
+

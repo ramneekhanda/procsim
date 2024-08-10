@@ -1,1 +1,6 @@
 /target
+/package
+/web/node_modules
+/web/build
+/web/.svelte-kit
+package-lock.json
