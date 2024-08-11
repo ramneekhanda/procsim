@@ -2,7 +2,7 @@ use crate::components::node::Node;
 use crate::components::node::NodeTimers;
 use crate::parser::graphv2::Attrs;
 use crate::systems::drag;
-use crate::ui::*;
+use crate::ui::GraphDefinitionRes;
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bevy_prototype_lyon::prelude::*;
