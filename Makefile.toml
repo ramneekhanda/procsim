@@ -1,62 +1,66 @@
-[tasks.clean]
-command = "cargo"
-args = ["clean"]
-
 [tasks.clean-site]
+private = true
 command = "npm"
 args = ["run", "clean"]
 
 [tasks.build]
+private = true
 command = "cargo"
 args = ["build"]
 
-[tasks.build-wasm]
-command = "cargo"
-args = ["build", "--release", "--target", "wasm32-unknown-unknown"]
-
 [tasks.wasm-bindgen]
+private = true
 command = "wasm-bindgen"
 args = ["--no-typescript", "--target", "web",  "--out-dir", "./package/release/", "--out-name", "dsa", "./target/wasm32-unknown-unknown/release/dsa.wasm"]
 dependencies = ["build-wasm"]
 
 [tasks.ensure-dirs]
+private = true
 command = "mkdir"
 args = ["-p", "./package/release/assets/"]
 
 [tasks.copy-wasm-fonts]
+private = true
 command = "cp"
 args = ["-R", "assets/fonts", "./package/release/assets"]
 dependencies = ["ensure-dirs"]
 
 [tasks.build-site]
+private = true
 command = "npm"
 args = ["run", "build", "--prefix", "web/"]
 
-[tasks.run-server]
-command = "cargo"
-args = ["server", "--path", "./package/release", "--open"]
-dependencies = ["wasm-bindgen", "copy-wasm-fonts"]
-
-[tasks.run-browser]
-dependencies = ["build-site", "run-server"]
-
 [tasks.clean-build]
+private = true
 command = "cargo"
 args = ["build"]
 dependencies = ["clean"]
 
 [tasks.test]
+private = true
 command = "cargo"
 args = ["test"]
 
+# following are main tasks
 [tasks.clean-test]
 dependencies = ["clean", "test"]
 
+[tasks.clean]
+command = "cargo"
+args = ["clean"]
 
+[tasks.build-wasm-module]
+dependencies = ["wasm-bindgen", "copy-wasm-fonts"]
 
-[tasks.my-flow]
-dependencies = [
-    "format",
-    "build",
-    "test"
-]
+[tasks.build-wasm]
+command = "cargo"
+args = ["build", "--release", "--target", "wasm32-unknown-unknown"]
+
+[tasks.build-all]
+dependencies = ["build-site", "build-wasm-module"]
+
+[tasks.run]
+command = "cargo"
+args = ["server", "--path", "./package/release", "--open"]
+dependencies = ["build-all"]
+

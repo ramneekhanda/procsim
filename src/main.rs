@@ -14,10 +14,21 @@ use parser::graphv2::GraphDefinition;
 use std::time::Duration;
 use ui::{CodeStorage, GraphDefinitionRes};
 
+#[cfg(target_arch = "wasm32")]
+use systems::browser_resize::handle_browser_resize;
+
 fn main() {
-    App::new()
-        .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+
+    app.insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+          primary_window: Some(Window {
+              canvas: Some("#bevy-canvas".into()),
+              fit_canvas_to_parent: true,
+              ..default()
+          }),
+          ..default()
+        }))
         //.add_plugins(WorldInspectorPlugin::default())
         .add_plugins(EguiPlugin)
         .insert_resource(Msaa::Sample4)
@@ -51,8 +62,10 @@ fn main() {
                 systems::update_connectors::update_connectors,
                 systems::update_node::update_nodes,
             ),
-        )
-        .run();
+        );
+    #[cfg(target_arch = "wasm32")]
+    app.add_systems(Update, handle_browser_resize);
+    app.run();
 }
 
 fn setup_camera(mut commands: Commands) {

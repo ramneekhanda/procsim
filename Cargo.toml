@@ -14,13 +14,13 @@ rfd = "0.14.1"
 wasm-bindgen-futures = "0.4.37"
 egui_code_editor = "0.2.9"
 bevy_tweening = "0.11.0"
-web-sys = "0.3.64"
 bevy_prototype_lyon = { git = "https://github.com/ramneekhanda/bevy_prototype_lyon.git" }
 bevy_mod_picking = "0.20"
 lyon_algorithms = "1"
 serde = "1.0"
 serde_yaml = "0.9"
 rhai = "1.19.0" 
+wasm-bindgen = "0.2"
 
 [profile.dev]
 opt-level = 1
@@ -31,4 +31,22 @@ opt-level = 3
 [package.metadata.commands]
 watch = "cargo watch -x 'run --target wasm32-unknown-unknown --release'"
 
-
+[dependencies.web-sys]
+version = "0.3.69"
+features = [
+  'Document',
+  'Element',
+  'HtmlElement',
+  'HtmlBodyElement',
+  'HtmlButtonElement',
+  'EventTarget',
+  'Node',
+  'Window',
+  'DomTokenList',
+  "Attr",
+  "CanvasRenderingContext2d",
+  "Event",
+  "EventTarget",
+  "HtmlCanvasElement",
+  "Text",
+]
