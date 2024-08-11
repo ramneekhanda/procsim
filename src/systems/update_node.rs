@@ -1,6 +1,8 @@
 use crate::components::node::Node;
 use crate::components::node::NodeTimers;
 use crate::parser::graphv2::Attrs;
+use crate::resources::common_assets::CommonAssets;
+use crate::resources::common_assets::ResourceType;
 use crate::systems::drag;
 use crate::ui::GraphDefinitionRes;
 use bevy::prelude::*;
@@ -13,7 +15,7 @@ use std::time::Duration;
 
 pub fn update_nodes(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    ca: Res<CommonAssets>,
     g: Res<GraphDefinitionRes>,
     query: Query<Entity, With<Node>>,
 ) {
@@ -44,7 +46,7 @@ pub fn update_nodes(
                         z,
                         node.clone(),
                         &mut commands,
-                        &asset_server,
+                        &ca,
                         node_d.attrs.clone(),
                     );
                     z += 1.;
@@ -52,7 +54,7 @@ pub fn update_nodes(
                 }
             }
             if !drawn {
-                spawn_node(z, node.clone(), &mut commands, &asset_server, None);
+                spawn_node(z, node.clone(), &mut commands, &ca, None);
                 z += 1.;
             }
         }
@@ -64,15 +66,20 @@ fn spawn_node(
     z: f32,
     node_name: String,
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
+    ca: &Res<CommonAssets>,
     o_attrs: Option<Attrs>,
+
 ) {
     //TODO move this to setup
-    let font: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let mut font: Handle<Font> = Default::default();
+    if let Some(ResourceType::FontHandle(f1)) = ca.resource_map.get("default_font"){
+        font = f1.clone();
+    };
+    
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 16.0,
-        color: Color::WHITE,
+        color: Color::BLACK,
     };
     let mut color: [f32; 4] = [1.0, 0.0, 0.5, 1.0];
     let _ = o_attrs.is_some_and(|a| {

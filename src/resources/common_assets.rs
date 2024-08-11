@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::string::String;
 
 #[derive(Clone)]
-enum ResourceType {
+pub enum ResourceType {
     FontHandle(Handle<Font>),
 }
 
@@ -12,10 +12,14 @@ pub struct CommonAssets {
     pub resource_map: HashMap<String, ResourceType>
 }
 
-#[derive(Resource, Default, Clone)]
-pub enum LoadingState {
+#[derive(Default, PartialEq, Clone)]
+pub enum LoadingStateOpt {
     #[default]
     Loading,
     Ready
+}
+#[derive(Resource, PartialEq, Default, Clone)]
+pub struct LoadingState {
+    pub state: LoadingStateOpt
 }
 

@@ -3,6 +3,8 @@ use bevy_prototype_lyon::prelude::*;
 
 use crate::components::message::*;
 use crate::components::node_connector::*;
+use crate::resources::common_assets::CommonAssets;
+use crate::resources::common_assets::ResourceType;
 
 fn walk_message(path: &lyon_algorithms::path::Path) -> Vec<[f32; 2]> {
     use lyon_algorithms::walk::{walk_along_path, RegularPattern, WalkerEvent};
@@ -27,17 +29,19 @@ fn walk_message(path: &lyon_algorithms::path::Path) -> Vec<[f32; 2]> {
 pub fn update_message_path(
     mut query_conn: Query<(Entity, &mut Message, &NodeConnector)>,
     mut query_hs: Query<(Entity, &HotSpot)>,
-    asset_server: Res<AssetServer>,
+    ca: Res<CommonAssets>,
     time: Res<Time>,
     mut commands: Commands,
 ) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    //let text_alignment = TextAlignment::Center;
+    let mut font: Handle<Font> = Default::default();
+    if let Some(ResourceType::FontHandle(f1)) = ca.resource_map.get("default_font"){
+        font = f1.clone();
+    };
 
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 16.0,
-        color: Color::WHITE,
+        color: Color::BLACK,
     };
 
     for (entity, _hotspot) in query_hs.iter_mut() {

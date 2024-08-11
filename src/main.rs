@@ -4,24 +4,27 @@ mod resources;
 mod components;
 mod parser;
 mod systems;
+mod conditions;
 
+use std::collections::HashMap;
 use bevy::{asset::AssetMetaCheck, prelude::*};
 use bevy_egui::EguiPlugin;
 use bevy_mod_picking::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::TweeningPlugin;
-use parser::graphv2::{parse_graph2, GraphDefinition};
+use parser::graphv2::GraphDefinition;
 use std::time::Duration;
 use ui::{CodeStorage, GraphDefinitionRes};
-use resources::common_assets::CommonAssets;
-
+use resources::common_assets::{CommonAssets, LoadingState, LoadingStateOpt};
 #[cfg(target_arch = "wasm32")]
 use systems::browser_resize::handle_browser_resize;
+use bevy_web_asset::WebAssetPlugin;
 
 fn main() {
     let mut app = App::new();
 
     app.insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
+        .add_plugins(WebAssetPlugin)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 canvas: Some("#bevy-canvas".into()),
@@ -34,27 +37,32 @@ fn main() {
                 ..default()
             }))
         //.add_plugins(WorldInspectorPlugin::default())
-        // .insert_resource(CommonAssets {
-        //     resource_map: HashMap.new(),
-        // })
-        .add_plugins(EguiPlugin)
+        .insert_resource(CommonAssets {
+            resource_map: HashMap::new(),
+        })
         .insert_resource(Msaa::Sample4)
-        .add_plugins(DefaultPickingPlugins)
-        .add_plugins(ShapePlugin)
-        .add_plugins(TweeningPlugin)
-        .insert_resource(DebugPickingMode::Noisy)
         .insert_resource(systems::demo_message::DemoTimer {
             timer: Timer::new(Duration::from_secs(4), TimerMode::Repeating),
         })
         .insert_resource(CodeStorage::default())
+        .insert_resource(LoadingState {state: LoadingStateOpt::Loading})
         .insert_resource(GraphDefinitionRes {
             graph_defn: GraphDefinition::default(),
         })
-        .add_systems(Startup, setup_camera)
+        .add_plugins(ShapePlugin)
+        .add_plugins(TweeningPlugin)
+        .add_plugins(EguiPlugin)
+        .add_plugins(DefaultPickingPlugins)
+        
+        
+        .add_systems(Startup, 
+            setup_camera,
+        )
         .add_systems(
             Update,
             (
-                systems::demo_message::demo_send_message,
+                systems::resource_loader::load_assets.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Loading})),
+                systems::demo_message::demo_send_message.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
                 systems::update_message::update_message_path,
             ),
         )
