@@ -10,7 +10,7 @@ use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::TweeningPlugin;
-use parser::graphv2::GraphDefinition;
+use parser::graphv2::{parse_graph2, GraphDefinition};
 use std::time::Duration;
 use ui::{CodeStorage, GraphDefinitionRes};
 
@@ -65,6 +65,7 @@ fn main() {
         );
     #[cfg(target_arch = "wasm32")]
     app.add_systems(Update, handle_browser_resize);
+
     app.run();
 }
 

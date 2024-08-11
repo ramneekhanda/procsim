@@ -13,12 +13,20 @@ pub struct GraphDefinitionRes {
     pub graph_defn: GraphDefinition,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct CodeStorage {
     pub code: String,
     pub console: String,
 }
 
+impl Default for CodeStorage {
+    fn default() -> Self {
+        CodeStorage {
+            code: include_str!("../examples/config/config.yaml").to_string(),
+            console: "".to_string()
+        }
+    }
+}
 pub fn draw_codeviewer(
     mut contexts: EguiContexts,
     mut code_store: ResMut<CodeStorage>,
@@ -28,7 +36,7 @@ pub fn draw_codeviewer(
         ui.vertical_centered(|ui| {
             if ui.button("compile").clicked() {
                 let res = parse_graph2(&code_store.code);
-
+                
                 match res {
                     Ok(file) => {
                         graph_defn.graph_defn = file.graph_defn;
