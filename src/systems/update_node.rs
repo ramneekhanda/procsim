@@ -6,6 +6,7 @@ use crate::resources::common_assets::ResourceType;
 use crate::systems::drag;
 use crate::ui::GraphDefinitionRes;
 use bevy::prelude::*;
+use bevy::scene::ron::de;
 use bevy_mod_picking::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{lens::*, *};
@@ -17,7 +18,7 @@ pub fn update_nodes(
     mut commands: Commands,
     ca: Res<CommonAssets>,
     g: Res<GraphDefinitionRes>,
-    query: Query<Entity, With<Node>>,
+    query: Query<Entity, With<Node>>
 ) {
     if g.is_changed() {
         for entity in query.iter() {
@@ -47,7 +48,7 @@ pub fn update_nodes(
                         node.clone(),
                         &mut commands,
                         &ca,
-                        node_d.attrs.clone(),
+                        node_d.attrs.clone()
                     );
                     z += 1.;
                     drawn = true;
@@ -68,7 +69,6 @@ fn spawn_node(
     commands: &mut Commands,
     ca: &Res<CommonAssets>,
     o_attrs: Option<Attrs>,
-
 ) {
     //TODO move this to setup
     let mut font: Handle<Font> = Default::default();
@@ -76,6 +76,11 @@ fn spawn_node(
         font = f1.clone();
     };
     
+    let mut def_icon: Handle<Image> = Default::default();
+    if let Some(ResourceType::ImageHandle(img)) = ca.resource_map.get("default_system_icon"){
+        def_icon = img.clone();
+    };
+
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 16.0,
@@ -88,12 +93,6 @@ fn spawn_node(
             true
         })
     });
-
-    let shape = shapes::RegularPolygon {
-        sides: 4,
-        feature: shapes::RegularPolygonFeature::Radius(30.0),
-        ..shapes::RegularPolygon::default()
-    };
 
     let mut rng = rand::thread_rng();
     let x = rng.gen_range(-250.0..250.0);
@@ -114,6 +113,7 @@ fn spawn_node(
                 transform: Transform::from_translation(Vec3::new(0., 0., 100.)),
                 ..Default::default()
             },
+            
             Node {
                 node_text: node_name.clone(),
                 ..Default::default()
@@ -124,16 +124,19 @@ fn spawn_node(
 
     let icon_child = commands
         .spawn((
-            ShapeBundle {
-                path: GeometryBuilder::build_as(&shape),
+            SpriteBundle {
+                // Simply use a url where you would normally use an asset folder relative path
+                texture: def_icon.clone(),
+                sprite: Sprite {
+                    custom_size: Vec2::new(32., 32.).into(),
+                    ..Default::default()
+                },
                 ..default()
             },
             On::<Pointer<DragStart>>::target_insert(Pickable::IGNORE),
             On::<Pointer<DragEnd>>::target_insert(Pickable::default()),
             On::<Pointer<Drag>>::run(drag::drag),
             On::<Pointer<Out>>::target_remove::<NodeTimers>(),
-            Fill::color(Color::linear_rgba(color[0], color[1], color[2], color[3])),
-            Stroke::new(Color::BLACK, 3.0),
         ))
         .id();
 

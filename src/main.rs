@@ -63,16 +63,16 @@ fn main() {
             (
                 systems::resource_loader::load_assets.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Loading})),
                 systems::demo_message::demo_send_message.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
-                systems::update_message::update_message_path,
+                systems::update_message::update_message_path.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
             ),
         )
         .add_systems(
             Update,
             (
-                systems::background::update_background,
-                ui::draw_codeviewer,
-                systems::update_connectors::update_connectors,
-                systems::update_node::update_nodes,
+                systems::background::update_background.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
+                ui::draw_codeviewer.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
+                systems::update_connectors::update_connectors.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
+                systems::update_node::update_nodes.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
             ),
         );
     #[cfg(target_arch = "wasm32")]

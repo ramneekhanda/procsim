@@ -5,6 +5,7 @@ use std::string::String;
 #[derive(Clone)]
 pub enum ResourceType {
     FontHandle(Handle<Font>),
+    ImageHandle(Handle<Image>)
 }
 
 #[derive(Resource, Default, Clone)]
