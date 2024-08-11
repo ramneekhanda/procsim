@@ -48,5 +48,5 @@ features = [
   "Event",
   "EventTarget",
   "HtmlCanvasElement",
-  "Text",
+  "Text"
 ]

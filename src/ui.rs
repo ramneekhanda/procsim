@@ -62,16 +62,3 @@ pub fn draw_codeviewer(
     });
 }
 
-fn draw_logviewer(w: &mut World, ui: &mut egui::Ui) {
-    w.resource_scope::<CodeStorage, _>(|_, mut code_store| {
-        if ui.button("clear").clicked() {
-            code_store.console.clear();
-        }
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            ui.add_sized(
-                ui.available_size(),
-                egui::TextEdit::multiline(&mut code_store.console).frame(false),
-            );
-        });
-    });
-}

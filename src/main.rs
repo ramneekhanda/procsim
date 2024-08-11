@@ -24,7 +24,6 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
           primary_window: Some(Window {
               canvas: Some("#bevy-canvas".into()),
-              fit_canvas_to_parent: true,
               ..default()
           }),
           ..default()
@@ -39,10 +38,7 @@ fn main() {
         .insert_resource(systems::demo_message::DemoTimer {
             timer: Timer::new(Duration::from_secs(4), TimerMode::Repeating),
         })
-        .insert_resource(CodeStorage {
-            code: String::new(),
-            console: String::new(),
-        })
+        .insert_resource(CodeStorage::default())
         .insert_resource(GraphDefinitionRes {
             graph_defn: GraphDefinition::default(),
         })
@@ -65,7 +61,6 @@ fn main() {
         );
     #[cfg(target_arch = "wasm32")]
     app.add_systems(Update, handle_browser_resize);
-
     app.run();
 }
 

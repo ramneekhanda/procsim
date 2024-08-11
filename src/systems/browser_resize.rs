@@ -1,7 +1,6 @@
-#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+use web_sys::console;
 
-#[cfg(target_arch = "wasm32")]
 pub fn handle_browser_resize(
     mut primary_query: bevy::ecs::system::Query<
         &mut bevy::window::Window,
@@ -18,8 +17,9 @@ pub fn handle_browser_resize(
         .dyn_into::<web_sys::HtmlCanvasElement>()
         .map_err(|_| ())
         .unwrap();
-    let ht = canvas.get_bounding_client_rect().height();
-    let wd = canvas.get_bounding_client_rect().width();
+    let ht = canvas.height();
+    let wd = canvas.width();
+    
 
     let Ok(inner_width) = wasm_window.inner_width() else {
         return;
