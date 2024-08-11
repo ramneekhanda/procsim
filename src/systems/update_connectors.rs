@@ -2,12 +2,9 @@ use crate::components::node::Node;
 use crate::ui::GraphDefinitionRes;
 use crate::{
     components::node_connector::*,
-    parser::graphv2::{GraphAttrs, GraphDefinition},
+    parser::graphv2::GraphAttrs,
 };
-use bevy::{
-    ecs::archetype::{self, Archetype},
-    prelude::*,
-};
+use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 use std::collections::{HashMap, HashSet};

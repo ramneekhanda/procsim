@@ -20,7 +20,6 @@ pub fn handle_browser_resize(
     let ht = canvas.height();
     let wd = canvas.width();
     
-
     let Ok(inner_width) = wasm_window.inner_width() else {
         return;
     };

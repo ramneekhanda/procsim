@@ -28,10 +28,10 @@ opt-level = 'z'
 strip = true
 
 [profile.dev]
-opt-level = 3
+opt-level = 1
 
 [profile.dev.package."*"]
-opt-level = 3
+opt-level = 1
 
 [package.metadata.commands]
 watch = "cargo watch -x 'run --target wasm32-unknown-unknown --release'"

@@ -68,7 +68,7 @@ fn spawn_node(
     o_attrs: Option<Attrs>,
 ) {
     //TODO move this to setup
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 16.0,
@@ -146,42 +146,28 @@ fn spawn_node(
         .push_children(&[icon_child, text_child]);
 }
 
-// #[test]
-// fn did_spawn_node() {
-//   use std::collections::HashSet;
-//   use bevy::asset::AssetServer;
-//   use bevy::asset::FileAssetIo;
-//   use bevy::tasks::IoTaskPool;
-//   use crate::parser::graphv2::Node as NodeData;
+#[test]
+fn did_spawn_node() {  
+  use crate::parse_graph2;
+  let mut app = App::new();
+  let res = parse_graph2(&include_str!("../../examples/tests/update_node.yaml").to_string());
+  
+  let mut graph_defn = GraphDefinitionRes::default();
+  graph_defn.graph_defn = res.unwrap().graph_defn;
+  
+  app.add_plugins((MinimalPlugins, AssetPlugin::default(), ImagePlugin::default()));
+  let _assets = app.world().resource::<AssetServer>();
+  app.init_asset::<bevy::text::Font>();
+  app.insert_resource(graph_defn);
 
-//   let mut app = App::new();
-//   let mut graph = NodeDepsMap::new();
-//   let mut hs = HashSet::new();
+  app.add_systems(Update, update_nodes);
+  app.update();
+  
+  assert_eq!(app.world_mut().query::<&Node>().iter(&app.world()).count(), 3); // check all the nodes have been spawned
+  assert_eq!(app.world_mut().query::<Entity>().iter(&app.world()).count(), 9); // check that three entities are created per node
+  app.world_mut().resource_mut::<GraphDefinitionRes>().graph_defn.graph.clear();
+  app.update();
+  assert_eq!(app.world_mut().query::<&Node>().iter(&app.world()).count(), 0); // check if we change the graph the response is acceptable
+  assert_eq!(app.world_mut().query::<Entity>().iter(&app.world()).count(), 0); // check that entities are deleted as expected
 
-//   hs.insert("b".to_string());
-//   graph.insert("a".to_string(), hs);
-
-//   let mut graph_defn = GraphDefinitionRes::default();
-//   graph_defn.graph_defn.graph = graph;
-//   // graph_defn.graph_defn.nodes = vec!(NodeData {
-//   //   name: "a".to_string(),
-//   //   ..Default::default()
-//   // }, NodeData {
-//   //   name: "b".to_string(),
-//   //   ..Default::default()
-//   // });
-//   // println!("{:?}", graph_defn);
-
-//   app.insert_resource(graph_defn);
-//   IoTaskPool::init(Default::default);
-//   app.insert_resource(AssetServer::new(FileAssetIo::new("./assets", &None)));
-//   app.add_systems(Update, update_nodes);
-//   app.update();
-//   assert_eq!(app.world.query::<&Node>().iter(&app.world).count(), 2); // check all the nodes have been spawned
-//   assert_eq!(app.world.query::<Entity>().iter(&app.world).count(), 6); // check that three entities are created per node
-//   app.world.resource_mut::<GraphDefinitionRes>().graph_defn.graph.clear();
-//   app.update();
-//   assert_eq!(app.world.query::<&Node>().iter(&app.world).count(), 0); // check if we change the graph the response is acceptable
-//   assert_eq!(app.world.query::<Entity>().iter(&app.world).count(), 0); // check that entities are deleted as expected
-
-// }
+}

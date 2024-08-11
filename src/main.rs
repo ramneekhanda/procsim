@@ -1,18 +1,19 @@
 mod shimmer;
 mod ui;
-
+mod resources;
 mod components;
 mod parser;
 mod systems;
+
+use bevy::{asset::AssetMetaCheck, prelude::*};
 use bevy_egui::EguiPlugin;
-//use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::TweeningPlugin;
 use parser::graphv2::{parse_graph2, GraphDefinition};
 use std::time::Duration;
 use ui::{CodeStorage, GraphDefinitionRes};
+use resources::common_assets::CommonAssets;
 
 #[cfg(target_arch = "wasm32")]
 use systems::browser_resize::handle_browser_resize;
@@ -22,13 +23,20 @@ fn main() {
 
     app.insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-          primary_window: Some(Window {
-              canvas: Some("#bevy-canvas".into()),
-              ..default()
-          }),
-          ..default()
-        }))
+            primary_window: Some(Window {
+                canvas: Some("#bevy-canvas".into()),
+                ..default()
+            })
+            ,..Default::default()
+        }).set(
+            AssetPlugin {
+                meta_check: AssetMetaCheck::Never,
+                ..default()
+            }))
         //.add_plugins(WorldInspectorPlugin::default())
+        // .insert_resource(CommonAssets {
+        //     resource_map: HashMap.new(),
+        // })
         .add_plugins(EguiPlugin)
         .insert_resource(Msaa::Sample4)
         .add_plugins(DefaultPickingPlugins)

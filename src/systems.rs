@@ -3,5 +3,6 @@ pub mod drag;
 pub mod update_connectors;
 pub mod update_message;
 pub mod update_node;
+#[cfg(target_arch = "wasm32")]
 pub mod browser_resize;
 pub mod background;
