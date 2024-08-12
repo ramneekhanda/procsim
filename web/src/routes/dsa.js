@@ -1,1 +1,1 @@
-../../../package/release/dsa.js
+../../../package/wasm/dsa.js

@@ -19,10 +19,3 @@
 <div id="canvas-parent" class='flex' bind:clientWidth={w} bind:clientHeight={h}>
     <canvas height={h} width={w} id="bevy-canvas" bind:this={canvasElement}/>
 </div>
-
-<!-- <style>
-    #bevy-canvas {
-        height: 100%;
-        width: 1;
-    }
-</style> -->
