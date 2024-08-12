@@ -1,4 +1,3 @@
-mod shimmer;
 mod ui;
 mod resources;
 mod components;

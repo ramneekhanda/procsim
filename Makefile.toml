@@ -11,7 +11,7 @@ args = ["build"]
 [tasks.wasm-bindgen]
 private = true
 command = "wasm-bindgen"
-args = ["--no-typescript", "--target", "web",  "--out-dir", "./package/release/", "--out-name", "dsa", "./target/wasm32-unknown-unknown/release/dsa.wasm"]
+args = ["--no-typescript", "--target", "web",  "--out-dir", "./package/wasm/", "--out-name", "dsa", "./target/wasm32-unknown-unknown/release/dsa.wasm"]
 dependencies = ["build-wasm"]
 
 [tasks.ensure-dirs]
@@ -57,10 +57,14 @@ command = "cargo"
 args = ["build", "--release", "--target", "wasm32-unknown-unknown"]
 
 [tasks.build-all]
-dependencies = ["build-site", "build-wasm-module"]
+dependencies = ["build-wasm-module", "build-site"]
 
 [tasks.run]
 command = "cargo"
 args = ["server", "--path", "./package/release", "--open"]
 dependencies = ["build-all"]
+
+[tasks.run-dev]
+command = "npm"
+args = ["run", "dev", "--prefix", "web/"]
 
