@@ -45,4 +45,4 @@
     });
 </script>
 
-<div class="monaco-container flex" bind:this={editorElement} />
+<div class="monaco-container flex z-0" bind:this={editorElement} />
