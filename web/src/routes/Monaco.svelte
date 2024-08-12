@@ -36,7 +36,9 @@
         editor = Monaco.editor.create(editorElement, {
             value: ['function x() {', '\tconsole.log("Hello world!");', '}'].join('\n'),
             language: 'javascript',
-            automaticLayout: true 
+            minimap: { enabled: false },
+            automaticLayout: false,
+            scrollBeyondLastLine: false
         });
 
         return () => {
@@ -45,4 +47,4 @@
     });
 </script>
 
-<div class="monaco-container flex z-0" bind:this={editorElement} />
+<div class="monaco-container flex z-0 overflow-hidden" bind:this={editorElement} />

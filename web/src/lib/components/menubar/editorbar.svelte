@@ -1,18 +1,16 @@
 <div class="navbar bg-base-100 min-h-10 h-10 z-50">
-    
-    <div class="flex-none">
-      <ul class="menu menu-horizontal px-1">
-        <li><a>Link</a></li>
-        <li>
-          <details>
-            <summary>Parent</summary>
-            <ul class="bg-base-100 rounded-t-none p-2 z-50">
-              <li><a>Link 1</a></li>
-              <li><a>Link 2</a></li>
-            </ul>
-          </details>
-        </li>
-      </ul>
-    </div>
+  <div class="flex-none">
+    <ul class="menu menu-horizontal px-0">
+      <li><a>Link</a></li>
+      <li>
+        <details>
+          <summary>Parent</summary>
+          <ul class="bg-base-100 rounded-t-none p-1 z-50">
+            <li><a>Link 1</a></li>
+            <li><a>Link 2</a></li>
+          </ul>
+        </details>
+      </li>
+    </ul>
   </div>
-  
+</div>

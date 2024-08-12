@@ -17,5 +17,5 @@
 </script>
 
 <div id="canvas-parent" class='flex' bind:clientWidth={w} bind:clientHeight={h}>
-    <canvas height={h} width={w} id="bevy-canvas" bind:this={canvasElement}/>
+    <canvas height={h} width={w} id="bevy-canvas" class="outline-none" bind:this={canvasElement}/>
 </div>
