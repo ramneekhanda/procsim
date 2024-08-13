@@ -37,7 +37,7 @@
             value: ['function x() {', '\tconsole.log("Hello world!");', '}'].join('\n'),
             language: 'javascript',
             minimap: { enabled: false },
-            automaticLayout: false,
+            automaticLayout: true,
             scrollBeyondLastLine: false
         });
 
@@ -47,4 +47,4 @@
     });
 </script>
 
-<div class="monaco-container flex z-0 overflow-hidden" bind:this={editorElement} />
+<div class="monaco-container flex z-0 h-fit" bind:this={editorElement} />
