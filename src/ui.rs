@@ -7,17 +7,33 @@ use egui_code_editor::{CodeEditor, ColorTheme, Syntax};
 
 use crate::parser::graphv2::parse_graph2;
 use crate::parser::graphv2::GraphDefinition;
+use wasm_bindgen::prelude::*;
 
 #[derive(Resource, Default, Debug)]
 pub struct GraphDefinitionRes {
     pub graph_defn: GraphDefinition,
 }
 
-#[derive(Resource)]
+#[derive(Resource)]             //
 pub struct CodeStorage {
     pub code: String,
     pub console: String,
 }
+
+#[wasm_bindgen]
+pub fn compile_code(s: String) -> bool {
+    let ret = parse_graph2(&s);
+    match ret {
+        Ok(_file) => {
+            //graph_defn.graph_defn = file.graph_defn;
+            return true;
+        }
+        Err(e) => {
+            println!("{e}");
+            return false;
+        }
+    }
+}                               //
 
 impl Default for CodeStorage {
     fn default() -> Self {
@@ -27,6 +43,8 @@ impl Default for CodeStorage {
         }
     }
 }
+
+
 pub fn draw_codeviewer(
     mut contexts: EguiContexts,
     mut code_store: ResMut<CodeStorage>,
