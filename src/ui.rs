@@ -1,3 +1,7 @@
+use std::{string, sync::Mutex};
+
+use lazy_static::lazy_static;
+
 use bevy::prelude::*;
 use bevy_egui::{
     egui::{self},
@@ -9,41 +13,99 @@ use crate::parser::graphv2::parse_graph2;
 use crate::parser::graphv2::GraphDefinition;
 use wasm_bindgen::prelude::*;
 
+lazy_static! {
+    static ref E_CODE: Mutex<String> = Mutex::new(String::new());
+}
+
 #[derive(Resource, Default, Debug)]
 pub struct GraphDefinitionRes {
     pub graph_defn: GraphDefinition,
 }
 
-#[derive(Resource)]             //
+#[derive(Resource)] //
 pub struct CodeStorage {
     pub code: String,
     pub console: String,
 }
 
 #[wasm_bindgen]
-pub fn compile_code(s: String) -> bool {
+struct CompileResult {
+    result: bool,
+    errorLog: String,
+}
+
+#[wasm_bindgen]
+impl CompileResult {
+    #[wasm_bindgen(getter)]
+    pub fn errorLog(&self) -> String {
+        self.errorLog.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn result(&self) -> bool {
+        self.result.clone()
+    }
+}
+
+#[wasm_bindgen]
+extern "C" {
+    fn alert(s: &str);
+}
+
+#[wasm_bindgen]
+pub fn compile_code(s: String) -> CompileResult {
     let ret = parse_graph2(&s);
     match ret {
         Ok(_file) => {
             //graph_defn.graph_defn = file.graph_defn;
-            return true;
+            let mut code = E_CODE.lock().unwrap();
+            *code = s;
+            return CompileResult {
+                result: true,
+                errorLog: "".to_string(),
+            };
         }
         Err(e) => {
-            println!("{e}");
-            return false;
+            alert("Please resolve the errors!");
+            return CompileResult {
+                result: false,
+                errorLog: e.to_string(),
+            };
         }
     }
-}                               //
+} //
 
 impl Default for CodeStorage {
     fn default() -> Self {
         CodeStorage {
             code: include_str!("../examples/config/config.yaml").to_string(),
-            console: "".to_string()
+            console: "".to_string(),
         }
     }
 }
 
+pub fn ingest_codechange(
+    mut code_store: ResMut<CodeStorage>,
+    mut graph_defn: ResMut<GraphDefinitionRes>,
+) {
+    let code = E_CODE.lock().unwrap();
+
+    if code_store.code != *code {
+        code_store.code = (*code).clone();
+
+        let res = parse_graph2(&code_store.code);
+
+        match res {
+            Ok(file) => {
+                graph_defn.graph_defn = file.graph_defn;
+            }
+            Err(e) => {
+                println!("{e}");
+                return;
+            }
+        }
+    }
+}
 
 pub fn draw_codeviewer(
     mut contexts: EguiContexts,
@@ -54,7 +116,7 @@ pub fn draw_codeviewer(
         ui.vertical_centered(|ui| {
             if ui.button("compile").clicked() {
                 let res = parse_graph2(&code_store.code);
-                
+
                 match res {
                     Ok(file) => {
                         graph_defn.graph_defn = file.graph_defn;
@@ -63,9 +125,6 @@ pub fn draw_codeviewer(
                         println!("{e}");
                         return;
                     }
-                }
-                for node in graph_defn.graph_defn.nodes.iter() {
-                    //node.func
                 }
             }
         });
@@ -79,4 +138,3 @@ pub fn draw_codeviewer(
             .show(ui, &mut code_store.code);
     });
 }
-

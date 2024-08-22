@@ -5,7 +5,7 @@ mod parser;
 mod systems;
 mod conditions;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::{Arc, Mutex}};
 use bevy::{asset::AssetMetaCheck, prelude::*};
 use bevy_egui::EguiPlugin;
 use bevy_mod_picking::prelude::*;
@@ -18,9 +18,10 @@ use resources::common_assets::{CommonAssets, LoadingState, LoadingStateOpt};
 #[cfg(target_arch = "wasm32")]
 use systems::browser_resize::handle_browser_resize;
 use bevy_web_asset::WebAssetPlugin;
+use wasm_bindgen::prelude::*;
 
-fn main() {
-    let mut app = App::new();
+
+fn setup_app(app: &mut App) {
 
     app.insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
         .add_plugins(WebAssetPlugin)
@@ -69,6 +70,7 @@ fn main() {
             Update,
             (
                 systems::background::update_background.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
+                ui::ingest_codechange.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
                 ui::draw_codeviewer.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
                 systems::update_connectors::update_connectors.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
                 systems::update_node::update_nodes.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
@@ -83,4 +85,10 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle {
         ..Default::default()
     });
+}
+
+fn main() {
+    let mut app = App::new();
+    setup_app(&mut app);
+    app.run();
 }
