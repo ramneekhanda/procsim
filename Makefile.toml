@@ -4,7 +4,7 @@ command = "npm"
 args = ["run", "clean"]
 
 [tasks.build]
-private = true
+private = false
 command = "cargo"
 args = ["build"]
 
