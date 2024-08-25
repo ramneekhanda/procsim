@@ -5,7 +5,7 @@ mod parser;
 mod systems;
 mod conditions;
 
-use std::{collections::HashMap, sync::{Arc, Mutex}};
+use std::collections::HashMap;
 use bevy::{asset::AssetMetaCheck, prelude::*};
 use bevy_egui::EguiPlugin;
 use bevy_mod_picking::prelude::*;
@@ -13,8 +13,14 @@ use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::TweeningPlugin;
 use parser::graphv2::GraphDefinition;
 use std::time::Duration;
-use ui::{CodeStorage, GraphDefinitionRes};
+use ui::CodeStorage;
+
 use resources::common_assets::{CommonAssets, LoadingState, LoadingStateOpt};
+use resources::graph_def::GraphDefinitionRes;
+
+#[cfg(target_arch = "wasm32")]
+use systems::ingest_code;
+
 #[cfg(target_arch = "wasm32")]
 use systems::browser_resize::handle_browser_resize;
 use bevy_web_asset::WebAssetPlugin;
@@ -34,7 +40,6 @@ fn setup_app(app: &mut App) {
                 meta_check: AssetMetaCheck::Never,
                 ..default()
             }))
-        //.add_plugins(WorldInspectorPlugin::default())
         .insert_resource(CommonAssets {
             resource_map: HashMap::new(),
         })
@@ -67,7 +72,8 @@ fn setup_app(app: &mut App) {
             Update,
             (
                 systems::background::update_background.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
-                ui::ingest_codechange.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
+                #[cfg(target_arch = "wasm32")]
+                systems::ingest_code::ingest_codechange.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
                 #[cfg(not(target_arch = "wasm32"))]
                 ui::draw_codeviewer.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
                 systems::update_connectors::update_connectors.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),

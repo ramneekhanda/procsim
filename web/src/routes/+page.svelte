@@ -9,7 +9,7 @@
 
     function compileCode() {
         let b = compile_code(codeEditor.getCode());
-        console.log(b.errorLog);
+        console.log(b.error_log);
     }
 </script>
 

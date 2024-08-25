@@ -4,7 +4,7 @@ use crate::parser::graphv2::Attrs;
 use crate::resources::common_assets::CommonAssets;
 use crate::resources::common_assets::ResourceType;
 use crate::systems::drag;
-use crate::ui::GraphDefinitionRes;
+use crate::resources::graph_def::GraphDefinitionRes;
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bevy_tweening::{lens::*, *};
