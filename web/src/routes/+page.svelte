@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import Monaco from "./Monaco.svelte";
     import Canvas from "./Canvas.svelte";
     import { Pane, Splitpanes } from "svelte-splitpanes";
@@ -24,7 +24,7 @@
         </Pane>
         <Pane>
             <div class="flex flex-col h-full">
-                <Monaco value = "" bind:this={codeEditor}/>
+                <Monaco bind:this={codeEditor}/>
             </div>
         </Pane>
     </Splitpanes>

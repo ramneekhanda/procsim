@@ -16,6 +16,7 @@ pub struct GraphAttrs {
 pub struct Attrs {
     pub ticks: Option<String>,
     pub color: Option<[f32; 4]>,
+    pub icon: Option<String>
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

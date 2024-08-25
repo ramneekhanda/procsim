@@ -12,6 +12,7 @@
     let Monaco;
     export let value: string = "";
 
+    
     export function getCode(){
         return editor.getValue()
     }

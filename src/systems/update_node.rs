@@ -6,9 +6,7 @@ use crate::resources::common_assets::ResourceType;
 use crate::systems::drag;
 use crate::ui::GraphDefinitionRes;
 use bevy::prelude::*;
-use bevy::scene::ron::de;
 use bevy_mod_picking::prelude::*;
-use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::{lens::*, *};
 use rand::Rng;
 use std::collections::HashSet;
@@ -63,6 +61,12 @@ pub fn update_nodes(
     }
 }
 
+use wasm_bindgen::prelude::*;
+#[wasm_bindgen]
+extern "C" {
+    fn alert(s: &str);
+}
+
 fn spawn_node(
     z: f32,
     node_name: String,
@@ -86,13 +90,25 @@ fn spawn_node(
         font_size: 16.0,
         color: Color::BLACK,
     };
+
     let mut color: [f32; 4] = [1.0, 0.0, 0.5, 1.0];
-    let _ = o_attrs.is_some_and(|a| {
+    let _ = o_attrs.clone().is_some_and(|a| {
         a.color.is_some_and(|c| {
             color.clone_from(&c);
             true
         })
     });
+
+    let mut node_icon: Handle<Image> = def_icon;
+    let _ = o_attrs.is_some_and(|a| {
+      a.icon.is_some_and(|icon_txt| {
+        if let Some(ResourceType::ImageHandle(img)) = ca.resource_map.get(&icon_txt) {
+          node_icon = img.clone();
+        };
+        true
+      })
+    });
+
 
     let mut rng = rand::thread_rng();
     let x = rng.gen_range(-250.0..250.0);
@@ -126,7 +142,7 @@ fn spawn_node(
         .spawn((
             SpriteBundle {
                 // Simply use a url where you would normally use an asset folder relative path
-                texture: def_icon.clone(),
+                texture: node_icon.clone(),
                 sprite: Sprite {
                     custom_size: Vec2::new(32., 32.).into(),
                     ..Default::default()
