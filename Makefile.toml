@@ -8,6 +8,11 @@ private = true
 command = "cargo"
 args = ["build"]
 
+[tasks.build2]
+private = true
+command = "cargo"
+args = ["build"]
+
 [tasks.wasm-bindgen]
 private = true
 command = "wasm-bindgen"
