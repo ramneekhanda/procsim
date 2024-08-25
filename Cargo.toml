@@ -23,6 +23,8 @@ rhai = "1.19.0"
 wasm-bindgen = "0.2.92"
 bevy_web_asset = "0.9.0"
 lazy_static = { version = "1.5.0", registry = "artifactory" }
+schemars = "0.8.21"
+serde_json = "1.0.1"
 
 [profile.release]
 lto = false

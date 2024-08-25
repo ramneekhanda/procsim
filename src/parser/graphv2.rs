@@ -1,10 +1,11 @@
 use serde::{Deserialize, Serialize};
 use serde_yaml::Error;
 use std::collections::{HashMap, HashSet};
+use schemars::JsonSchema;
 
 type GraphType = HashMap<String, HashSet<String>>;
 
-#[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct GraphAttrs {
     pub background: Option<[f32; 4]>,
     pub connection_color: Option<[f32; 4]>,
@@ -12,14 +13,14 @@ pub struct GraphAttrs {
     pub text_color: Option<[f32; 4]>,
 }
 
-#[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct Attrs {
     pub ticks: Option<String>,
     pub color: Option<[f32; 4]>,
     pub icon: Option<String>
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Node {
     pub name: String,
     #[serde(rename = "fn")]
@@ -27,16 +28,16 @@ pub struct Node {
     pub attrs: Option<Attrs>,
 }
 
-#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct GraphDefinition {
+    /// this is name commentary
     pub name: String,
     pub nodes: Vec<Node>,
-    pub allowed_connections: HashMap<String, HashSet<String>>,
     pub graph: GraphType,
     pub graph_attrs: Option<GraphAttrs>,
 }
 
-#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct File {
     #[serde(skip)]
     #[serde(rename = "fns")]
