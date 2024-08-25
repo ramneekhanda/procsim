@@ -7,3 +7,4 @@ pub mod update_node;
 pub mod browser_resize;
 pub mod background;
 pub mod resource_loader;
+pub mod ingest_code;
