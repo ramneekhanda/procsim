@@ -2,41 +2,82 @@
     import "../app.css";
     import type monaco from "monaco-editor";
 
+ import { configureMonacoYaml } from 'monaco-yaml'
+
     import { onMount } from "svelte";
 
-    import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-    import yamlWorker from "monaco-yaml/yaml.worker?worker";
+ import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
+ import YamlWorker from "./monaco_yaml.worker.js?worker";
 
+ let Monaco;
+ export let schema = "";
     let editorElement: HTMLDivElement;
     let editor: monaco.editor.IStandaloneCodeEditor;
-    let Monaco;
+
+ function configureMonaco() {
+     if (typeof Monaco !== "undefined" && schema !== "") {
+         console.log ("configured monaco")
+         console.log(JSON.parse(schema))
+
+         configureMonacoYaml(Monaco, {
+             enableSchemaRequest: true,
+             completion: true,
+             schemas: [
+                 {
+                     fileMatch: ['*.yaml'],
+                     schema: JSON.parse(schema),
+                     uri: "http://google.com/"
+                 }
+             ]
+         });
+     }
+ }
+ $: if (schema !== '') {
+     configureMonaco();
+ }
+
     export let value: string = "";
 
-    
     export function getCode(){
         return editor.getValue()
     }
 
- onMount(async () => {
+ onMount(async() => {
      // @ts-ignore
-     self.MonacoEnvironment = {
+     window.MonacoEnvironment = {
             getWorker: function (_moduleId: any, label: string) {
-                if (label === "yaml") {
-                    return new yamlWorker();
-                }
-
-                return new editorWorker();
+             switch (label) {
+                 case 'editorWorkerService':
+                     return new EditorWorker();
+                 case 'yaml':
+                     let worker = new YamlWorker();
+                     return worker;
+                 default:
+                     throw new Error(`Unknown label ${label}`)
+             }
             },
         };
 
         Monaco = await import("monaco-editor");
+
         editor = Monaco.editor.create(editorElement, {
-            value: value,
-            language: "yaml",
             minimap: { enabled: false },
             automaticLayout: true,
             scrollBeyondLastLine: false,
-        });
+         quickSuggestions: {
+             other: true,
+             comments: false,
+             strings: true
+         }
+     });
+     console.log ("on mounted monaco")
+     configureMonaco();
+     let yamlModel = Monaco.editor.createModel(
+         value,
+         "yaml",
+         Monaco.Uri.parse('inmemory://mymodel.yaml')
+     )
+     editor.setModel(yamlModel);
 
         return () => {
             editor.dispose();
