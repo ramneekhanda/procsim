@@ -4,3 +4,4 @@
 /web/build
 /web/.svelte-kit
 package-lock.json
+.DS_Store
