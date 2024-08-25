@@ -1,5 +1,5 @@
 use crate::components::node::Node;
-use crate::ui::GraphDefinitionRes;
+use crate::resources::graph_def::GraphDefinitionRes;
 use crate::{
     components::node_connector::*,
     parser::graphv2::GraphAttrs,
