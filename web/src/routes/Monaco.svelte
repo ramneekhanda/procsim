@@ -85,4 +85,4 @@
     });
 </script>
 
-<div class="monaco-container flex z-0 h-fit" bind:this={editorElement} />
+<div class="monaco-container flex h-fit" bind:this={editorElement} />

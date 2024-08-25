@@ -6,7 +6,7 @@
 
 <div class="navbar min-h-10">
   <div class="flex-1">
-    <button class="btn btn-sm">left aligned</button>
+    <img src="favicon.png" alt="icon" width="32px"/>
   </div>
   <div class="navbar-center">
     <button class="btn btn-sm" on:click={() => dispatch('runClicked')}>
@@ -24,7 +24,40 @@
     </button>
   </div>
   <div class="navbar-end">
-    <button class="btn btn-sm">right aligned</button>
-    <button class="btn btn-sm">right aligned</button>
+    <div class="drawer drawer-end navbar-end">
+      <input id="my-drawer" type="checkbox" class="drawer-toggle" />
+      <div class="drawer-content">
+        <!-- Page content here -->
+        <label for="my-drawer" class="btn btn-primary btn-sm drawer-button">help</label>
+      </div>
+      <div class="drawer-side z-50 ">
+        <label for="my-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+        <div class="menu bg-base-200 text-base-content min-h-full w-80 p-4">
+          <!-- Sidebar content here -->
+            <div class="collapse collapse-arrow bg-base-200">
+              <input type="radio" name="my-accordion-2" checked="checked" />
+              <div class="collapse-title text-xl font-medium">Click to open this one and close others</div>
+              <div class="collapse-content">
+                <p>hello</p>
+              </div>
+            </div>
+            <div class="collapse collapse-arrow bg-base-200">
+              <input type="radio" name="my-accordion-2" />
+              <div class="collapse-title text-xl font-medium">Click to open this one and close others</div>
+              <div class="collapse-content">
+                <p>hello</p>
+              </div>
+            </div>
+            <div class="collapse collapse-arrow bg-base-200">
+              <input type="radio" name="my-accordion-2" />
+              <div class="collapse-title text-xl font-medium">Click to open this one and close others</div>
+              <div class="collapse-content">
+                <p>hello</p>
+              </div>
+            </div>
+          </div>
+      </div>
+    </div>
   </div>
+
 </div>

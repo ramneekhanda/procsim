@@ -39,6 +39,7 @@
                 <Monaco bind:this={codeEditor} schema = {schema}/>
             </div>
         </Pane>
+        
     </Splitpanes>
 </div>
 
