@@ -9,7 +9,7 @@ use bevy_egui::{
 };
 use egui_code_editor::{CodeEditor, ColorTheme, Syntax};
 
-use crate::parser::graphv2::parse_graph2;
+use crate::{parser::graphv2::parse_graph2, resources::common_assets::{LoadingState, LoadingStateOpt}};
 use crate::parser::graphv2::GraphDefinition;
 use wasm_bindgen::prelude::*;
 
@@ -87,10 +87,12 @@ impl Default for CodeStorage {
 pub fn ingest_codechange(
     mut code_store: ResMut<CodeStorage>,
     mut graph_defn: ResMut<GraphDefinitionRes>,
+    mut ls: ResMut<LoadingState>,
 ) {
     let code = E_CODE.lock().unwrap();
 
     if code_store.code != *code {
+        ls.state = LoadingStateOpt::Loading;
         code_store.code = (*code).clone();
 
         let res = parse_graph2(&code_store.code);
@@ -111,6 +113,7 @@ pub fn draw_codeviewer(
     mut contexts: EguiContexts,
     mut code_store: ResMut<CodeStorage>,
     mut graph_defn: ResMut<GraphDefinitionRes>,
+
 ) {
     egui::Window::new("Hello").show(contexts.ctx_mut(), |ui| {
         ui.vertical_centered(|ui| {
