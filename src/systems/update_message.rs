@@ -5,6 +5,7 @@ use crate::components::message::*;
 use crate::components::node_connector::*;
 use crate::resources::common_assets::CommonAssets;
 use crate::resources::common_assets::ResourceType;
+use crate::resources::graph_def::GraphDefinitionRes;
 
 fn walk_message(path: &lyon_algorithms::path::Path) -> Vec<[f32; 2]> {
     use lyon_algorithms::walk::{walk_along_path, RegularPattern, WalkerEvent};
@@ -30,6 +31,7 @@ pub fn update_message_path(
     mut query_conn: Query<(Entity, &mut Message, &NodeConnector)>,
     mut query_hs: Query<(Entity, &HotSpot)>,
     ca: Res<CommonAssets>,
+    gd: Res<GraphDefinitionRes>,
     time: Res<Time>,
     mut commands: Commands,
 ) {
@@ -38,10 +40,22 @@ pub fn update_message_path(
         font = f1.clone();
     };
 
+    let mut color = Color::BLACK;
+    gd.graph_defn.graph_attrs.clone().is_some_and(|ga| {
+        ga.text_color.is_some_and(|tc| {
+            if tc.len() < 4 {
+                return false;
+            }
+            color = Color::srgba(tc[0], tc[1], tc[2], tc[3]);
+            return true;
+        });
+        return false;
+    });
+
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 16.0,
-        color: Color::BLACK,
+        color,
     };
 
     for (entity, _hotspot) in query_hs.iter_mut() {
@@ -86,7 +100,7 @@ pub fn update_message_path(
                         //transform: Transform::from_xyz(0., 0., 100.0),
                         ..default()
                     },
-                    Stroke::new(Color::BLACK, 3.0),
+                    Stroke::new(color, 3.0),
                 ))
                 .id();
 
