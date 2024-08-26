@@ -27,7 +27,7 @@ use bevy_web_asset::WebAssetPlugin;
 
 fn setup_app(app: &mut App) {
 
-    app.insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
+    app.insert_resource(ClearColor(Color::srgb(0.9, 0.9, 0.9)))
         .add_plugins(WebAssetPlugin)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -63,6 +63,7 @@ fn setup_app(app: &mut App) {
         .add_systems(
             Update,
             (
+                systems::clearcolor::clear_color.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
                 systems::resource_loader::load_assets.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Loading})),
                 systems::demo_message::demo_send_message.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
                 systems::update_message::update_message_path.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),

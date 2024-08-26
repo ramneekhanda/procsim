@@ -72,7 +72,6 @@ pub fn ingest_codechange(
         ls.state = LoadingStateOpt::Loading;
         code_store.code = (*code).clone();
         let res = parse_graph2(&code_store.code);
-
         match res {
             Ok(file) => {
                 graph_defn.graph_defn = file.graph_defn;

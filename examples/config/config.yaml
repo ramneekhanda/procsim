@@ -14,14 +14,12 @@ graph_defn:
       fn: *server_fn
       attrs:
         tick: 5s
-        color: [1., 0., 1., 1.]
         icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
 
     - name: client1
       fn: *client_fn
       attrs:
         ticks: 10s
-        color: [1., 1., 0., 0.]
         icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/EKSAnywhere.png
 
     - name: client2
