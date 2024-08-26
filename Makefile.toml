@@ -1,10 +1,15 @@
+[tasks.npm-install]
+private = true
+command = "npm"
+args = ["install", "--prefix", "web"]
+
 [tasks.clean-site]
 private = true
 command = "npm"
 args = ["run", "clean"]
 
 [tasks.build]
-private = false
+private = true
 command = "cargo"
 args = ["build"]
 
@@ -29,6 +34,7 @@ dependencies = ["ensure-dirs"]
 private = true
 command = "npm"
 args = ["run", "build", "--prefix", "web/"]
+dependencies = ["npm-install"]
 
 [tasks.clean-build]
 private = true
@@ -67,4 +73,4 @@ dependencies = ["build-all"]
 [tasks.run-dev]
 command = "npm"
 args = ["run", "dev", "--prefix", "web/"]
-
+dependencies = ["build-all"]
