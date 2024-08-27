@@ -4,16 +4,25 @@ use std::{collections::{HashMap, HashSet}, error, fmt};
 use schemars::JsonSchema;
 use bevy::color::{Srgba, Color};
 use serde::de::Error;
+use serde::ser::Serializer;
+
 type GraphType = HashMap<String, HashSet<String>>;
 
 fn gray_color() -> Color {
   Srgba::hex("#D3D3D3").unwrap().into()
 }
 
+fn gray_color_str() -> String {
+  "#D3D3D3".to_string()
+}
+
 fn black_color() -> Color {
   Srgba::hex("#000000").unwrap().into()
 }
 
+fn black_color_str() -> String {
+  "#000000".to_string()
+}
 fn deserialize_color<'de, D>(d: D) -> Result<Color, D::Error>
 where
     D: Deserializer<'de>,
@@ -29,21 +38,27 @@ where
   }
 }
 
+fn serialize_color<S>(c: &Color, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+  s.serialize_str(format!("\"{}\"", c.to_srgba().to_hex()).as_str())
+}
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct GraphAttrs {
 
-  #[schemars(with = "String")]
-  #[serde(default="gray_color", deserialize_with="deserialize_color")]
+  #[schemars(with = "String", default="gray_color_str")]
+  #[serde(default="gray_color", serialize_with = "serialize_color", deserialize_with="deserialize_color")]
   pub background: Color,
 
-  #[schemars(with = "String")]
-  #[serde(default="black_color", deserialize_with="deserialize_color")]
+  #[schemars(with = "String", default="black_color_str")]
+  #[serde(default="black_color", serialize_with = "serialize_color", deserialize_with="deserialize_color")]
   pub connection_color: Color,
 
   pub title: String,
 
-  #[schemars(with = "String")]
-  #[serde(default="black_color", deserialize_with="deserialize_color")]
+  #[schemars(with = "String", default="black_color_str")]
+  #[serde(default="black_color", serialize_with = "serialize_color", deserialize_with="deserialize_color")]
   pub text_color: Color,
 }
 
@@ -84,8 +99,6 @@ impl std::cmp::PartialEq for Node {
 
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct GraphDefinition {
-  /// this is name commentary
-  pub name: String,
   pub nodes: Vec<Node>,
   pub graph: GraphType,
   pub graph_attrs: GraphAttrs,

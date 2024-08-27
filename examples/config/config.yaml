@@ -23,13 +23,10 @@ graph_defn:
       fn: *client_fn
       attrs:
         icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Compute/Batch.png
-
-  allowed_connections:
-    server: [client1, client2]
   graph:
     server: [client1, client2]
   graph_attrs:
       title: "A Sample Graph!"
-      background: [0.1, 0.1, 0.1, 1.]
-      connection_color: [1., 0.9, 0.9, 1.]
-      text_color: [1, 0.5, 0.5, 1.0]
+      background: "#D3D3D3"
+      connection_color: "#000000"
+      text_color: "#000000"
