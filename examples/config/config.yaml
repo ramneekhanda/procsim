@@ -1,11 +1,8 @@
 fns:
   - &server_fn |
-      def handle_event(context):
-        log("hello server")
+      log("hello from another world!")
 
   - &client_fn |
-      def handle_event(context):
-        log("hello client")
 
 graph_defn:
   name: "test graph"
@@ -13,13 +10,13 @@ graph_defn:
     - name: server
       fn: *server_fn
       attrs:
-        tick: 5s
+        tick: 5
         icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
 
     - name: client1
       fn: *client_fn
       attrs:
-        ticks: 10s
+        ticks: 10
         icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/EKSAnywhere.png
 
     - name: client2

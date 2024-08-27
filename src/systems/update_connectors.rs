@@ -1,9 +1,6 @@
 use crate::components::node::Node;
 use crate::resources::graph_def::GraphDefinitionRes;
-use crate::{
-    components::node_connector::*,
-    parser::graphv2::GraphAttrs,
-};
+use crate::{components::node_connector::*, parser::graphv2::GraphAttrs};
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bevy_prototype_lyon::prelude::*;
@@ -23,14 +20,8 @@ pub fn update_connectors(
         }
         return;
     }
-    let oga = &g.graph_defn.graph_attrs;
-    let mut ga: &GraphAttrs = &GraphAttrs {
-        ..Default::default()
-    };
-    let _ = oga.as_ref().is_some_and(|attrs| {
-        ga = attrs;
-        true
-    });
+    let mut ga: &GraphAttrs = &g.graph_defn.graph_attrs;
+    
 
     if !query_added.is_empty() && g.graph_defn.graph.iter().len() != 0 {
         let mut all_node_loc = HashMap::<String, Vec3>::new();
@@ -55,10 +46,14 @@ pub fn update_connectors(
             match node_links {
                 Some(nl) => {
                     for nodeb_name in nl.iter() {
-                        if !done.contains(&(nodea_name.clone() + nodeb_name)) {
+                        let mut s: String;
+                        let mut s2: String;
+                        s = format!("{}-{}", nodea_name, nodeb_name);
+                        s2 = format!("{}-{}", nodeb_name, nodea_name);
+                        if !done.contains(&s) {
                             let nodeb_loc = all_node_loc.get(nodeb_name).unwrap();
-                            done.insert(nodea_name.clone() + nodeb_name);
-                            done.insert(nodeb_name.clone() + nodea_name);
+                            done.insert(s);
+                            done.insert(s2);
                             let _ = generate_line(
                                 nodea_loc,
                                 nodeb_loc,
@@ -123,22 +118,12 @@ fn generate_line(
 
     let path = path_builder.build();
     let walking_path = path.0.clone();
-    let occ = &ga.connection_color;
-    let mut cc: &[f32; 4] = &[
-        Color::BLACK.to_srgba().red,
-        Color::BLACK.to_srgba().blue,
-        Color::BLACK.to_srgba().green,
-        Color::BLACK.to_srgba().alpha,
-    ];
-    let _ = occ.as_ref().is_some_and(|color| {
-        cc = color;
-        true
-    });
-    println!("color {:?}", cc);
+    let cc = ga.connection_color;
+
     commands
         .spawn((
             ShapeBundle { path, ..default() },
-            Stroke::new(Color::linear_rgba(cc[0], cc[1], cc[2], cc[3]), 3.0),
+            Stroke::new(cc, 3.0),
             NodeConnector {
                 node1: node1.clone(),
                 node2: node2.clone(),

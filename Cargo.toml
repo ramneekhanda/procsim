@@ -8,23 +8,24 @@ edition = "2021"
 [dependencies]
 bevy = { version = "0.14.0" }
 #bevy-inspector-egui = "0.25.1"
-bevy_egui = "0.28.0"
+bevy_egui = "0.29.0"
 rand = "0.8.5"
 rfd = "0.14.1"
-wasm-bindgen-futures = "0.4.37"
+wasm-bindgen-futures = "0.4.43"
 egui_code_editor = "0.2.9"
 bevy_tweening = "0.11.0"
 bevy_prototype_lyon = { git = "https://github.com/ramneekhanda/bevy_prototype_lyon.git" }
 bevy_mod_picking = "0.20"
 lyon_algorithms = "1"
-serde = "1.0"
-serde_yaml = "0.9"
-rhai = "1.19.0" 
+serde = "1.0.209"
+serde_yaml = "0.9.34+deprecated"
+rhai = { version="1.19.0", features=["wasm-bindgen", "sync"] }
 wasm-bindgen = "0.2.92"
 bevy_web_asset = "0.9.0"
 lazy_static = "1.5.0"
 schemars = "0.8.21"
-serde_json = "1.0.1"
+serde_json = "1.0.127"
+derivative = "2.2.0"
 
 [profile.release]
 lto = false
@@ -41,7 +42,7 @@ opt-level = 1
 watch = "cargo watch -x 'run --target wasm32-unknown-unknown --release'"
 
 [dependencies.web-sys]
-version = "0.3.69"
+version = "0.3.70"
 features = [
   'Document',
   'Element',

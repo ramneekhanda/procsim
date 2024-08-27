@@ -1,66 +1,122 @@
-use serde::{Deserialize, Serialize};
-use serde_yaml::Error;
-use std::collections::{HashMap, HashSet};
+use rhai::AST;
+use serde::{Deserialize, Deserializer, Serialize};
+use std::{collections::{HashMap, HashSet}, error, fmt};
 use schemars::JsonSchema;
-
+use bevy::color::{Srgba, Color};
+use serde::de::Error;
 type GraphType = HashMap<String, HashSet<String>>;
 
-#[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
+fn gray_color() -> Color {
+  Srgba::hex("#D3D3D3").unwrap().into()
+}
+
+fn black_color() -> Color {
+  Srgba::hex("#000000").unwrap().into()
+}
+
+fn deserialize_color<'de, D>(d: D) -> Result<Color, D::Error>
+where
+    D: Deserializer<'de>,
+{
+  let s = String::deserialize(d).unwrap();
+
+  let srgba = Srgba::hex(s.as_str());
+  if srgba.is_ok() {
+    let color = srgba.unwrap().into();
+    Ok(color)
+  } else {
+    Err(Error::custom("Invalid color"))
+  }
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct GraphAttrs {
-    pub background: Option<[f32; 4]>,
-    pub connection_color: Option<[f32; 4]>,
-    pub title: Option<String>,
-    pub text_color: Option<[f32; 4]>,
+
+  #[schemars(with = "String")]
+  #[serde(default="gray_color", deserialize_with="deserialize_color")]
+  pub background: Color,
+
+  #[schemars(with = "String")]
+  #[serde(default="black_color", deserialize_with="deserialize_color")]
+  pub connection_color: Color,
+
+  pub title: String,
+
+  #[schemars(with = "String")]
+  #[serde(default="black_color", deserialize_with="deserialize_color")]
+  pub text_color: Color,
+}
+
+impl Default for GraphAttrs {
+  fn default() -> Self {
+    GraphAttrs {
+      background: gray_color(),
+      connection_color: black_color(),
+      title: String::new(),
+      text_color: black_color(),
+    }
+  }
 }
 
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct Attrs {
-    pub ticks: Option<String>,
-    pub color: Option<[f32; 4]>,
-    pub icon: Option<String>
+  #[serde(default)]
+  pub ticks: i32,
+  pub icon: Option<String>
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct Node {
-    pub name: String,
-    #[serde(rename = "fn")]
-    pub func: Option<String>,
-    pub attrs: Option<Attrs>,
+  pub name: String,
+  #[serde(rename = "fn")]
+  pub func: Option<String>,
+  #[serde(default)]
+  pub attrs: Attrs,
+  #[serde(skip)]
+  pub ast: AST,
+}
+
+impl std::cmp::PartialEq for Node {
+  fn eq(&self, other: &Self) -> bool {
+    self.name == other.name && self.func == other.func && self.attrs == other.attrs
+  }
 }
 
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct GraphDefinition {
-    /// this is name commentary
-    pub name: String,
-    pub nodes: Vec<Node>,
-    pub graph: GraphType,
-    pub graph_attrs: Option<GraphAttrs>,
+  /// this is name commentary
+  pub name: String,
+  pub nodes: Vec<Node>,
+  pub graph: GraphType,
+  pub graph_attrs: GraphAttrs,
 }
 
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct File {
-    #[serde(skip)]
-    #[serde(rename = "fns")]
-    func: Option<String>,
-    pub graph_defn: GraphDefinition,
+  #[serde(skip)]
+  #[serde(rename = "fns")]
+  func: Option<String>,
+
+  #[serde(default)]  
+  pub graph_defn: GraphDefinition,
 }
 
-pub fn parse_graph2(graph_code: &String) -> Result<File, Error> {
-    let data: Result<File, Error> = serde_yaml::from_str(&graph_code);
-    data
+pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
+  let data: Result<File, serde_yaml::Error> = serde_yaml::from_str(&graph_code);
+  data
 }
 
-pub fn parse_graph(graph_code: &String) -> Result<GraphType, Error> {
-    let data: Result<File, Error> = serde_yaml::from_str(&graph_code);
-    match data {
-        Ok(d) => return Ok(d.graph_defn.graph),
-        Err(e) => return Err(e),
-    }
+pub fn parse_graph(graph_code: &String) -> Result<GraphType, serde_yaml::Error> {
+  let data: Result<File, serde_yaml::Error> = serde_yaml::from_str(&graph_code);
+  match data {
+    Ok(d) => return Ok(d.graph_defn.graph),
+    Err(e) => return Err(e),
+  }
 }
 
 #[test]
 fn parse_graph_test() {
-    let code = r#"
+  let code = r#"
 fns:
   - &server_fn |
       def fn():
@@ -96,7 +152,7 @@ graph_defn:
       text_color: [0.5, 0.5, 0.5, 1.0]
 "#;
 
-    let res = parse_graph(&code.to_string());
-    println!("{:?}", res);
-    assert!(res.is_ok());
+  let res = parse_graph(&code.to_string());
+  println!("{:?}", res);
+  assert!(res.is_ok());
 }

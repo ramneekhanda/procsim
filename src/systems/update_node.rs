@@ -1,10 +1,11 @@
 use crate::components::node::Node;
-use crate::components::node::NodeTimers;
-use crate::parser::graphv2::Attrs;
+use crate::parser::graphv2::{Attrs, GraphAttrs};
 use crate::resources::common_assets::CommonAssets;
 use crate::resources::common_assets::ResourceType;
-use crate::systems::drag;
 use crate::resources::graph_def::GraphDefinitionRes;
+use crate::systems::drag;
+use crate::wasm::browser::console_log;
+
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bevy_tweening::{lens::*, *};
@@ -16,48 +17,25 @@ pub fn update_nodes(
     mut commands: Commands,
     ca: Res<CommonAssets>,
     g: Res<GraphDefinitionRes>,
-    query: Query<Entity, With<Node>>
+    query: Query<Entity, With<Node>>,
 ) {
     if g.is_changed() {
         for entity in query.iter() {
             commands.entity(entity).despawn_recursive();
         }
         let mut z = 0.;
-        let mut node_set = HashSet::<String>::new();
-        for node in g.graph_defn.graph.keys() {
-            node_set.insert(node.clone());
-            let v = g.graph_defn.graph.get(node);
-            match v {
-                Some(val) => {
-                    for conn_node in val.iter() {
-                        node_set.insert(conn_node.clone());
-                    }
-                }
-                None => {}
-            }
+        let g_attrs: &GraphAttrs = &g.graph_defn.graph_attrs;
+        for node in g.graph_defn.nodes.iter() {
+            spawn_node(
+                z,
+                node.name.clone(),
+                &mut commands,
+                &ca,
+                &node.attrs,
+                g_attrs,
+            );
+            z += 1.;
         }
-
-        for node in node_set.iter() {
-            let mut drawn = false;
-            for node_d in g.graph_defn.nodes.iter() {
-                if node_d.name == *node {
-                    spawn_node(
-                        z,
-                        node.clone(),
-                        &mut commands,
-                        &ca,
-                        node_d.attrs.clone()
-                    );
-                    z += 1.;
-                    drawn = true;
-                }
-            }
-            if !drawn {
-                spawn_node(z, node.clone(), &mut commands, &ca, None);
-                z += 1.;
-            }
-        }
-    } else {
     }
 }
 
@@ -72,43 +50,34 @@ fn spawn_node(
     node_name: String,
     commands: &mut Commands,
     ca: &Res<CommonAssets>,
-    o_attrs: Option<Attrs>,
+    node_attrs: &Attrs,
+    g_attrs: &GraphAttrs,
 ) {
+    console_log(&format!("{} - {}", "spawning node", &node_name));
     //TODO move this to setup
     let mut font: Handle<Font> = Default::default();
-    if let Some(ResourceType::FontHandle(f1)) = ca.resource_map.get("default_font"){
+    if let Some(ResourceType::FontHandle(f1)) = ca.resource_map.get("default_font") {
         font = f1.clone();
     };
-    
+
     let mut def_icon: Handle<Image> = Default::default();
-    if let Some(ResourceType::ImageHandle(img)) = ca.resource_map.get("default_system_icon"){
+    if let Some(ResourceType::ImageHandle(img)) = ca.resource_map.get("default_system_icon") {
         def_icon = img.clone();
     };
 
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 16.0,
-        color: Color::BLACK,
+        color: g_attrs.text_color,
     };
 
-    let mut color: [f32; 4] = [1.0, 0.0, 0.5, 1.0];
-    let _ = o_attrs.clone().is_some_and(|a| {
-        a.color.is_some_and(|c| {
-            color.clone_from(&c);
-            true
-        })
-    });
-
     let mut node_icon: Handle<Image> = def_icon;
-    let _ = o_attrs.is_some_and(|a| {
-      a.icon.is_some_and(|icon_txt| {
-        if let Some(ResourceType::ImageHandle(img)) = ca.resource_map.get(&icon_txt) {
-          node_icon = img.clone();
+    let _ = node_attrs.icon.as_ref().is_some_and(|icon_txt| {
+        if let Some(ResourceType::ImageHandle(img)) = ca.resource_map.get(icon_txt) {
+            node_icon = img.clone();
         };
         true
-      })
     });
-
 
     let mut rng = rand::thread_rng();
     let x = rng.gen_range(-250.0..250.0);
@@ -129,7 +98,6 @@ fn spawn_node(
                 transform: Transform::from_translation(Vec3::new(0., 0., 100.)),
                 ..Default::default()
             },
-            
             Node {
                 node_text: node_name.clone(),
                 ..Default::default()
@@ -152,7 +120,6 @@ fn spawn_node(
             On::<Pointer<DragStart>>::target_insert(Pickable::IGNORE),
             On::<Pointer<DragEnd>>::target_insert(Pickable::default()),
             On::<Pointer<Drag>>::run(drag::drag),
-            On::<Pointer<Out>>::target_remove::<NodeTimers>(),
         ))
         .id();
 
@@ -173,27 +140,46 @@ fn spawn_node(
 }
 
 #[test]
-fn did_spawn_node() {  
-  use crate::parse_graph2;
-  let mut app = App::new();
-  let res = parse_graph2(&include_str!("../../examples/tests/update_node.yaml").to_string());
-  
-  let mut graph_defn = GraphDefinitionRes::default();
-  graph_defn.graph_defn = res.unwrap().graph_defn;
-  
-  app.add_plugins((MinimalPlugins, AssetPlugin::default(), ImagePlugin::default()));
-  let _assets = app.world().resource::<AssetServer>();
-  app.init_asset::<bevy::text::Font>();
-  app.insert_resource(graph_defn);
+fn did_spawn_node() {
+    use crate::parse_graph2;
+    let mut app = App::new();
+    let res = parse_graph2(&include_str!("../../examples/tests/update_node.yaml").to_string());
 
-  app.add_systems(Update, update_nodes);
-  app.update();
-  
-  assert_eq!(app.world_mut().query::<&Node>().iter(&app.world()).count(), 3); // check all the nodes have been spawned
-  assert_eq!(app.world_mut().query::<Entity>().iter(&app.world()).count(), 9); // check that three entities are created per node
-  app.world_mut().resource_mut::<GraphDefinitionRes>().graph_defn.graph.clear();
-  app.update();
-  assert_eq!(app.world_mut().query::<&Node>().iter(&app.world()).count(), 0); // check if we change the graph the response is acceptable
-  assert_eq!(app.world_mut().query::<Entity>().iter(&app.world()).count(), 0); // check that entities are deleted as expected
+    let mut graph_defn = GraphDefinitionRes::default();
+    graph_defn.graph_defn = res.unwrap().graph_defn;
 
+    app.add_plugins((
+        MinimalPlugins,
+        AssetPlugin::default(),
+        ImagePlugin::default(),
+    ));
+    let _assets = app.world().resource::<AssetServer>();
+    app.init_asset::<bevy::text::Font>();
+    app.insert_resource(graph_defn);
+
+    app.add_systems(Update, update_nodes);
+    app.update();
+
+    assert_eq!(
+        app.world_mut().query::<&Node>().iter(&app.world()).count(),
+        3
+    ); // check all the nodes have been spawned
+    assert_eq!(
+        app.world_mut().query::<Entity>().iter(&app.world()).count(),
+        9
+    ); // check that three entities are created per node
+    app.world_mut()
+        .resource_mut::<GraphDefinitionRes>()
+        .graph_defn
+        .graph
+        .clear();
+    app.update();
+    assert_eq!(
+        app.world_mut().query::<&Node>().iter(&app.world()).count(),
+        0
+    ); // check if we change the graph the response is acceptable
+    assert_eq!(
+        app.world_mut().query::<Entity>().iter(&app.world()).count(),
+        0
+    ); // check that entities are deleted as expected
 }

@@ -40,26 +40,13 @@ pub fn update_message_path(
         font = f1.clone();
     };
 
-    let mut color = Color::BLACK;
-    gd.graph_defn.graph_attrs.clone().is_some_and(|ga| {
-        ga.text_color.is_some_and(|tc| {
-            if tc.len() < 4 {
-                return false;
-            }
-            color = Color::srgba(tc[0], tc[1], tc[2], tc[3]);
-            return true;
-        });
-        return false;
-    });
-
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 16.0,
-        color,
+        color: gd.graph_defn.graph_attrs.text_color,
     };
 
     for (entity, _hotspot) in query_hs.iter_mut() {
-        //commands.entity(parent.get()).remove_children(&[entity]);
         commands.entity(entity).despawn_recursive();
     }
 
@@ -100,7 +87,7 @@ pub fn update_message_path(
                         //transform: Transform::from_xyz(0., 0., 100.0),
                         ..default()
                     },
-                    Stroke::new(color, 3.0),
+                    Stroke::new(gd.graph_defn.graph_attrs.text_color, 3.0),
                 ))
                 .id();
 

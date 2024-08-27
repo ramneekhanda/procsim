@@ -9,3 +9,4 @@ pub mod background;
 pub mod resource_loader;
 pub mod ingest_code;
 pub mod clearcolor;
+pub mod rhai_engine;

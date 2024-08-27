@@ -3,7 +3,8 @@ mod resources;
 mod components;
 mod parser;
 mod systems;
-mod conditions;
+mod stdlib;
+mod wasm;
 
 use std::collections::HashMap;
 use bevy::{asset::AssetMetaCheck, prelude::*};
@@ -63,6 +64,7 @@ fn setup_app(app: &mut App) {
         .add_systems(
             Update,
             (
+                systems::rhai_engine::execute_rhai_engine.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
                 systems::clearcolor::clear_color.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
                 systems::resource_loader::load_assets.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Loading})),
                 systems::demo_message::demo_send_message.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),

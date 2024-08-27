@@ -6,18 +6,7 @@ pub fn clear_color(
     mut clear_color: ResMut<ClearColor>,
 ) {
     if graph_defn_r.is_changed() {
-        match &graph_defn_r.graph_defn.graph_attrs {
-            Some(ga) => {
-                ga.background.is_some_and(|bgcolor| {
-                    if bgcolor.len() < 3 { return false; }
-                    clear_color.0 = Color::srgb(bgcolor[0], bgcolor[1], bgcolor[2]);
-                    true
-                });
-            },
-            None => {
-
-            }
-        }
-
+        let bgcolor = graph_defn_r.graph_defn.graph_attrs.background;
+        clear_color.0 = bgcolor;
     }
 }
