@@ -7,19 +7,22 @@ fns:
 graph_defn:
   name: "test graph"
   nodes:
-    - name: server
+    - id: server
+      name: server
       fn: *server_fn
       attrs:
         tick: 5
         icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
 
     - name: client1
+      id: client1
       fn: *client_fn
       attrs:
         ticks: 10
         icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/EKSAnywhere.png
 
     - name: client2
+      id: client2
       fn: *client_fn
       attrs:
         icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Compute/Batch.png

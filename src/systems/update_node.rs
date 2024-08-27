@@ -1,5 +1,5 @@
 use crate::components::node::Node;
-use crate::parser::graphv2::{Attrs, GraphAttrs};
+use crate::parser::graphv2::{Attrs, GraphAttrs, Node as GNode};
 use crate::resources::common_assets::CommonAssets;
 use crate::resources::common_assets::ResourceType;
 use crate::resources::graph_def::GraphDefinitionRes;
@@ -28,10 +28,9 @@ pub fn update_nodes(
         for node in g.graph_defn.nodes.iter() {
             spawn_node(
                 z,
-                node.name.clone(),
+                node,
                 &mut commands,
                 &ca,
-                &node.attrs,
                 g_attrs,
             );
             z += 1.;
@@ -47,13 +46,11 @@ extern "C" {
 
 fn spawn_node(
     z: f32,
-    node_name: String,
+    node: &GNode,
     commands: &mut Commands,
     ca: &Res<CommonAssets>,
-    node_attrs: &Attrs,
     g_attrs: &GraphAttrs,
 ) {
-    console_log(&format!("{} - {}", "spawning node", &node_name));
     //TODO move this to setup
     let mut font: Handle<Font> = Default::default();
     if let Some(ResourceType::FontHandle(f1)) = ca.resource_map.get("default_font") {
@@ -72,7 +69,7 @@ fn spawn_node(
     };
 
     let mut node_icon: Handle<Image> = def_icon;
-    let _ = node_attrs.icon.as_ref().is_some_and(|icon_txt| {
+    let _ = node.attrs.icon.as_ref().is_some_and(|icon_txt| {
         if let Some(ResourceType::ImageHandle(img)) = ca.resource_map.get(icon_txt) {
             node_icon = img.clone();
         };
@@ -99,7 +96,8 @@ fn spawn_node(
                 ..Default::default()
             },
             Node {
-                node_text: node_name.clone(),
+                node_text: node.name.clone(),
+                node_id: node.id.clone(),
                 ..Default::default()
             },
             Animator::new(tween),
@@ -126,7 +124,7 @@ fn spawn_node(
     let text_child = commands
         .spawn((
             Text2dBundle {
-                text: Text::from_section(node_name, text_style).with_justify(JustifyText::Center),
+                text: Text::from_section(&node.name, text_style).with_justify(JustifyText::Center),
                 transform: Transform::from_translation(Vec3::new(0.0, -35., 100.)),
                 ..default()
             },

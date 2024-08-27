@@ -1,6 +1,8 @@
 use crate::components::node::Node;
 use crate::resources::graph_def::GraphDefinitionRes;
+use crate::wasm::browser::console_log;
 use crate::{components::node_connector::*, parser::graphv2::GraphAttrs};
+use bevy::core_pipeline::deferred::node;
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bevy_prototype_lyon::prelude::*;
@@ -19,11 +21,9 @@ pub fn update_connectors(
             commands.entity(entity).despawn_recursive();
         }
         return;
-    }
-    let mut ga: &GraphAttrs = &g.graph_defn.graph_attrs;
-    
+    }    
 
-    if !query_added.is_empty() && g.graph_defn.graph.iter().len() != 0 {
+    if !query_added.is_empty() && g.graph_defn.nodes.iter().len() != 0 {
         let mut all_node_loc = HashMap::<String, Vec3>::new();
 
         for (entity, _path, _conn) in query_conn.iter_mut() {
@@ -32,34 +32,41 @@ pub fn update_connectors(
 
         //insert in hash map location of all nodes
         for (node, transform) in query_all.iter() {
-            println!("{:?}", node);
             let mut pos: Vec3 = transform.translation;
             pos.z = 50.;
-            all_node_loc.insert(node.node_text.clone(), pos);
+            all_node_loc.insert(node.node_id.clone(), pos);
         }
 
         let mut done: HashSet<String> = HashSet::new();
         // for each node search its connecting entities
         // and make a line between current node and that node
-        for (nodea_name, nodea_loc) in all_node_loc.iter() {
-            let node_links = g.graph_defn.graph.get(nodea_name);
+        for (nodea_id, nodea_loc) in all_node_loc.iter() {
+            let node_links: Option<&HashSet<String>> = g.graph_defn.graph.get(nodea_id);
             match node_links {
                 Some(nl) => {
-                    for nodeb_name in nl.iter() {
+                    for nodeb_id in nl.iter() {
                         let mut s: String;
                         let mut s2: String;
-                        s = format!("{}-{}", nodea_name, nodeb_name);
-                        s2 = format!("{}-{}", nodeb_name, nodea_name);
+                        s = format!("{}-{}", nodea_id, nodeb_id);
+                        s2 = format!("{}-{}", nodeb_id, nodea_id);
+                        if nodea_id == nodeb_id {
+                            console_log(format!("Ignoring loopback: {}-{}", nodea_id, nodeb_id).as_str());
+                            continue;
+                        }
+                        if all_node_loc.get(nodeb_id).is_none() {
+                            console_log(format!("Node not found for connector: {}-{}", nodea_id, nodeb_id).as_str());
+                            continue;
+                        }
                         if !done.contains(&s) {
-                            let nodeb_loc = all_node_loc.get(nodeb_name).unwrap();
+                            let nodeb_loc = all_node_loc.get(nodeb_id).unwrap();
                             done.insert(s);
                             done.insert(s2);
                             let _ = generate_line(
                                 nodea_loc,
                                 nodeb_loc,
-                                ga,
-                                &nodea_name,
-                                &nodeb_name,
+                                &g.graph_defn.graph_attrs,
+                                &nodea_id,
+                                &nodeb_id,
                                 &mut commands,
                             );
                         }
@@ -74,13 +81,16 @@ pub fn update_connectors(
         for (node, transform) in query_all.iter() {
             let mut pos: Vec3 = transform.translation;
             pos.z = 50.;
-            all_node_loc.insert(node.node_text.clone(), pos);
+            all_node_loc.insert(node.node_id.clone(), pos);
         }
 
         for (_, mut path, mut conn) in query_conn.iter_mut() {
-            let node1_loc = all_node_loc.get(&conn.node1);
-            let node2_loc = all_node_loc.get(&conn.node2);
-
+            let node1_loc = all_node_loc.get(&conn.id1);
+            let node2_loc = all_node_loc.get(&conn.id2);
+            if node1_loc.is_none() || node2_loc.is_none() {
+                console_log(format!("Node not found for connector: {}-{}", conn.id1, conn.id2).as_str());
+                continue;
+            }
             let mut path_builder = PathBuilder::new();
 
             path_builder.move_to(Vec2 {
@@ -103,8 +113,8 @@ fn generate_line(
     a: &Vec3,
     b: &Vec3,
     ga: &GraphAttrs,
-    node1: &String,
-    node2: &String,
+    id1: &String,
+    id2: &String,
     commands: &mut Commands,
 ) -> Entity {
     let mut path_builder = PathBuilder::new();
@@ -125,8 +135,8 @@ fn generate_line(
             ShapeBundle { path, ..default() },
             Stroke::new(cc, 3.0),
             NodeConnector {
-                node1: node1.clone(),
-                node2: node2.clone(),
+                id1: id1.clone(),
+                id2: id2.clone(),
                 path: walking_path,
             },
             On::<Pointer<Over>>::target_component_mut::<Stroke>(|_, s| {

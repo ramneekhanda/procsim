@@ -36,11 +36,10 @@ pub fn demo_send_message(
             let nct = &mut query_conn.iter_mut().skip(picked).next().unwrap();
             let nc = &nct.1;
             let ent = nct.0;
-            println!("spawned a message for {} - {}", nc.node1, nc.node2);
             commands.entity(ent).insert(Message {
                 timer: Timer::new(Duration::from_secs(3), TimerMode::Once),
-                node_from: nc.node1.clone(),
-                node_to: nc.node2.clone(),
+                node_from: nc.id1.clone(),
+                node_to: nc.id2.clone(),
                 str: "A message".to_string(),
             });
         }

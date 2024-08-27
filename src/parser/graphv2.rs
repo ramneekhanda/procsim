@@ -2,7 +2,7 @@ use rhai::AST;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{collections::{HashMap, HashSet}, error, fmt};
 use schemars::JsonSchema;
-use bevy::color::{Srgba, Color};
+use bevy::{color::{Color, Srgba}, time::Timer};
 use serde::de::Error;
 use serde::ser::Serializer;
 
@@ -82,6 +82,7 @@ pub struct Attrs {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct Node {
+  pub id: String,
   pub name: String,
   #[serde(rename = "fn")]
   pub func: Option<String>,
@@ -106,12 +107,12 @@ pub struct GraphDefinition {
 
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct File {
-  #[serde(skip)]
-  #[serde(rename = "fns")]
-  func: Option<String>,
-
+  
   #[serde(default)]  
   pub graph_defn: GraphDefinition,
+
+  #[serde(skip)]
+  pub timers: HashMap<String, Timer>,
 }
 
 pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
