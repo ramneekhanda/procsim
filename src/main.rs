@@ -1,18 +1,18 @@
-mod ui;
-mod resources;
 mod components;
 mod parser;
-mod systems;
+mod resources;
 mod stdlib;
+mod systems;
+mod ui;
 mod wasm;
 
-use std::collections::HashMap;
 use bevy::{asset::AssetMetaCheck, prelude::*};
 use bevy_egui::EguiPlugin;
 use bevy_mod_picking::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::TweeningPlugin;
 use parser::graphv2::GraphDefinition;
+use std::collections::HashMap;
 use std::time::Duration;
 use ui::CodeStorage;
 
@@ -22,25 +22,27 @@ use resources::graph_def::GraphDefinitionRes;
 #[cfg(target_arch = "wasm32")]
 use systems::ingest_code;
 
+use bevy_web_asset::WebAssetPlugin;
 #[cfg(target_arch = "wasm32")]
 use systems::browser_resize::handle_browser_resize;
-use bevy_web_asset::WebAssetPlugin;
 
 fn setup_app(app: &mut App) {
-
     app.insert_resource(ClearColor(Color::srgb(0.9, 0.9, 0.9)))
         .add_plugins(WebAssetPlugin)
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                canvas: Some("#bevy-canvas".into()),
-                ..default()
-            })
-            ,..Default::default()
-        }).set(
-            AssetPlugin {
-                meta_check: AssetMetaCheck::Never,
-                ..default()
-            }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        canvas: Some("#bevy-canvas".into()),
+                        ..default()
+                    }),
+                    ..Default::default()
+                })
+                .set(AssetPlugin {
+                    meta_check: AssetMetaCheck::Never,
+                    ..default()
+                }),
+        )
         .insert_resource(CommonAssets {
             resource_map: HashMap::new(),
         })
@@ -49,7 +51,9 @@ fn setup_app(app: &mut App) {
             timer: Timer::new(Duration::from_secs(4), TimerMode::Repeating),
         })
         .insert_resource(CodeStorage::default())
-        .insert_resource(LoadingState {state: LoadingStateOpt::Ready})
+        .insert_resource(LoadingState {
+            state: LoadingStateOpt::Ready,
+        })
         .insert_resource(GraphDefinitionRes {
             graph_defn: GraphDefinition::default(),
         })
@@ -57,30 +61,51 @@ fn setup_app(app: &mut App) {
         .add_plugins(TweeningPlugin)
         .add_plugins(EguiPlugin)
         .add_plugins(DefaultPickingPlugins)
-        
-        .add_systems(Startup, 
-            setup_camera,
-        )
+        .add_systems(Startup, setup_camera)
         .add_systems(
             Update,
             (
-                systems::rhai_engine::execute_rhai_engine.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
-                systems::clearcolor::clear_color.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
-                systems::resource_loader::load_assets.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Loading})),
-                systems::demo_message::demo_send_message.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
-                systems::update_message::update_message_path.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
+                systems::rhai_engine::execute_rhai_engine.run_if(resource_equals(LoadingState {
+                    state: LoadingStateOpt::Ready,
+                })),
+                systems::clearcolor::clear_color.run_if(resource_equals(LoadingState {
+                    state: LoadingStateOpt::Ready,
+                })),
+                systems::resource_loader::load_assets.run_if(resource_equals(LoadingState {
+                    state: LoadingStateOpt::Loading,
+                })),
+                systems::demo_message::demo_send_message.run_if(resource_equals(LoadingState {
+                    state: LoadingStateOpt::Ready,
+                })),
+                systems::update_message::update_message_path.run_if(resource_equals(
+                    LoadingState {
+                        state: LoadingStateOpt::Ready,
+                    },
+                )),
             ),
         )
         .add_systems(
             Update,
             (
-                systems::background::update_background.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
+                systems::background::update_background.run_if(resource_equals(LoadingState {
+                    state: LoadingStateOpt::Ready,
+                })),
                 #[cfg(target_arch = "wasm32")]
-                systems::ingest_code::ingest_codechange.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
+                systems::ingest_code::ingest_codechange.run_if(resource_equals(LoadingState {
+                    state: LoadingStateOpt::Ready,
+                })),
                 #[cfg(not(target_arch = "wasm32"))]
-                ui::draw_codeviewer.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
-                systems::update_connectors::update_connectors.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
-                systems::update_node::update_nodes.run_if(resource_equals(LoadingState{state: LoadingStateOpt::Ready})),
+                ui::draw_codeviewer.run_if(resource_equals(LoadingState {
+                    state: LoadingStateOpt::Ready,
+                })),
+                systems::update_connectors::update_connectors.run_if(resource_equals(
+                    LoadingState {
+                        state: LoadingStateOpt::Ready,
+                    },
+                )),
+                systems::update_node::update_nodes.run_if(resource_equals(LoadingState {
+                    state: LoadingStateOpt::Ready,
+                })),
             ),
         );
     #[cfg(target_arch = "wasm32")]

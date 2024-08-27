@@ -139,7 +139,7 @@ fn spawn_node(
 
 #[test]
 fn did_spawn_node() {
-    use crate::parse_graph2;
+    use crate::parser::graphv2::parse_graph2;
     let mut app = App::new();
     let res = parse_graph2(&include_str!("../../examples/tests/update_node.yaml").to_string());
 

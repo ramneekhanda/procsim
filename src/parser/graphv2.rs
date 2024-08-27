@@ -144,16 +144,19 @@ graph_defn:
   name: "test graph"
   nodes:
     - name: server
+      id: server
       fn: *server_fn
       attrs:
-        tick: 5s
+        tick: 5
         color: [1., 0., 1., 0.5]
     - name: client1
+      id: client1
       fn: *client_fn
       attrs:
-        ticks: 10s
+        ticks: 10
         color: [1., 1., 0., 0.5]
     - name: client2
+      id: client2
       fn: *client_fn
   allowed_connections:
     server: [client1, client2]
@@ -161,9 +164,6 @@ graph_defn:
     server: [client1, client2, client4]
   graph_attrs:
       title: "A Sample Graph!"
-      background: [0.1, 0.1, 0.1, 1.]
-      connection_color: [0.9, 0.9, 0.9, 1.]
-      text_color: [0.5, 0.5, 0.5, 1.0]
 "#;
 
   let res = parse_graph(&code.to_string());

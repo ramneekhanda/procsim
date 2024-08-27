@@ -1,6 +1,6 @@
 fns:
   - &server_fn |
-      log("hello from another world!")
+    log("hello from another world!")
 
   - &client_fn |
 
@@ -29,7 +29,7 @@ graph_defn:
   graph:
     server: [client1, client2]
   graph_attrs:
-      title: "A Sample Graph!"
-      background: "#D3D3D3"
-      connection_color: "#000000"
-      text_color: "#000000"
+    title: "A Sample Graph!"
+    background: "#D3D3D3"
+    connection_color: "#000000"
+    text_color: "#000000"

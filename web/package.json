@@ -29,6 +29,7 @@
 	"dependencies": {
 		"@monaco-editor/loader": "^1.4.0",
 		"alive-server": "^1.3.0",
-		"monaco-yaml": "^5.2.2"
+		"monaco-yaml": "^5.2.2",
+		"swapy": "^0.1.1"
 	}
 }
