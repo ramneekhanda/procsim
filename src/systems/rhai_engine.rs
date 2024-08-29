@@ -1,14 +1,11 @@
-use std::sync::Mutex;
-
 use crate::wasm::browser::console_log;
 use crate::parser::graphv2::GraphDefinition;
 use crate::resources::graph_def::GraphDefinitionRes;
 use crate::stdlib::rhai_lib::rhai_log;
 
-use bevy::{core_pipeline::deferred::node, prelude::*};
-use bevy_egui::egui::TextBuffer;
+use bevy::prelude::*;
 
-use rhai::{Engine, Module};
+use rhai::Engine;
 
 fn recompile(gd: &mut GraphDefinition) {
   let engine = Engine::new();

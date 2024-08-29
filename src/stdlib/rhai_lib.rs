@@ -1,8 +1,6 @@
-use std::iter::once;
-
 use crate::wasm::browser::console_log;
 
-pub fn rhai_send(msg: (String, String), ctx: String) -> bool {
+pub fn rhai_send(_msg: (String, String), _ctx: String) -> bool {
   console_log("fnction called");
   true
 }

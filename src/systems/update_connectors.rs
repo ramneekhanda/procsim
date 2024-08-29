@@ -2,7 +2,6 @@ use crate::components::node::Node;
 use crate::resources::graph_def::GraphDefinitionRes;
 use crate::wasm::browser::console_log;
 use crate::{components::node_connector::*, parser::graphv2::GraphAttrs};
-use bevy::core_pipeline::deferred::node;
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bevy_prototype_lyon::prelude::*;
@@ -45,8 +44,8 @@ pub fn update_connectors(
             match node_links {
                 Some(nl) => {
                     for nodeb_id in nl.iter() {
-                        let mut s: String;
-                        let mut s2: String;
+                        let s: String;
+                        let s2: String;
                         s = format!("{}-{}", nodea_id, nodeb_id);
                         s2 = format!("{}-{}", nodeb_id, nodea_id);
                         if nodea_id == nodeb_id {

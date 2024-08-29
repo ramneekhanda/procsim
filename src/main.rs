@@ -15,7 +15,6 @@ use parser::graphv2::GraphDefinition;
 use std::collections::HashMap;
 use std::time::Duration;
 use ui::CodeStorage;
-
 use resources::common_assets::{CommonAssets, LoadingState, LoadingStateOpt};
 use resources::graph_def::GraphDefinitionRes;
 

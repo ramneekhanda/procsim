@@ -30,7 +30,7 @@ pub fn demo_send_message(
             commands.entity(entity.0).remove::<Message>();
         }
 
-        for i in 0..2 {
+        for _ in 0..2 {
             let pickable: usize = query_conn.iter().count() - 1;
             let picked = rng.gen_range(0..pickable);
             let nct = &mut query_conn.iter_mut().skip(picked).next().unwrap();

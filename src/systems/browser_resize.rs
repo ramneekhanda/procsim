@@ -19,7 +19,7 @@ pub fn handle_browser_resize(
         .unwrap();
     let ht = canvas.height();
     let wd = canvas.width();
-    
+
     let Ok(inner_width) = wasm_window.inner_width() else {
         return;
     };
@@ -33,12 +33,8 @@ pub fn handle_browser_resize(
         return;
     };
     for mut window in &mut primary_query {
-        if window.resolution.width() != wd as f32
-            || window.resolution.height() != ht as f32
-        {
-            window
-                .resolution
-                .set(wd as f32, ht as f32);
+        if window.resolution.width() != wd as f32 || window.resolution.height() != ht as f32 {
+            window.resolution.set(wd as f32, ht as f32);
         }
     }
 }

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use wasm_bindgen::prelude::*;
+
 #[wasm_bindgen]
 extern "C" {
     // Use `js_namespace` here to bind `console.log(..)` instead of just
@@ -17,7 +18,10 @@ fn load_default_fonts_and_icons(ca: &mut ResMut<CommonAssets>, asset_server: &Re
             asset_server.load("http://fonts.gstatic.com/s/abeezee/v9/mE5BOuZKGln_Ex0uYKpIaw.ttf"),
         ),
     );
-    ca.resource_map.insert("default_system_icon".to_string(), ResourceType::ImageHandle( asset_server.load("https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/General/Servers.png")));
+    ca.resource_map.insert(
+      "default_system_icon".to_string(), 
+      ResourceType::ImageHandle( asset_server.load("https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/General/Servers.png"))
+    );
 }
 
 fn load_resources_from_file(

@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::{parser::graphv2::{parse_graph2, File}, resources::{common_assets::{LoadingState, LoadingStateOpt}, graph_def::GraphDefinitionRes}, ui::CodeStorage};
+use crate::{parser::graphv2::{parse_graph2, File}, resources::graph_def::GraphDefinitionRes, ui::CodeStorage};
 
 pub fn clear_color(
     mut graph_defn_r: ResMut<GraphDefinitionRes>,

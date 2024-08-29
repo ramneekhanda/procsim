@@ -11,15 +11,13 @@ use crate::{parser::graphv2::parse_graph2, resources::common_assets::{LoadingSta
 
 #[derive(Resource)] //
 pub struct CodeStorage {
-    pub code: String,
-    pub console: String,
+    pub code: String
 }
 
 impl Default for CodeStorage {
     fn default() -> Self {
         CodeStorage {
-            code: include_str!("../examples/config/config.yaml").to_string(),
-            console: "".to_string(),
+            code: include_str!("../examples/config/config.yaml").to_string()
         }
     }
 }

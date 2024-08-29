@@ -1,16 +1,17 @@
 use crate::components::node::Node;
-use crate::parser::graphv2::{Attrs, GraphAttrs, Node as GNode};
+use crate::parser::graphv2::{GraphAttrs, Node as GNode};
 use crate::resources::common_assets::CommonAssets;
 use crate::resources::common_assets::ResourceType;
 use crate::resources::graph_def::GraphDefinitionRes;
 use crate::systems::drag;
 use crate::wasm::browser::console_log;
+use bevy::text::TextLayoutInfo;
+use bevy_prototype_lyon::prelude::*;
 
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bevy_tweening::{lens::*, *};
 use rand::Rng;
-use std::collections::HashSet;
 use std::time::Duration;
 
 pub fn update_nodes(
@@ -26,13 +27,7 @@ pub fn update_nodes(
         let mut z = 0.;
         let g_attrs: &GraphAttrs = &g.graph_defn.graph_attrs;
         for node in g.graph_defn.nodes.iter() {
-            spawn_node(
-                z,
-                node,
-                &mut commands,
-                &ca,
-                g_attrs,
-            );
+            spawn_node(z, node, &mut commands, &ca, g_attrs);
             z += 1.;
         }
     }
@@ -42,6 +37,28 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 extern "C" {
     fn alert(s: &str);
+}
+
+pub fn on_click(e: Listener<Pointer<Click>>, 
+  mut q: Query<(&mut Transform, &mut Children, &Node)>,
+  text_query: Query<&TextLayoutInfo>
+) {
+    if q.iter().count() == 0 {
+        return;
+    }
+    for (mut transform, children, _node) in q.iter_mut() {
+        let mut selected: bool = false;
+        let mut scale = 1.0;
+        for child in children.iter() {
+            if *child == e.target() {
+              if selected == false {selected = true;}
+            } 
+        }
+        if selected {
+            scale = 1.25;
+        }
+        transform.scale = Vec3::new(scale, scale, 1.0);
+    }
 }
 
 fn spawn_node(
@@ -89,52 +106,55 @@ fn spawn_node(
         },
     );
 
+    let shape = shapes::RegularPolygon {
+      sides: 4,
+      feature: shapes::RegularPolygonFeature::Radius(22.0),
+      ..shapes::RegularPolygon::default()
+    };
+
+    let txt_bndl = Text2dBundle {
+      text: Text::from_section(&node.name, text_style).with_justify(JustifyText::Center),
+      transform: Transform::from_translation(Vec3::new(0.0, -24., 100.)),
+      ..default()
+    };
+
     let parent = commands
         .spawn((
             SpatialBundle {
-                transform: Transform::from_translation(Vec3::new(0., 0., 100.)),
-                ..Default::default()
+              transform: Transform::from_translation(Vec3::new(0., 0., 100.)),
+              ..Default::default()
             },
+            Stroke::new(Color::BLACK, 1.5),
             Node {
                 node_text: node.name.clone(),
                 node_id: node.id.clone(),
                 ..Default::default()
             },
+            On::<Pointer<Drag>>::run(drag::drag),
+            On::<Pointer<Click>>::run(on_click),
             Animator::new(tween),
         ))
         .id();
 
     let icon_child = commands
-        .spawn((
-            SpriteBundle {
-                // Simply use a url where you would normally use an asset folder relative path
-                texture: node_icon.clone(),
-                sprite: Sprite {
-                    custom_size: Vec2::new(32., 32.).into(),
-                    ..Default::default()
-                },
-                ..default()
+        .spawn((SpriteBundle {
+            texture: node_icon.clone(),
+            sprite: Sprite {
+                custom_size: Vec2::new(32., 32.).into(),
+                ..Default::default()
             },
-            On::<Pointer<DragStart>>::target_insert(Pickable::IGNORE),
-            On::<Pointer<DragEnd>>::target_insert(Pickable::default()),
-            On::<Pointer<Drag>>::run(drag::drag),
-        ))
+            ..default()
+        },))
         .id();
-
+    
     let text_child = commands
-        .spawn((
-            Text2dBundle {
-                text: Text::from_section(&node.name, text_style).with_justify(JustifyText::Center),
-                transform: Transform::from_translation(Vec3::new(0.0, -35., 100.)),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
+        .spawn(txt_bndl)
         .id();
 
     commands
         .entity(parent)
         .push_children(&[icon_child, text_child]);
+    console_log(format!("Entities are Parent {}, Icon {}, Text {}", parent, icon_child, text_child).as_str());
 }
 
 #[test]
