@@ -1,6 +1,6 @@
 use crate::components::node::Node;
 use crate::resources::graph_def::GraphDefinitionRes;
-use crate::wasm::browser::console_log;
+use crate::c_log;
 use crate::{components::node_connector::*, parser::graphv2::GraphAttrs};
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
@@ -20,9 +20,9 @@ pub fn update_connectors(
             commands.entity(entity).despawn_recursive();
         }
         return;
-    }    
+    }
 
-    if !query_added.is_empty() && g.graph_defn.nodes.iter().len() != 0 {
+    if (!query_added.is_empty() && g.graph_defn.nodes.iter().len() != 0) || g.is_changed() {
         let mut all_node_loc = HashMap::<String, Vec3>::new();
 
         for (entity, _path, _conn) in query_conn.iter_mut() {
@@ -49,11 +49,15 @@ pub fn update_connectors(
                         s = format!("{}-{}", nodea_id, nodeb_id);
                         s2 = format!("{}-{}", nodeb_id, nodea_id);
                         if nodea_id == nodeb_id {
-                            console_log(format!("Ignoring loopback: {}-{}", nodea_id, nodeb_id).as_str());
+                            c_log!(
+                                "Ignoring loopback: {}-{}", nodea_id, nodeb_id
+                            );
                             continue;
                         }
                         if all_node_loc.get(nodeb_id).is_none() {
-                            console_log(format!("Node not found for connector: {}-{}", nodea_id, nodeb_id).as_str());
+                            c_log!(
+                                "Node not found for connector: {}-{}", nodea_id, nodeb_id
+                            );
                             continue;
                         }
                         if !done.contains(&s) {
@@ -87,7 +91,9 @@ pub fn update_connectors(
             let node1_loc = all_node_loc.get(&conn.id1);
             let node2_loc = all_node_loc.get(&conn.id2);
             if node1_loc.is_none() || node2_loc.is_none() {
-                console_log(format!("Node not found for connector: {}-{}", conn.id1, conn.id2).as_str());
+                c_log!(
+                    "Node not found for connector: {}-{}", conn.id1, conn.id2
+                );
                 continue;
             }
             let mut path_builder = PathBuilder::new();
@@ -105,7 +111,7 @@ pub fn update_connectors(
             *path = path_builder.build();
             (*conn).path = path.0.clone();
         }
-    }
+    } 
 }
 
 fn generate_line(

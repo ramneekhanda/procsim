@@ -36,7 +36,7 @@ pub fn update_message_path(
     mut commands: Commands,
 ) {
     let mut font: Handle<Font> = Default::default();
-    if let Some(ResourceType::FontHandle(f1)) = ca.resource_map.get("default_font"){
+    if let Some(ResourceType::FontHandle(f1)) = ca.resource_map.get("default_font") {
         font = f1.clone();
     };
 

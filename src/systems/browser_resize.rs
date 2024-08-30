@@ -1,5 +1,4 @@
 use wasm_bindgen::prelude::*;
-use web_sys::console;
 
 pub fn handle_browser_resize(
     mut primary_query: bevy::ecs::system::Query<

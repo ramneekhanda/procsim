@@ -4,23 +4,22 @@ use std::string::String;
 
 #[derive(Clone)]
 pub enum ResourceType {
-  FontHandle(Handle<Font>),
-  ImageHandle(Handle<Image>)
+    FontHandle(Handle<Font>),
+    ImageHandle(Handle<Image>),
 }
 
 #[derive(Resource, Default, Clone)]
 pub struct CommonAssets {
-  pub resource_map: HashMap<String, ResourceType>
+    pub resource_map: HashMap<String, ResourceType>,
 }
 
 #[derive(Default, PartialEq, Clone)]
 pub enum LoadingStateOpt {
-  #[default]
-  Loading,
-  Ready
+    #[default]
+    Loading,
+    Ready,
 }
 #[derive(Resource, PartialEq, Default, Clone)]
 pub struct LoadingState {
-  pub state: LoadingStateOpt
+    pub state: LoadingStateOpt,
 }
-

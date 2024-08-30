@@ -1,16 +1,24 @@
-use bevy::prelude::*;
-use crate::{parser::graphv2::{parse_graph2, File}, resources::{common_assets::{LoadingState, LoadingStateOpt}, graph_def::GraphDefinitionRes}, ui::CodeStorage};
+use crate::{
+    parser::graphv2::{parse_graph2, File},
+    resources::{
+        common_assets::{LoadingState, LoadingStateOpt},
+        graph_def::GraphDefinitionRes,
+    },
+    ui::CodeStorage,
+};
 
-use wasm_bindgen::prelude::*;
+use crate::resources::graph_def::GraphChange;
+use bevy::prelude::*;
+
 use lazy_static::lazy_static;
-use std::sync::Mutex;
 use schemars::schema_for;
 use serde_json;
+use std::sync::Mutex;
+use wasm_bindgen::prelude::*;
 
 lazy_static! {
     static ref E_CODE: Mutex<String> = Mutex::new(String::new());
 }
-
 
 #[wasm_bindgen]
 pub struct CompileResult {
@@ -43,7 +51,6 @@ pub fn compile_code(s: String) -> CompileResult {
     let ret = parse_graph2(&s);
     match ret {
         Ok(_file) => {
-            //graph_defn.graph_defn = file.graph_defn;
             let mut code = E_CODE.lock().unwrap();
             *code = s;
             return CompileResult {
@@ -65,16 +72,19 @@ pub fn ingest_codechange(
     mut code_store: ResMut<CodeStorage>,
     mut graph_defn: ResMut<GraphDefinitionRes>,
     mut ls: ResMut<LoadingState>,
+    mut event_writer: EventWriter<GraphChange>,
 ) {
     let code = E_CODE.lock().unwrap();
 
-    if code_store.code != *code { // TODO: can improve performance by checking a boolean instead
+    if code_store.code != *code {
+        // TODO: can improve performance by checking a boolean instead
         ls.state = LoadingStateOpt::Loading;
         code_store.code = (*code).clone();
         let res = parse_graph2(&code_store.code);
         match res {
             Ok(file) => {
                 graph_defn.graph_defn = file.graph_defn;
+                event_writer.send(GraphChange {});
             }
             Err(e) => {
                 println!("{e}");
