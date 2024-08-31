@@ -22,7 +22,7 @@ pub fn update_connectors(
         return;
     }
 
-    if (!query_added.is_empty() && g.graph_defn.nodes.iter().len() != 0) || g.is_changed() {
+    if !query_added.is_empty() && g.graph_defn.nodes.iter().len() != 0 {
         let mut all_node_loc = HashMap::<String, Vec3>::new();
 
         for (entity, _path, _conn) in query_conn.iter_mut() {

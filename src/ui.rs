@@ -96,7 +96,7 @@ pub fn color_picker(ui: &mut egui::Ui, color: &mut bevy::color::Color, label: &s
 
             ui.label("Blue:");
             let blue = ui.add(Slider::new(&mut bg_color.blue, 0. ..=1.0));
-            
+
             if red.changed() || green.changed() || blue.changed() {
                 *color = bevy::color::Color::from(bg_color);
             };
@@ -116,23 +116,32 @@ pub fn node_properties_viewer(
     }
 
     for (entity, selected) in q_selected.iter() {
-        egui::Window::new("Graph Properties").show(contexts.ctx_mut(), |ui| {
-          color_picker(
-            ui,
-            &mut graph_defn.graph_defn.graph_attrs.background,
-            "Background Color",
-          );
-          color_picker(
-            ui,
-            &mut graph_defn.graph_defn.graph_attrs.text_color,
-            "Text Color",
-          );
-          color_picker(
-            ui,
-            &mut graph_defn.graph_defn.graph_attrs.connection_color,
-            "Connection Color",
-          );
+        egui::Window::new("Node Properties").show(contexts.ctx_mut(), |ui| {
+            
         });
     }
 }
 
+pub fn graph_properties_viewer(
+    mut contexts: EguiContexts,
+    mut graph_defn: ResMut<GraphDefinitionRes>,
+) {
+    use egui::widgets::color_picker;
+    egui::Window::new("Graph Properties").show(contexts.ctx_mut(), |ui| {
+        color_picker(
+            ui,
+            &mut graph_defn.graph_defn.graph_attrs.background,
+            "Background Color",
+        );
+        color_picker(
+            ui,
+            &mut graph_defn.graph_defn.graph_attrs.text_color,
+            "Text Color",
+        );
+        color_picker(
+            ui,
+            &mut graph_defn.graph_defn.graph_attrs.connection_color,
+            "Connection Color",
+        );
+    });
+}

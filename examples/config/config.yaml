@@ -10,6 +10,10 @@ graph_defn:
     - id: server
       name: server
       fn: *server_fn
+      params:
+        - name: someparam
+          type: Bool
+          default: false
       attrs:
         tick: 5
         icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
@@ -17,6 +21,17 @@ graph_defn:
     - name: client1
       id: client1
       fn: *client_fn
+      params:
+        - name: someint
+          type: Integer
+          default: 0
+          min: 0
+          max: 10
+        - name: somefloat
+          type: Float
+          default: 0
+          min: 0
+          max: 10
       attrs:
         ticks: 10
         icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/EKSAnywhere.png
@@ -24,6 +39,12 @@ graph_defn:
     - name: client2
       id: client2
       fn: *client_fn
+      params:
+        - name: someint
+          type: Float
+          default: 10.0
+          min: 0.0
+          max: 10.0
       attrs:
         icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Compute/Batch.png
   graph:
@@ -33,3 +54,4 @@ graph_defn:
     background: "#D3D3D3"
     connection_color: "#000000"
     text_color: "#000000"
+ 

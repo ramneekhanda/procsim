@@ -2,7 +2,7 @@ use bevy::{
     color::{Color, Srgba},
     time::Timer,
 };
-use rhai::AST;
+use rhai::{Scope, AST};
 use schemars::JsonSchema;
 use serde::de::Error;
 use serde::ser::Serializer;
@@ -94,6 +94,30 @@ pub struct Attrs {
     pub icon: Option<String>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "type")]
+pub enum ParamType {
+    Bool { default: bool },
+    Float {min: f64, max: f64, default: f64 },
+    Integer {min: i64, max: i64, default : i64},
+    String {default: String},    
+}
+
+impl Default for ParamType {
+    fn default() -> Self {
+        ParamType::String {
+            default: "".to_string(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
+pub struct NodeParams {
+    pub name: String,
+    #[serde(flatten)]
+    pub param_type: ParamType,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct Node {
     pub id: String,
@@ -102,6 +126,7 @@ pub struct Node {
     pub func: Option<String>,
     #[serde(default)]
     pub attrs: Attrs,
+    pub params: Vec<NodeParams>,
     #[serde(skip)]
     pub ast: AST,
 }

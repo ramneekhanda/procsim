@@ -9,6 +9,7 @@ use crate::{
 
 use crate::resources::graph_def::GraphChange;
 use bevy::prelude::*;
+use crate::c_log;
 
 use lazy_static::lazy_static;
 use schemars::schema_for;
@@ -74,7 +75,7 @@ pub fn ingest_codechange(
     mut ls: ResMut<LoadingState>,
     mut event_writer: EventWriter<GraphChange>,
 ) {
-    let code = E_CODE.lock().unwrap();
+    let code: std::sync::MutexGuard<'_, String> = E_CODE.lock().unwrap();
 
     if code_store.code != *code {
         // TODO: can improve performance by checking a boolean instead
@@ -84,6 +85,7 @@ pub fn ingest_codechange(
         match res {
             Ok(file) => {
                 graph_defn.graph_defn = file.graph_defn;
+                c_log!("graph updated {:?}", graph_defn.graph_defn);
                 event_writer.send(GraphChange {});
             }
             Err(e) => {

@@ -95,6 +95,9 @@ fn setup_app(app: &mut App) {
                 ui::draw_codeviewer.run_if(resource_equals(LoadingState {
                     state: LoadingStateOpt::Ready,
                 })),
+                ui::graph_properties_viewer.run_if(resource_equals(LoadingState {
+                    state: LoadingStateOpt::Ready,
+                })),
                 ui::node_properties_viewer.run_if(resource_equals(LoadingState {
                   state: LoadingStateOpt::Ready,
               })),
