@@ -1,8 +1,8 @@
-use crate::components::node::Node;
+use crate::components::node::NodeMarker;
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 
-pub fn drag(e: Listener<Pointer<Drag>>, mut q: Query<(&mut Transform, &mut Children, &Node)>) {
+pub fn drag(e: Listener<Pointer<Drag>>, mut q: Query<(&mut Transform, &mut Children, &NodeMarker)>) {
     if q.iter().count() == 0 {
         return;
     }

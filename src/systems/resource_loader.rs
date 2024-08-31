@@ -29,9 +29,9 @@ fn load_resources_from_file(
     asset_server: &Res<AssetServer>,
     g: &Res<GraphDefinitionRes>,
 ) {
-    for node in &g.graph_defn.nodes {
-        if node.attrs.icon.is_some() {
-            let icon_string = node.attrs.icon.clone().unwrap();
+    for node_type in &g.graph_defn.node_types {
+        if node_type.attrs.icon.is_some() {
+            let icon_string = node_type.attrs.icon.clone().unwrap();
             ca.resource_map.insert(
                 icon_string.clone(),
                 ResourceType::ImageHandle(asset_server.load(icon_string)),

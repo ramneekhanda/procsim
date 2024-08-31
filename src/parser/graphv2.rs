@@ -9,7 +9,6 @@ use serde::ser::Serializer;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{HashMap, HashSet};
 
-type GraphType = HashMap<String, HashSet<String>>;
 
 fn gray_color() -> Color {
     Srgba::hex("#D3D3D3").unwrap().into()
@@ -26,6 +25,7 @@ fn black_color() -> Color {
 fn black_color_str() -> String {
     "#000000".to_string()
 }
+
 fn deserialize_color<'de, D>(d: D) -> Result<Color, D::Error>
 where
     D: Deserializer<'de>,
@@ -94,13 +94,13 @@ pub struct Attrs {
     pub icon: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type")]
 pub enum ParamType {
     Bool { default: bool },
-    Float {min: f64, max: f64, default: f64 },
-    Integer {min: i64, max: i64, default : i64},
-    String {default: String},    
+    Float { min: f64, max: f64, default: f64 },
+    Integer { min: i64, max: i64, default: i64 },
+    String { default: String },
 }
 
 impl Default for ParamType {
@@ -111,7 +111,7 @@ impl Default for ParamType {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Default, Serialize, Deserialize, JsonSchema)]
 pub struct NodeParams {
     pub name: String,
     #[serde(flatten)]
@@ -119,9 +119,8 @@ pub struct NodeParams {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
-pub struct Node {
+pub struct NodeType {
     pub id: String,
-    pub name: String,
     #[serde(rename = "fn")]
     pub func: Option<String>,
     #[serde(default)]
@@ -131,17 +130,33 @@ pub struct Node {
     pub ast: AST,
 }
 
-impl std::cmp::PartialEq for Node {
+impl std::cmp::PartialEq for NodeType {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.func == other.func && self.attrs == other.attrs
+        self.id == other.id && self.func == other.func && self.attrs == other.attrs && self.params == other.params
     }
+}
+
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
+pub struct Node {
+    pub name: String,
+    pub node_data: NodeType,
+}
+
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
+pub struct NodeConnection {
+    pub name: String,
+    pub node_type: String,
+    pub links: Vec<String>,
 }
 
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct GraphDefinition {
-    pub nodes: Vec<Node>,
-    pub graph: GraphType,
+    pub node_types: Vec<NodeType>,
+    pub graph: Vec<NodeConnection>,
     pub graph_attrs: GraphAttrs,
+
+    #[serde(skip)]
+    pub node_instances: Vec<Node>,
 }
 
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
@@ -155,56 +170,15 @@ pub struct File {
 
 pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
     let data: Result<File, serde_yaml::Error> = serde_yaml::from_str(&graph_code);
+    if let Ok(mut m_data) = data {
+        let mut scope = Scope::new();
+        for node in m_data.graph_defn.graph.iter() {
+            m_data.graph_defn.node_instances.push(Node {
+                name: node.name.clone(),
+                node_data: m_data.graph_defn.node_types.iter().find(|x| x.id == node.node_type).unwrap().clone(),
+            });
+        }
+        return Ok(m_data);
+    } 
     data
-}
-
-pub fn parse_graph(graph_code: &String) -> Result<GraphType, serde_yaml::Error> {
-    let data: Result<File, serde_yaml::Error> = serde_yaml::from_str(&graph_code);
-    match data {
-        Ok(d) => return Ok(d.graph_defn.graph),
-        Err(e) => return Err(e),
-    }
-}
-
-#[test]
-fn parse_graph_test() {
-    let code = r#"
-fns:
-  - &server_fn |
-      def fn():
-        log("hello server")
-
-  - &client_fn |
-      def fn():
-        log("hello client")
-
-graph_defn:
-  name: "test graph"
-  nodes:
-    - name: server
-      id: server
-      fn: *server_fn
-      attrs:
-        tick: 5
-        color: [1., 0., 1., 0.5]
-    - name: client1
-      id: client1
-      fn: *client_fn
-      attrs:
-        ticks: 10
-        color: [1., 1., 0., 0.5]
-    - name: client2
-      id: client2
-      fn: *client_fn
-  allowed_connections:
-    server: [client1, client2]
-  graph:
-    server: [client1, client2, client4]
-  graph_attrs:
-      title: "A Sample Graph!"
-"#;
-
-    let res = parse_graph(&code.to_string());
-    println!("{:?}", res);
-    assert!(res.is_ok());
 }

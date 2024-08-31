@@ -1,22 +1,22 @@
 use bevy::prelude::*;
 
 #[derive(Component, Debug)]
-pub struct Node {
-    pub node_id: String,
-    pub node_text: String,
+pub struct NodeMarker {
+    pub node_name: String,
+    pub node_type: String,
 }
 
-impl Default for Node {
+impl Default for NodeMarker {
     fn default() -> Self {
-        Node {
-            node_text: "name".to_string(),
-            node_id: "id".to_string(),
+        NodeMarker {
+          node_type: "name".to_string(),
+          node_name: "id".to_string(),
         }
     }
 }
 
 #[derive(Component, Debug)]
-pub struct SelectedNode {
-  pub node_id: String,
-  pub node_text: String,
+pub struct SelectedNodeMarker {
+  pub node_name: String,
+  pub node_type: String,
 }

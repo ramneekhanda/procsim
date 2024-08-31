@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::components::node::SelectedNode;
+use crate::components::node::SelectedNodeMarker;
 use bevy_egui::{
     egui::{self, epaint::color, widgets::Slider},
     EguiContexts,
@@ -9,7 +9,7 @@ use egui_code_editor::{CodeEditor, ColorTheme, Syntax};
 
 use crate::resources::graph_def::GraphDefinitionRes;
 use crate::{
-    parser::graphv2::{parse_graph2, Node},
+    parser::graphv2::{parse_graph2, NodeType, Node},
     resources::common_assets::{LoadingState, LoadingStateOpt},
 };
 
@@ -64,21 +64,12 @@ fn get_node_with_name_mut<'a>(
     name: &str,
     graph_defn: &'a mut GraphDefinitionRes,
 ) -> Option<&'a mut Node> {
-    for node in graph_defn.graph_defn.nodes.iter_mut() {
-        if node.name == name {
-            return Some(node);
-        }
+    let idx = graph_defn.graph_defn.node_instances.iter().position(|x| x.name == name);
+    if let Some(idx) = idx {
+        return Some(&mut graph_defn.graph_defn.node_instances[idx]);
+    } else {
+        return None;  
     }
-    None
-}
-
-fn get_node_with_name<'a>(name: &str, graph_defn: &'a GraphDefinitionRes) -> Option<&'a Node> {
-    for node in graph_defn.graph_defn.nodes.iter() {
-        if node.name == name {
-            return Some(node);
-        }
-    }
-    None
 }
 
 pub fn color_picker(ui: &mut egui::Ui, color: &mut bevy::color::Color, label: &str) {
@@ -107,7 +98,7 @@ pub fn color_picker(ui: &mut egui::Ui, color: &mut bevy::color::Color, label: &s
 
 pub fn node_properties_viewer(
     mut contexts: EguiContexts,
-    mut q_selected: Query<(Entity, &SelectedNode)>,
+    mut q_selected: Query<(Entity, &SelectedNodeMarker)>,
     mut graph_defn: ResMut<GraphDefinitionRes>,
 ) {
     use egui::widgets::color_picker;
