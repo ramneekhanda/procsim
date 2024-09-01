@@ -171,10 +171,6 @@ fn spawn_node(
     commands
         .entity(parent)
         .push_children(&[icon_child, text_child]);
-    c_log!(
-        "Entities are Parent {}, Icon {}, Text {}",
-        parent, icon_child, text_child
-    );
 }
 
 // #[test]

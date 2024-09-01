@@ -9,7 +9,6 @@ use serde::ser::Serializer;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{HashMap, HashSet};
 
-
 fn gray_color() -> Color {
     Srgba::hex("#D3D3D3").unwrap().into()
 }
@@ -132,7 +131,10 @@ pub struct NodeType {
 
 impl std::cmp::PartialEq for NodeType {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id && self.func == other.func && self.attrs == other.attrs && self.params == other.params
+        self.id == other.id
+            && self.func == other.func
+            && self.attrs == other.attrs
+            && self.params == other.params
     }
 }
 
@@ -173,12 +175,21 @@ pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
     if let Ok(mut m_data) = data {
         let mut scope = Scope::new();
         for node in m_data.graph_defn.graph.iter() {
-            m_data.graph_defn.node_instances.push(Node {
-                name: node.name.clone(),
-                node_data: m_data.graph_defn.node_types.iter().find(|x| x.id == node.node_type).unwrap().clone(),
-            });
+            let type_data = m_data
+                .graph_defn
+                .node_types
+                .iter()
+                .find(|x| x.id == node.node_type);
+            if let Some(data_w_type) = type_data {
+                m_data.graph_defn.node_instances.push(Node {
+                    name: node.name.clone(),
+                    node_data: data_w_type.clone(),
+                });
+            } else {
+                return Err(serde_yaml::Error::custom(format!("Node type not found for type {}", node.node_type).as_str()));
+            }
         }
         return Ok(m_data);
-    } 
+    }
     data
 }
