@@ -103,7 +103,11 @@ fn setup_app(app: &mut App) {
                         state: LoadingStateOpt::Ready,
                     },
                 )),
-                systems::node_system::create_nodes,
+                systems::node_system::create_nodes.run_if(resource_equals(
+                  LoadingState {
+                      state: LoadingStateOpt::Ready,
+                  },
+              )),
             ),
         );
     #[cfg(target_arch = "wasm32")]

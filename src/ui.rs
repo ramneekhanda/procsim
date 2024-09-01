@@ -92,7 +92,7 @@ pub fn graph_properties_viewer(
         }
 
         for (entity, selected) in q_selected.iter() {
-            ui.collapsing("Selected Node", |ui| {
+            egui::CollapsingHeader::new(format!("Selected Node - {}", selected.node_name).as_str()).show(ui, |ui| {
                 if let Some(node) = get_node_with_name_mut(&selected.node_name, &mut graph_defn) {
                     egui::Grid::new("Grid - Selected").show(ui, |ui| {
                         for param in &mut node.node_data.params {

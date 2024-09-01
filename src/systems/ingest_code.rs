@@ -7,9 +7,9 @@ use crate::{
     ui::CodeStorage,
 };
 
+use crate::c_log;
 use crate::resources::graph_def::GraphChange;
 use bevy::prelude::*;
-use crate::c_log;
 
 use lazy_static::lazy_static;
 use schemars::schema_for;
@@ -79,11 +79,11 @@ pub fn ingest_codechange(
 
     if code_store.code != *code {
         // TODO: can improve performance by checking a boolean instead
-        ls.state = LoadingStateOpt::Loading;
         code_store.code = (*code).clone();
         let res = parse_graph2(&code_store.code);
         match res {
             Ok(file) => {
+                ls.state = LoadingStateOpt::Loading;
                 graph_defn.graph_defn = file.graph_defn;
                 c_log!("graph updated {:?}", graph_defn.graph_defn);
                 event_writer.send(GraphChange {});

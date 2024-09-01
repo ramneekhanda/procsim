@@ -8,6 +8,7 @@ extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
 }
+use crate::resources::graph_def::GraphChange;
 use crate::resources::common_assets::{CommonAssets, LoadingState, LoadingStateOpt, ResourceType};
 use crate::resources::graph_def::GraphDefinitionRes;
 
@@ -45,6 +46,7 @@ pub fn load_assets(
     mut ls: ResMut<LoadingState>,
     g: Res<GraphDefinitionRes>,
     asset_server: Res<AssetServer>,
+    mut event_writer: EventWriter<GraphChange>,
 ) {
     if g.is_changed() || g.is_added() {
         ca.resource_map.clear();
@@ -94,6 +96,7 @@ pub fn load_assets(
 
     if still_loading != true {
         ls.state = LoadingStateOpt::Ready;
+        event_writer.send(GraphChange {});
         log("all resources ready");
     }
 }
