@@ -93,13 +93,14 @@ pub struct Attrs {
     pub icon: Option<String>,
 }
 
-#[derive(Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type")]
 pub enum ParamType {
     Bool { default: bool },
     Float { min: f64, max: f64, default: f64 },
     Integer { min: i64, max: i64, default: i64 },
     String { default: String },
+    Option { values: HashSet<String>, default: String },
 }
 
 impl Default for ParamType {
@@ -110,7 +111,7 @@ impl Default for ParamType {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct NodeParams {
     pub name: String,
     #[serde(flatten)]

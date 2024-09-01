@@ -98,9 +98,6 @@ fn setup_app(app: &mut App) {
                 ui::graph_properties_viewer.run_if(resource_equals(LoadingState {
                     state: LoadingStateOpt::Ready,
                 })),
-                ui::node_properties_viewer.run_if(resource_equals(LoadingState {
-                  state: LoadingStateOpt::Ready,
-              })),
                 systems::update_connectors::update_connectors.run_if(resource_equals(
                     LoadingState {
                         state: LoadingStateOpt::Ready,

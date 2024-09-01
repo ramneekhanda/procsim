@@ -1,15 +1,14 @@
 use bevy::prelude::*;
 
-use crate::components::node::SelectedNodeMarker;
+use crate::{components::node::SelectedNodeMarker, parser::graphv2::ParamType};
 use bevy_egui::{
     egui::{self, epaint::color, widgets::Slider},
     EguiContexts,
 };
-use egui_code_editor::{CodeEditor, ColorTheme, Syntax};
 
 use crate::resources::graph_def::GraphDefinitionRes;
 use crate::{
-    parser::graphv2::{parse_graph2, NodeType, Node},
+    parser::graphv2::{parse_graph2, Node, NodeType},
     resources::common_assets::{LoadingState, LoadingStateOpt},
 };
 
@@ -26,49 +25,19 @@ impl Default for CodeStorage {
     }
 }
 
-pub fn draw_codeviewer(
-    mut contexts: EguiContexts,
-    mut code_store: ResMut<CodeStorage>,
-    mut graph_defn: ResMut<GraphDefinitionRes>,
-    mut ls: ResMut<LoadingState>,
-) {
-    egui::Window::new("Hello").show(contexts.ctx_mut(), |ui| {
-        ui.vertical_centered(|ui| {
-            if ui.button("compile").clicked() {
-                ls.state = LoadingStateOpt::Loading;
-                let res = parse_graph2(&code_store.code);
-
-                match res {
-                    Ok(file) => {
-                        graph_defn.graph_defn = file.graph_defn;
-                    }
-                    Err(e) => {
-                        println!("{e}");
-                        return;
-                    }
-                }
-            }
-        });
-        CodeEditor::default()
-            .with_rows(20)
-            .with_fontsize(14.0)
-            .with_theme(ColorTheme::GRUVBOX)
-            .with_syntax(Syntax::lua())
-            .with_numlines(true)
-            .vscroll(true)
-            .show(ui, &mut code_store.code);
-    });
-}
-
 fn get_node_with_name_mut<'a>(
     name: &str,
     graph_defn: &'a mut GraphDefinitionRes,
 ) -> Option<&'a mut Node> {
-    let idx = graph_defn.graph_defn.node_instances.iter().position(|x| x.name == name);
+    let idx = graph_defn
+        .graph_defn
+        .node_instances
+        .iter()
+        .position(|x| x.name == name);
     if let Some(idx) = idx {
         return Some(&mut graph_defn.graph_defn.node_instances[idx]);
     } else {
-        return None;  
+        return None;
     }
 }
 
@@ -96,26 +65,10 @@ pub fn color_picker(ui: &mut egui::Ui, color: &mut bevy::color::Color, label: &s
     });
 }
 
-pub fn node_properties_viewer(
-    mut contexts: EguiContexts,
-    mut q_selected: Query<(Entity, &SelectedNodeMarker)>,
-    mut graph_defn: ResMut<GraphDefinitionRes>,
-) {
-    use egui::widgets::color_picker;
-    if q_selected.iter().count() == 0 {
-        return;
-    }
-
-    for (entity, selected) in q_selected.iter() {
-        egui::Window::new("Node Properties").show(contexts.ctx_mut(), |ui| {
-            
-        });
-    }
-}
-
 pub fn graph_properties_viewer(
     mut contexts: EguiContexts,
     mut graph_defn: ResMut<GraphDefinitionRes>,
+    mut q_selected: Query<(Entity, &SelectedNodeMarker)>,
 ) {
     use egui::widgets::color_picker;
     egui::Window::new("Graph Properties").show(contexts.ctx_mut(), |ui| {
@@ -134,5 +87,58 @@ pub fn graph_properties_viewer(
             &mut graph_defn.graph_defn.graph_attrs.connection_color,
             "Connection Color",
         );
+        if q_selected.iter().count() == 0 {
+            return;
+        }
+
+        for (entity, selected) in q_selected.iter() {
+            ui.collapsing("Selected Node", |ui| {
+                if let Some(node) = get_node_with_name_mut(&selected.node_name, &mut graph_defn) {
+                    egui::Grid::new("Grid - Selected").show(ui, |ui| {
+                        for param in &mut node.node_data.params {
+                            if let ParamType::Bool { default } = &mut param.param_type {
+                                ui.label(param.name.clone());
+                                ui.checkbox(default,"");
+                                ui.end_row();
+                            } else if let ParamType::Integer { default, min, max } =
+                                &mut param.param_type
+                            {
+                                ui.label(param.name.clone());
+                                ui.add(Slider::new(
+                                    default,
+                                    std::ops::RangeInclusive::new(*min, *max),
+                                ));
+                                ui.end_row();
+                            } else if let ParamType::Float { default, min, max } =
+                                &mut param.param_type
+                            {
+                                ui.label(param.name.clone());
+                                ui.add(Slider::new(
+                                    default,
+                                    std::ops::RangeInclusive::new(*min, *max),
+                                ));
+                                ui.end_row();
+                            } else if let ParamType::String { default } = &mut param.param_type {
+                                ui.label(param.name.clone());
+                                ui.text_edit_singleline(default);
+                                ui.end_row();
+                            } else if let ParamType::Option { values, default } =
+                                &mut param.param_type
+                            {
+                                ui.label(param.name.clone());
+                                egui::ComboBox::from_label("")
+                                    .selected_text(format!("{}", default))
+                                    .show_ui(ui, |ui| {
+                                        for value in values.iter() {
+                                            ui.selectable_value(default, value.to_string(), value);
+                                        }
+                                    });
+                                ui.end_row();
+                            }
+                        }
+                    });
+                }
+            });
+        }
     });
 }
