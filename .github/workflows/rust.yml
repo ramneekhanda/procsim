@@ -16,8 +16,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: add was32 target
+    - name: install npm
+      run: apt update && apt install nodejs
+    - name: add wasm32 target
       run: rustup target add wasm32-unknown-unknown
+    - name: install wasm32-bindgen-cli
+      run: cargo install wasm32-bindgen-cli
     - name: Install cargo make
       run: cargo install --force cargo-make
     - name: Build everything
