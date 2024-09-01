@@ -16,8 +16,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: install npm
-      run: apt update && apt install nodejs
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
     - name: add wasm32 target
       run: rustup target add wasm32-unknown-unknown
     - name: install wasm32-bindgen-cli
