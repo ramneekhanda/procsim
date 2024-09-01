@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::transform::commands;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -44,6 +45,7 @@ fn load_resources_from_file(
 pub fn load_assets(
     mut ca: ResMut<CommonAssets>,
     mut ls: ResMut<LoadingState>,
+    mut commands: Commands,
     g: Res<GraphDefinitionRes>,
     asset_server: Res<AssetServer>,
     mut event_writer: EventWriter<GraphChange>,

@@ -84,9 +84,6 @@ fn setup_app(app: &mut App) {
         .add_systems(
             Update,
             (
-                systems::background::update_background.run_if(resource_equals(LoadingState {
-                    state: LoadingStateOpt::Ready,
-                })),
                 #[cfg(target_arch = "wasm32")]
                 systems::ingest_code::ingest_codechange.run_if(resource_equals(LoadingState {
                     state: LoadingStateOpt::Ready,

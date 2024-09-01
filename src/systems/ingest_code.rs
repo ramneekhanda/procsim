@@ -8,7 +8,6 @@ use crate::{
 };
 
 use crate::c_log;
-use crate::resources::graph_def::GraphChange;
 use bevy::prelude::*;
 
 use lazy_static::lazy_static;
@@ -73,7 +72,6 @@ pub fn ingest_codechange(
     mut code_store: ResMut<CodeStorage>,
     mut graph_defn: ResMut<GraphDefinitionRes>,
     mut ls: ResMut<LoadingState>,
-    mut event_writer: EventWriter<GraphChange>,
 ) {
     let code: std::sync::MutexGuard<'_, String> = E_CODE.lock().unwrap();
 
@@ -85,8 +83,6 @@ pub fn ingest_codechange(
             Ok(file) => {
                 ls.state = LoadingStateOpt::Loading;
                 graph_defn.graph_defn = file.graph_defn;
-                c_log!("graph updated {:?}", graph_defn.graph_defn);
-                event_writer.send(GraphChange {});
             }
             Err(e) => {
                 println!("{e}");

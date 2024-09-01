@@ -1,4 +1,3 @@
-pub mod background;
 #[cfg(target_arch = "wasm32")]
 pub mod browser_resize;
 pub mod clearcolor;

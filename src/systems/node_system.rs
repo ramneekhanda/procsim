@@ -24,7 +24,6 @@ pub fn create_nodes(
     mut event_reader: EventReader<GraphChange>,
 ) {
   if event_reader.read().count() > 0 {
-    c_log!("Graph Change Event");
     for entity in query.iter() {
       commands.entity(entity).despawn_recursive();
     }
