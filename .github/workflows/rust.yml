@@ -21,7 +21,7 @@ jobs:
         node-version: 20
     - name: add wasm32 target
       run: rustup target add wasm32-unknown-unknown
-    - name: install wasm32-bindgen-cli
+    - name: install wasm-bindgen-cli
       run: cargo install wasm32-bindgen-cli
     - name: Install cargo make
       run: cargo install --force cargo-make
