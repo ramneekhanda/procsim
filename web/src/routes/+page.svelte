@@ -3,7 +3,7 @@
   import Canvas from "./Canvas.svelte";
   import { Pane, Splitpanes } from "svelte-splitpanes";
   import Menubar from "$lib/components/menubar/menubar.svelte";
-  import init, { compile_code, get_code_schema } from "./dsa.js";
+  import init, { compile_code, get_code_schema } from "./dsa";
   import { onMount } from "svelte";
 
   let codeEditor;

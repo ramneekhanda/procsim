@@ -26,7 +26,7 @@ jobs:
     - name: Install cargo make
       run: cargo install --force cargo-make
     - name: Build everything
-      run: cargo make build-all
+      run: cargo make -p production build-all
     - name: Upload production-ready build files
       uses: actions/upload-artifact@v3
       with:

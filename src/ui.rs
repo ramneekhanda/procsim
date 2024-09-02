@@ -20,7 +20,7 @@ pub struct CodeStorage {
 impl Default for CodeStorage {
     fn default() -> Self {
         CodeStorage {
-            code: include_str!("../examples/config/config.yaml").to_string(),
+            code: String::new(),
         }
     }
 }

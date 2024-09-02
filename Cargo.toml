@@ -29,7 +29,8 @@ derivative = "2.2.0"
 [profile.release]
 lto = true
 opt-level = 'z'
-strip = true
+codegen-units = 1
+strip = "debuginfo"
 
 [profile.dev]
 opt-level = 1
