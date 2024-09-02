@@ -8,6 +8,7 @@ use serde::de::Error;
 use serde::ser::Serializer;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{HashMap, HashSet};
+use crate::c_log;
 
 fn gray_color() -> Color {
     Srgba::hex("#D3D3D3").unwrap().into()
@@ -46,6 +47,7 @@ where
 {
     s.serialize_str(format!("\"{}\"", c.to_srgba().to_hex()).as_str())
 }
+
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct GraphAttrs {
     #[schemars(with = "String", default = "gray_color_str")]
@@ -96,11 +98,26 @@ pub struct Attrs {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type")]
 pub enum ParamType {
-    Bool { default: bool },
-    Float { min: f64, max: f64, default: f64 },
-    Integer { min: i64, max: i64, default: i64 },
-    String { default: String },
-    Option { values: HashSet<String>, default: String },
+    Bool {
+        default: bool,
+    },
+    Float {
+        min: f64,
+        max: f64,
+        default: f64,
+    },
+    Integer {
+        min: i64,
+        max: i64,
+        default: i64,
+    },
+    String {
+        default: String,
+    },
+    Option {
+        values: HashSet<String>,
+        default: String,
+    },
 }
 
 impl Default for ParamType {
@@ -139,10 +156,18 @@ impl std::cmp::PartialEq for NodeType {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(Debug, Default, Clone)]
 pub struct Node {
     pub name: String,
     pub node_data: NodeType,
+    pub ast: AST, //TODO: change this to reference
+}
+
+impl std::cmp::PartialEq for Node {
+  fn eq(&self, other: &Self) -> bool {
+      self.name == other.name
+      && self.node_data == other.node_data
+  }
 }
 
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
@@ -174,6 +199,14 @@ pub struct File {
 pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
     let data: Result<File, serde_yaml::Error> = serde_yaml::from_str(&graph_code);
     if let Ok(mut m_data) = data {
+        for node_type in m_data.graph_defn.node_types.iter_mut() {
+            let res = compile_ast(node_type);
+            if res.is_err() {
+                return Err(serde_yaml::Error::custom(
+                    format!("Error compiling function for node type {}", node_type.id).as_str(),
+                ));
+            }
+        }
         let mut scope = Scope::new();
         for node in m_data.graph_defn.graph.iter() {
             let type_data = m_data
@@ -185,12 +218,32 @@ pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
                 m_data.graph_defn.node_instances.push(Node {
                     name: node.name.clone(),
                     node_data: data_w_type.clone(),
+                    ast: data_w_type.ast.clone(),
                 });
             } else {
-                return Err(serde_yaml::Error::custom(format!("Node type not found for type {}", node.node_type).as_str()));
+                return Err(serde_yaml::Error::custom(
+                    format!("Node type not found for type {}", node.node_type).as_str(),
+                ));
             }
         }
         return Ok(m_data);
     }
     data
+}
+
+pub fn compile_ast(node: &mut NodeType) -> Result<bool, rhai::ParseError> {
+    let mut engine = rhai::Engine::new();
+
+    c_log!("Compiling code for node type {}", node.id);
+    if node.func.is_none() {
+        c_log!("No code for node type {}", node.id);
+        return Ok(true);
+    }
+    let ast = engine.compile(node.func.as_ref().unwrap());
+    if ast.is_ok() {
+        c_log!("code compiled for node type {}", node.id);
+        node.ast = ast.unwrap();
+        return Ok(true);
+    }
+    Err(ast.err().unwrap())
 }
