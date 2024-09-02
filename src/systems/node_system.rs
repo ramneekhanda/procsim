@@ -7,6 +7,7 @@ use crate::systems::drag;
 use crate::c_log;
 use bevy::text::TextLayoutInfo;
 use bevy::transform::commands;
+use bevy_egui::egui::Shape;
 use bevy_prototype_lyon::prelude::*;
 
 use bevy::prelude::*;
@@ -15,6 +16,12 @@ use bevy_tweening::{lens::*, *};
 use rand::Rng;
 use std::time::Duration;
 use crate::resources::graph_def::GraphChange;
+
+const ICON_WIDTH: f32 = 64.0;
+const ICON_HEIGHT: f32 = 64.0;
+const TEXT_DISTANCE_FROM_BOTTOM: f32 = 8.0;
+const FONT_SIZE: f32 = 24.0;
+const BOUNDING_BOX_PADDING: f32 = 8.0;
 
 pub fn create_nodes(
     mut commands: Commands,
@@ -42,12 +49,15 @@ extern "C" {
     fn alert(s: &str);
 }
 
+
+
 pub fn on_click(
     e: Listener<Pointer<Click>>,
     mut commands: Commands,
     mut q_selected: Query<(Entity, &SelectedNodeMarker)>,
     mut q: Query<(Entity, &mut Transform, &mut Children, &NodeMarker)>,
     text_query: Query<&TextLayoutInfo>,
+    sprite: Query<&Sprite>,
 ) {
     if q.iter().count() == 0 {
         return;
@@ -55,27 +65,73 @@ pub fn on_click(
     for (entity, _) in q_selected.iter_mut() {
         commands.entity(entity).despawn_recursive();
     }
-
+    
     for (mut entity, mut transform, children, node) in q.iter_mut() {
         let mut selected: bool = false;
         let mut scale = 1.0;
         for child in children.iter() {
             if *child == e.target() {
+                c_log!("child selected: {:?}", child);    
                 if selected == false {
                     selected = true;
                 }
             }
         }
+
+        // find bounding box and create a shape around it
         if selected {
             scale = 1.25;
-            let id = commands.spawn(SelectedNodeMarker {
-              node_name: node.node_name.clone(),
-              node_type: node.node_type.clone(),
-            }).id();
-            commands.entity(entity).push_children(&[id]);
-        } 
-        transform.scale = Vec3::new(scale, scale, 1.0);
+            let mut sprite_rect = Vec2::default();
+            let mut text_rect = Vec2::default();
+            for child in children.iter() {
+                if let Ok(sprite) = sprite.get(*child) {
+                    sprite_rect = sprite.custom_size.unwrap();
+                    c_log!("sprite found: {:?}", sprite_rect);
+                }
+                if let Ok(text) = text_query.get(*child) {
+                    c_log!("text layout info: {:?}", text);
+                    text_rect = text.logical_size;
+                } 
+            }
+            let x = f32::max(sprite_rect.x, text_rect.x) + BOUNDING_BOX_PADDING;
+            let y = sprite_rect.y + FONT_SIZE + TEXT_DISTANCE_FROM_BOTTOM + BOUNDING_BOX_PADDING;
+            let y_transform = -1.0 * (FONT_SIZE + TEXT_DISTANCE_FROM_BOTTOM)/2.0;    
+            
+            let rect = Vec2::new(x, y);
+            let mut vec: Vec<Vec2> = Vec::new();
+            vec.push(Vec2::new(-rect.x/2.0, -rect.y/2.0));
+            vec.push(Vec2::new(rect.x/2.0, -rect.y/2.0));
+            vec.push(Vec2::new(rect.x/2.0, rect.y/2.0));
+            vec.push(Vec2::new(-rect.x/2.0                                                                                                                              , rect.y/2.0));
+            let shape = shapes::RoundedPolygon {
+                points:vec,
+                radius: 4.0,
+                ..shapes::RoundedPolygon::default()
+            };
+            let id_shape = commands.spawn((
+                ShapeBundle {      
+                    path: GeometryBuilder::build_as(&shape),
+                    spatial: SpatialBundle {
+                        transform: Transform {
+                            translation: Vec3::new(0.0, y_transform, 0.0),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                Fill::color(Color::rgba(1.0, 1.0, 1.0, 0.5)),
+                Stroke::new(Color::BLACK, 2.0),
+                SelectedNodeMarker {
+                    node_name: node.node_name.clone(),
+                    node_type: node.node_type.clone(),
+                }
+            )).id();
+            commands.entity(entity).push_children(&[id_shape]);
+        }
+        //transform.scale = Vec3::new(scale, scale, 1.0);
     }
+    
 }
 
 fn spawn_node(
@@ -99,7 +155,7 @@ fn spawn_node(
 
     let text_style = TextStyle {
         font: font.clone(),
-        font_size: 16.0,
+        font_size: FONT_SIZE,
         color: g_attrs.text_color,
     };
     let node_attrs = &node.node_data.attrs;
@@ -130,9 +186,11 @@ fn spawn_node(
         ..shapes::RegularPolygon::default()
     };
 
+    let text_y = -1.0 * (ICON_HEIGHT/2.0 + TEXT_DISTANCE_FROM_BOTTOM + FONT_SIZE/2.0);
+
     let txt_bndl = Text2dBundle {
         text: Text::from_section(&node.name, text_style).with_justify(JustifyText::Center),
-        transform: Transform::from_translation(Vec3::new(0.0, -24., 100.)),
+        transform: Transform::from_translation(Vec3::new(0.0, text_y, 100.)),
         ..default()
     };
 
@@ -142,23 +200,24 @@ fn spawn_node(
                 transform: Transform::from_translation(Vec3::new(0., 0., 100.)),
                 ..Default::default()
             },
-            Stroke::new(Color::BLACK, 1.5),
             NodeMarker {
                 node_type: node.node_data.id.clone(),
                 node_name: node.name.clone(),
                 ..Default::default()
             },
-            On::<Pointer<Drag>>::run(drag::drag),
             On::<Pointer<Click>>::run(on_click),
+            On::<Pointer<Drag>>::run(drag::drag),
             Animator::new(tween),
         ))
         .id();
+    
 
     let icon_child = commands
         .spawn((SpriteBundle {
             texture: node_icon.clone(),
+            transform: Transform::from_translation(Vec3::new(0., 0., 100.)),
             sprite: Sprite {
-                custom_size: Vec2::new(32., 32.).into(),
+                custom_size: Vec2::new(ICON_WIDTH, ICON_HEIGHT).into(),
                 ..Default::default()
             },
             ..default()
@@ -172,47 +231,3 @@ fn spawn_node(
         .push_children(&[icon_child, text_child]);
 }
 
-// #[test]
-// fn did_spawn_node() {
-//     use crate::parser::graphv2::parse_graph2;
-//     let mut app = App::new();
-//     let res = parse_graph2(&include_str!("../../examples/tests/update_node.yaml").to_string());
-
-//     let mut graph_defn = GraphDefinitionRes::default();
-//     graph_defn.graph_defn = res.unwrap().graph_defn;
-
-//     app.add_plugins((
-//         MinimalPlugins,
-//         AssetPlugin::default(),
-//         ImagePlugin::default(),
-//     ));
-//     let _assets = app.world().resource::<AssetServer>();
-//     app.init_asset::<bevy::text::Font>();
-//     app.insert_resource(graph_defn);
-
-//     app.add_systems(Update, update_nodes);
-//     app.update();
-
-//     assert_eq!(
-//         app.world_mut().query::<&Node>().iter(&app.world()).count(),
-//         3
-//     ); // check all the nodes have been spawned
-//     assert_eq!(
-//         app.world_mut().query::<Entity>().iter(&app.world()).count(),
-//         9
-//     ); // check that three entities are created per node
-//     app.world_mut()
-//         .resource_mut::<GraphDefinitionRes>()
-//         .graph_defn
-//         .graph
-//         .clear();
-//     app.update();
-//     assert_eq!(
-//         app.world_mut().query::<&Node>().iter(&app.world()).count(),
-//         0
-//     ); // check if we change the graph the response is acceptable
-//     assert_eq!(
-//         app.world_mut().query::<Entity>().iter(&app.world()).count(),
-//         0
-//     ); // check that entities are deleted as expected
-// }

@@ -19,7 +19,7 @@ lyon_algorithms = "1"
 serde = "1.0.209"
 serde_yaml = "0.9.34+deprecated"
 rhai = { version="1.19.0", features=["wasm-bindgen", "sync"] }
-wasm-bindgen = "0.2.92"
+wasm-bindgen = "0.2.93"
 bevy_web_asset = "0.9.0"
 lazy_static = "1.5.0"
 schemars = "0.8.21"
@@ -27,8 +27,8 @@ serde_json = "1.0.127"
 derivative = "2.2.0"
 
 [profile.release]
-lto = false
-opt-level = 1
+lto = true
+opt-level = 'z'
 strip = true
 
 [profile.dev]

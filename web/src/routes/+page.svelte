@@ -3,7 +3,6 @@
   import Canvas from "./Canvas.svelte";
   import { Pane, Splitpanes } from "svelte-splitpanes";
   import Menubar from "$lib/components/menubar/menubar.svelte";
-  import { createSwapy } from "swapy";
   import init, { compile_code, get_code_schema } from "./dsa.js";
   import { onMount } from "svelte";
 
