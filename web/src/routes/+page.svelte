@@ -32,19 +32,14 @@
   }
 </script>
 
-<div class="flex flex-col h-full">
-  <div class="flex-initial">
-    <Menubar on:runClicked={() => compileCode()} />
-  </div>
-
-  <Splitpanes class="flex-auto" horizontal={false}>
-    <Pane minSize={15}>
-      <Canvas />
+<div class="flex">
+  <Menubar on:runClicked={() => compileCode()} />
+  <Splitpanes horizontal={false}>
+    <Pane >
+      <Canvas/>
     </Pane>
     <Pane>
-      <div class="flex flex-col h-full">
-        <Monaco bind:this={codeEditor} {schema} />
-      </div>
+      <Monaco bind:this={codeEditor} {schema} />
     </Pane>
   </Splitpanes>
 </div>

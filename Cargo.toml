@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { version = "0.14.1", default-features = false, features = ["bevy_animation", "bevy_asset", "bevy_color", "bevy_sprite", "bevy_text", "png", "bevy_render", "webgl2"] }
+bevy = { version = "0.14.1", default-features = false, features = ["bevy_asset", "bevy_color", "bevy_sprite", "bevy_text", "png", "bevy_render", "webgl2"] }
 bevy_egui = {version = "0.29.0", default-features = false, features = ["default_fonts", "open_url", "render"] }
 rand = "0.8.5"
 rfd = "0.14.1"
@@ -36,7 +36,7 @@ strip = "debuginfo"
 opt-level = 1
 
 [profile.dev.package."*"]
-opt-level = 1
+opt-level = 'z'
 
 [package.metadata.commands]
 watch = "cargo watch -x 'run --target wasm32-unknown-unknown --release'"
@@ -45,6 +45,7 @@ watch = "cargo watch -x 'run --target wasm32-unknown-unknown --release'"
 version = "0.3.70"
 features = [
   'Window',
+  'HtmlDivElement',
   "CanvasRenderingContext2d",
   "HtmlCanvasElement",
 ]

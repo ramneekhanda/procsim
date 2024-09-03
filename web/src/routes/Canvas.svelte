@@ -2,20 +2,18 @@
     import { onMount } from "svelte";
     import init from './dsa.js';
 
+    let parentDiv: HTMLDivElement;
     let canvasElement: HTMLCanvasElement;
-    
+
     onMount(() => {
         canvasElement.id = "bevy-canvas";
+
         init().catch((error) => {
             if (!error.message.startsWith("Using exceptions for control flow, don't mind me. This isn't actually an error!")) {
                 throw error;
             }
         });
     });
-    let w, h;
-
 </script>
 
-<div id="canvas-parent" class='flex' bind:clientWidth={w} bind:clientHeight={h}>
-    <canvas height={h} width={w} id="bevy-canvas" class="outline-none" bind:this={canvasElement}/>
-</div>
+<canvas id="bevy-canvas" class="d-block w-100 h-100" bind:this={canvasElement}/>
