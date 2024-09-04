@@ -1,12 +1,8 @@
 <script lang="ts">
   import "../app.css";
   import type monaco from "monaco-editor";
-
   import { configureMonacoYaml } from "monaco-yaml";
-
   import { onMount } from "svelte";
-
-  import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
   import YamlWorker from "./monaco_yaml.worker.js?worker";
 
   let Monaco: typeof monaco;
@@ -44,8 +40,6 @@
     window.MonacoEnvironment = {
       getWorker: function (_moduleId: any, label: string) {
         switch (label) {
-          case "editorWorkerService":
-            return new EditorWorker();
           case "yaml":
             let worker = new YamlWorker();
             return worker;

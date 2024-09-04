@@ -99,7 +99,7 @@
 
   onMount(async () => {
     const api = createDockview(dockView, {
-      className: "dockview-theme-replit",
+      className: "dockview-theme-light",
       createComponent: (options) => {
         switch (options.name) {
           case "MonacoPanel":
@@ -122,7 +122,7 @@
       },
     });
 
-    api.addPanel({
+    let viewPanel = api.addPanel({
       id: "view_panel",
       component: "ViewPanel",
       tabComponent: "Tab",
@@ -135,6 +135,7 @@
       title: "Editor",
       tabComponent: "Tab",
       position: {
+        referencePanel: viewPanel,
         direction: "right",
       },
     });
@@ -146,10 +147,9 @@
       tabComponent: "Tab",
       position: {
         referencePanel: monacoPanel,
-        direction: "below",
       },
     });
-
+    api.panels[1].focus();
     init()
       .catch((error) => {
         if (
