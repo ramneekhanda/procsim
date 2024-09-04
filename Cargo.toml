@@ -34,6 +34,7 @@ strip = "debuginfo"
 
 [profile.dev]
 opt-level = 1
+debug = true
 
 [profile.dev.package."*"]
 opt-level = 'z'

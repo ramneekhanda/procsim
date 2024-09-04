@@ -13,10 +13,15 @@ const config = {
 			pages: '../package/release',
 			assets: '../package/release',
 			fallback: undefined,
-			precompress: false,
+			precompress: true,
 			strict: true
-		})
+		}),
+    alias: {
+			'@/*': './src/lib/*',
+			'$lib/*': './src/lib/*'
+		}
 	},
+
 	preprocess: vitePreprocess()
 };
 
