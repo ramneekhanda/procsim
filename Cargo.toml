@@ -49,4 +49,6 @@ features = [
   'HtmlDivElement',
   "CanvasRenderingContext2d",
   "HtmlCanvasElement",
+  "CustomEvent",
+  "CustomEventInit",
 ]

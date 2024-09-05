@@ -19,7 +19,6 @@ use std::time::Duration;
 use ui::CodeStorage;
 
 use bevy_web_asset::WebAssetPlugin;
-#[cfg(target_arch = "wasm32")]
 use systems::browser_resize::handle_browser_resize;
 
 fn setup_app(app: &mut App) {
@@ -84,12 +83,7 @@ fn setup_app(app: &mut App) {
         .add_systems(
             Update,
             (
-                #[cfg(target_arch = "wasm32")]
                 systems::ingest_code::ingest_codechange.run_if(resource_equals(LoadingState {
-                    state: LoadingStateOpt::Ready,
-                })),
-                #[cfg(not(target_arch = "wasm32"))]
-                ui::draw_codeviewer.run_if(resource_equals(LoadingState {
                     state: LoadingStateOpt::Ready,
                 })),
                 ui::graph_properties_viewer.run_if(resource_equals(LoadingState {
@@ -107,7 +101,6 @@ fn setup_app(app: &mut App) {
               )),
             ),
         );
-    #[cfg(target_arch = "wasm32")]
     app.add_systems(Update, handle_browser_resize);
     app.run();
 }

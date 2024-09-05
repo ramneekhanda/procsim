@@ -3,28 +3,45 @@
   import Canvas from "./Canvas.svelte";
   import Menubar from "$lib/components/menubar/menubar.svelte";
   import init, { compile_code, get_code_schema } from "./dsa";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import "dockview-core/dist/styles/dockview.css";
   import { createDockview } from "dockview-core";
   import "dockview-core/dist/styles/dockview.css";
-  import Grid from "gridjs-svelte";
-  import "gridjs/dist/theme/mermaid.css";
+  import {TabulatorFull as Tabulator} from 'tabulator-tables';
+  import  "tabulator-tables/dist/css/tabulator.min.css";
+
+  interface LogMessageType {
+    time: string;
+    message: string;
+    severity: string;
+    node: string;
+  }
+
   import type {
     GroupPanelPartInitParameters,
     IContentRenderer,
     IDockviewPanel,
     ITabRenderer,
   } from "dockview-core";
+  import type Tabular from "gridjs/dist/src/tabular.js";
 
+  const columns = [
+	 	{title:"time", field:"time"},
+	 	{title:"message", field:"message"},
+	 	{title:"severity", field:"severity"},
+    {title: "node", field: "node"}
+  ];
+  let id = 0;
   let codeEditor: Monaco;
   let schema = "";
+  let grid: Tabular;
   let dockView: HTMLElement;
+  let log_event_listener: HTMLDivElement;
+
+  let data: Array<LogMessageType> = [];
+
   $: codeEditor && codeEditor.$set({ schema });
-  
-  const data = [
-    { name: "John", email: "john@example.com" },
-    { name: "Mark", email: "mark@gmail.com" },
-  ]
+
   class MonacoPanel implements IContentRenderer {
     private readonly _element: HTMLElement;
 
@@ -53,7 +70,18 @@
 
     constructor() {
       const logsDiv = document.createElement("div");
-      let monaco = new Grid({ target: logsDiv, props: { data } });
+      const mygrid = document.getElementById("myrevo");
+      grid = new Tabulator(
+        logsDiv,
+        {
+          columns: columns,
+          data: data,
+          reactiveData:true,
+          layout: "fitColumns",
+          height: "100%",
+          width: "100%",
+        }
+      );
       this._element = logsDiv;
     }
 
@@ -150,6 +178,14 @@
       },
     });
     api.panels[1].focus();
+    log_event_listener.addEventListener("dsa-log-event", (e: CustomEvent) => {
+      let more_data = {} as LogMessageType;
+      more_data.time = new Date().toLocaleTimeString();
+      more_data.message = e.detail;
+      more_data.severity = "info";
+      more_data.node = "dsa";
+      data.push(more_data);
+    });
     init()
       .catch((error) => {
         if (
@@ -176,3 +212,4 @@
   <Menubar on:runClicked={() => compileCode()} />
   <div class="flex" bind:this={dockView}></div>
 </div>
+<div id="dsa-log-event-listener" bind:this={log_event_listener} />

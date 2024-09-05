@@ -1,8 +1,9 @@
-use crate::parser::graphv2::GraphDefinition;
+use crate::parser::graphv2::{GraphDefinition, ParamType};
 use crate::resources::graph_def::GraphDefinitionRes;
 use crate::stdlib::rhai_lib::rhai_log;
 use crate::c_log;
 use bevy::prelude::*;
+
 
 use bevy::utils::tracing::event;
 use rhai::{Engine, Scope};
@@ -15,7 +16,21 @@ pub fn execute_rhai_engine(
           let _ = node.node_data.func.as_ref().is_some_and(|f| {
               let mut engine = Engine::new(); // TODO: Optimization - store on heap and initialize once
               engine.register_fn("log", rhai_log);
-              match engine.run_ast(&node.ast) {
+              let mut scope = Scope::new();
+              for node_params in node.node_data.params.iter() {
+                  if let ParamType::Bool {default} = node_params.param_type {
+                      scope.push_constant(node_params.name.clone(), default);
+                  } else if let ParamType::Float {default, min, max} = node_params.param_type {
+                    scope.push_constant(node_params.name.clone(), default);
+                  } else if let ParamType::Integer {default, min, max} = node_params.param_type {
+                    scope.push_constant(node_params.name.clone(), default);
+                  } else if let ParamType::String {default} = &node_params.param_type {
+                    scope.push_constant(node_params.name.clone(), default.clone());
+                  } else if let ParamType::Option {default, values} = &node_params.param_type {
+                    scope.push_constant(node_params.name.clone(), default.clone());
+                  }
+              }
+              match engine.run_ast_with_scope(&mut scope, &node.ast) {
                   Ok(res) => true,
                   Err(e) => {
                     c_log!("error running");
