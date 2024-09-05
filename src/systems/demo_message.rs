@@ -21,7 +21,7 @@ pub fn demo_send_message(
         return;
     }
 
-    let mut rng = rand::thread_rng();
+    let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
     q.as_mut().timer.tick(time.delta());
 
     if q.timer.finished() {

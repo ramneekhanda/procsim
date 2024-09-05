@@ -43,7 +43,7 @@ graph_defn:
           values: [a, c, b]
           default: a
       attrs:
-        tick: 5
+        ticks: 5
         icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
 
     - id: server
@@ -67,7 +67,7 @@ graph_defn:
           values: [a, c, b]
           default: a
       attrs:
-        tick: 5
+        ticks: 5
         icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
     
     - id: client

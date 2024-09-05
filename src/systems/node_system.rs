@@ -71,7 +71,6 @@ pub fn on_click(
         let mut scale = 1.0;
         for child in children.iter() {
             if *child == e.target() {
-                c_log!("child selected: {:?}", child);    
                 if selected == false {
                     selected = true;
                 }
@@ -86,10 +85,8 @@ pub fn on_click(
             for child in children.iter() {
                 if let Ok(sprite) = sprite.get(*child) {
                     sprite_rect = sprite.custom_size.unwrap();
-                    c_log!("sprite found: {:?}", sprite_rect);
                 }
                 if let Ok(text) = text_query.get(*child) {
-                    c_log!("text layout info: {:?}", text);
                     text_rect = text.logical_size;
                 } 
             }

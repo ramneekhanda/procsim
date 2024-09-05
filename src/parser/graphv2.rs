@@ -1,6 +1,8 @@
+use crate::c_log;
 use bevy::{
     color::{Color, Srgba},
     time::Timer,
+    prelude::*,
 };
 use rhai::{Scope, AST};
 use schemars::JsonSchema;
@@ -8,7 +10,7 @@ use serde::de::Error;
 use serde::ser::Serializer;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{HashMap, HashSet};
-use crate::c_log;
+use std::time::Duration;
 
 fn gray_color() -> Color {
     Srgba::hex("#D3D3D3").unwrap().into()
@@ -88,11 +90,19 @@ impl Default for GraphAttrs {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct Attrs {
-    #[serde(default)]
-    pub ticks: i32,
+    pub ticks: u64,
     pub icon: Option<String>,
+}
+
+impl Default for Attrs {
+    fn default() -> Self {
+        Attrs {
+            ticks: 2,
+            icon: None,
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -160,14 +170,17 @@ impl std::cmp::PartialEq for NodeType {
 pub struct Node {
     pub name: String,
     pub node_data: NodeType,
+    pub links: Vec<String>,
+    pub timer: Timer,
+
     pub ast: AST, //TODO: change this to reference
+    pub scope: Scope<'static>,
 }
 
 impl std::cmp::PartialEq for Node {
-  fn eq(&self, other: &Self) -> bool {
-      self.name == other.name
-      && self.node_data == other.node_data
-  }
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.node_data == other.node_data
+    }
 }
 
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
@@ -215,11 +228,19 @@ pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
                 .iter()
                 .find(|x| x.id == node.node_type);
             if let Some(data_w_type) = type_data {
-                m_data.graph_defn.node_instances.push(Node {
+                let mut n = Node {
                     name: node.name.clone(),
                     node_data: data_w_type.clone(),
+                    timer: Timer::new(
+                        Duration::from_secs(data_w_type.attrs.ticks),
+                        TimerMode::Repeating,
+                    ),
+                    links: node.links.clone(),
                     ast: data_w_type.ast.clone(),
-                });
+                    scope: scope.clone(),
+                };
+                n.scope.push_constant("links", node.links.clone());
+                m_data.graph_defn.node_instances.push(n);
             } else {
                 return Err(serde_yaml::Error::custom(
                     format!("Node type not found for type {}", node.node_type).as_str(),
