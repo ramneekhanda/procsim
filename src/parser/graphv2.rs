@@ -9,8 +9,9 @@ use schemars::JsonSchema;
 use serde::de::Error;
 use serde::ser::Serializer;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::{collections::{HashMap, HashSet}, fmt::Debug};
 use std::time::Duration;
+use rhai::Dynamic;
 
 fn gray_color() -> Color {
     Srgba::hex("#D3D3D3").unwrap().into()
@@ -215,8 +216,9 @@ pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
         for node_type in m_data.graph_defn.node_types.iter_mut() {
             let res = compile_ast(node_type);
             if res.is_err() {
+                let e = res.err().unwrap();
                 return Err(serde_yaml::Error::custom(
-                    format!("Error compiling function for node type {}", node_type.id).as_str(),
+                    format!("Error compiling function for node type {} with error: {:?}", node_type.id, e).as_str(),
                 ));
             }
         }
@@ -239,7 +241,8 @@ pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
                     ast: data_w_type.ast.clone(),
                     scope: scope.clone(),
                 };
-                n.scope.push_constant("links", node.links.clone());
+                let links: Dynamic = node.links.clone().into();
+                n.scope.push_constant("links", links);
                 m_data.graph_defn.node_instances.push(n);
             } else {
                 return Err(serde_yaml::Error::custom(
