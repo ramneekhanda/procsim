@@ -4,4 +4,5 @@
 /web/build
 /web/.svelte-kit
 package-lock.json
+Cargo.lock
 .DS_Store

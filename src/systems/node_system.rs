@@ -43,14 +43,6 @@ pub fn create_nodes(
   }
 }
 
-use wasm_bindgen::prelude::*;
-#[wasm_bindgen]
-extern "C" {
-    fn alert(s: &str);
-}
-
-
-
 pub fn on_click(
     e: Listener<Pointer<Click>>,
     mut commands: Commands,
@@ -80,26 +72,22 @@ pub fn on_click(
         // find bounding box and create a shape around it
         if selected {
             scale = 1.25;
-            let mut sprite_rect = Vec2::default();
             let mut text_rect = Vec2::default();
             for child in children.iter() {
-                if let Ok(sprite) = sprite.get(*child) {
-                    sprite_rect = sprite.custom_size.unwrap();
-                }
                 if let Ok(text) = text_query.get(*child) {
                     text_rect = text.logical_size;
                 } 
             }
-            let x = f32::max(sprite_rect.x, text_rect.x) + BOUNDING_BOX_PADDING;
-            let y = sprite_rect.y + FONT_SIZE + TEXT_DISTANCE_FROM_BOTTOM + BOUNDING_BOX_PADDING;
+            let x = f32::max(ICON_WIDTH, text_rect.x) + BOUNDING_BOX_PADDING;
+            let y = ICON_HEIGHT + FONT_SIZE + TEXT_DISTANCE_FROM_BOTTOM + BOUNDING_BOX_PADDING;
             let y_transform = -1.0 * (FONT_SIZE + TEXT_DISTANCE_FROM_BOTTOM)/2.0;    
-            
+
             let rect = Vec2::new(x, y);
             let mut vec: Vec<Vec2> = Vec::new();
             vec.push(Vec2::new(-rect.x/2.0, -rect.y/2.0));
             vec.push(Vec2::new(rect.x/2.0, -rect.y/2.0));
             vec.push(Vec2::new(rect.x/2.0, rect.y/2.0));
-            vec.push(Vec2::new(-rect.x/2.0                                                                                                                              , rect.y/2.0));
+            vec.push(Vec2::new(-rect.x/2.0, rect.y/2.0));
             let shape = shapes::RoundedPolygon {
                 points:vec,
                 radius: 4.0,
@@ -138,7 +126,7 @@ fn spawn_node(
     ca: &Res<CommonAssets>,
     g_attrs: &GraphAttrs,
 ) {
-    //TODO move this to setup
+
     let mut font: Handle<Font> = Default::default();
     if let Some(ResourceType::FontHandle(f1)) = ca.resource_map.get("default_font") {
         font = f1.clone();
@@ -148,7 +136,6 @@ fn spawn_node(
     if let Some(ResourceType::ImageHandle(img)) = ca.resource_map.get("default_system_icon") {
         def_icon = img.clone();
     };
-    //TODO move end
 
     let text_style = TextStyle {
         font: font.clone(),
