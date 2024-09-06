@@ -1,0 +1,1 @@
+import{a as t}from"../chunks/entry.BtTN4yFP.js";export{t as start};
