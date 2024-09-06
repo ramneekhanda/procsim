@@ -1,21 +1,15 @@
-use std::any::Any;
-use std::borrow::BorrowMut;
-use std::collections::HashMap;
-use std::hash::Hash;
-use std::cell::RefCell;
 use std::sync::{Arc, RwLock};
 
 use crate::c_log;
-use crate::parser::graphv2::{GraphDefinition, ParamType, NodeParams};
+use crate::parser::graphv2::{ParamType, NodeParams};
 use crate::resources::graph_def::GraphDefinitionRes;
 use crate::stdlib::rhai_lib::rhai_log;
 use bevy::prelude::*;
-use bevy::utils::tracing::event;
 use rhai::{Dynamic, Engine, Scope};
 
 pub fn execute_rhai_engine(mut graph_defn: ResMut<GraphDefinitionRes>, time: Res<Time>) {
-    let mut message_store = Arc::new(RwLock::new(Vec::<Dynamic>::new()));
-    let mut engine = initialize_engine(&message_store);
+    let message_store = Arc::new(RwLock::new(Vec::<Dynamic>::new()));
+    let engine = initialize_engine(&message_store);
 
     let gd = &mut graph_defn.graph_defn;
     for node in gd.node_instances.iter_mut() {

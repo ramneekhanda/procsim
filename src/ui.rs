@@ -2,15 +2,12 @@ use bevy::prelude::*;
 
 use crate::{components::node::SelectedNodeMarker, parser::graphv2::ParamType};
 use bevy_egui::{
-    egui::{self, epaint::color, widgets::Slider},
+    egui::{self, widgets::Slider},
     EguiContexts,
 };
 
 use crate::resources::graph_def::GraphDefinitionRes;
-use crate::{
-    parser::graphv2::{parse_graph2, Node, NodeType},
-    resources::common_assets::{LoadingState, LoadingStateOpt},
-};
+use crate::parser::graphv2::Node;
 
 #[derive(Resource)] //
 pub struct CodeStorage {
@@ -68,9 +65,9 @@ pub fn color_picker(ui: &mut egui::Ui, color: &mut bevy::color::Color, label: &s
 pub fn graph_properties_viewer(
     mut contexts: EguiContexts,
     mut graph_defn: ResMut<GraphDefinitionRes>,
-    mut q_selected: Query<(Entity, &SelectedNodeMarker)>,
+    q_selected: Query<(Entity, &SelectedNodeMarker)>,
 ) {
-    use egui::widgets::color_picker;
+    
     egui::Window::new("Graph Properties").show(contexts.ctx_mut(), |ui| {
         color_picker(
             ui,

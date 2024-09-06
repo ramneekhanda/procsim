@@ -1,7 +1,5 @@
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsValue;
 
-use web_sys::{CustomEvent, CustomEventInit};
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
