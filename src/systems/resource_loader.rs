@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::transform::commands;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -9,8 +8,8 @@ extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
 }
-use crate::resources::graph_def::GraphChange;
 use crate::resources::common_assets::{CommonAssets, LoadingState, LoadingStateOpt, ResourceType};
+use crate::resources::graph_def::GraphChange;
 use crate::resources::graph_def::GraphDefinitionRes;
 
 fn load_default_fonts_and_icons(ca: &mut ResMut<CommonAssets>, asset_server: &Res<AssetServer>) {

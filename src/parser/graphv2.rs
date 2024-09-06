@@ -222,7 +222,7 @@ pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
                 ));
             }
         }
-        let mut scope = Scope::new();
+        let scope = Scope::new();
         for node in m_data.graph_defn.graph.iter() {
             let type_data = m_data
                 .graph_defn
@@ -256,7 +256,7 @@ pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
 }
 
 pub fn compile_ast(node: &mut NodeType) -> Result<bool, rhai::ParseError> {
-    let mut engine = rhai::Engine::new();
+    let engine = rhai::Engine::new();
 
     c_log!("Compiling code for node type {}", node.id);
     if node.func.is_none() {

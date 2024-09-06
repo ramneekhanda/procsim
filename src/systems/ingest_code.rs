@@ -7,7 +7,6 @@ use crate::{
     ui::CodeStorage,
 };
 
-use crate::c_log;
 use bevy::prelude::*;
 
 use lazy_static::lazy_static;

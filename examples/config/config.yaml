@@ -22,30 +22,6 @@ graph_defn:
     text_color: "#000000"
     title: some graph
   node_types:
-    - id: router
-      fn: *server_fn
-      params:
-        - name: BooleanParam
-          type: Bool
-          default: false
-        - name: IntParam
-          type: Integer
-          default: 0
-          min: 0
-          max: 10
-        - name: FloatParamm
-          type: Float
-          default: 0.5002
-          min: 0.5001
-          max: 1.5002
-        - name: OptionParamm
-          type: Option
-          values: [a, c, b]
-          default: a
-      attrs:
-        ticks: 5
-        icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
-
     - id: server
       fn: *server_fn
       params:

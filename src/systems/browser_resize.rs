@@ -1,4 +1,3 @@
-use crate::c_log;
 use wasm_bindgen::prelude::*;
 
 pub fn handle_browser_resize(

@@ -36,6 +36,6 @@ macro_rules! log_dsa_event {
       c_log!("error creating custom event");
       return;
     };
-    log_ev_listener.dispatch_event(&event);
+    let _ = log_ev_listener.dispatch_event(&event);
   };
 }
