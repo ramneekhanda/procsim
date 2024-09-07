@@ -28,6 +28,7 @@
   "type": "module",
   "dependencies": {
     "@monaco-editor/loader": "^1.4.0",
+    "carta-md": "^4.4.5",
     "dockview-core": "1.17.1",
     "monaco-yaml": "^5.2.2",
     "tabulator-tables": "^6.2.5"
