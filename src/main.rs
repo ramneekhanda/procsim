@@ -61,9 +61,6 @@ fn setup_app(app: &mut App) {
         .add_systems(
             Update,
             (
-                systems::clear_node_selection::clear_node_selection.run_if(resource_equals(LoadingState {
-                    state: LoadingStateOpt::Ready,
-                })),
                 systems::rhai_engine::execute_rhai_engine.run_if(resource_equals(LoadingState {
                     state: LoadingStateOpt::Ready,
                 })),

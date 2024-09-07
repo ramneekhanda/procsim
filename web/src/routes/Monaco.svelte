@@ -25,6 +25,7 @@
       });
     }
   }
+  
   $: if (schema !== "") {
     configureMonaco();
   }
@@ -79,5 +80,6 @@
     };
   });
 </script>
-
-<div class="monaco-container flex h-fit" bind:this={editorElement} />
+<div class="flex h-fit">
+  <div class="monaco-container flex h-fit" bind:this={editorElement} />
+</div>

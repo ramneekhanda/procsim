@@ -15,10 +15,11 @@
   let data: Array<Panels.LogMessageType> = [];
   $: codeEditor && codeEditor.$set({ schema });
 
-  function onLogEvent(e: CustomEvent) {
+  function onLogEvent(e: Event) {
+    var customEvent = e as CustomEvent;
     let more_data = {} as Panels.LogMessageType;
     more_data.time = new Date().toLocaleTimeString();
-    more_data.message = e.detail;
+    more_data.message = customEvent.detail;
     more_data.severity = "info";
     more_data.node = "dsa";
     data.unshift(more_data);

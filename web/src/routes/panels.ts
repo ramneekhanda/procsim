@@ -99,7 +99,6 @@ export class LogPanel implements IContentRenderer {
       reactiveData:true,
       layout: "fitColumns",
       height: "100%",
-      width: "100%",
     });
   }
 

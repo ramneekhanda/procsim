@@ -157,12 +157,6 @@ fn spawn_node(
         },
     );
 
-    let shape = shapes::RegularPolygon {
-        sides: 4,
-        feature: shapes::RegularPolygonFeature::Radius(22.0),
-        ..shapes::RegularPolygon::default()
-    };
-
     let text_y = -1.0 * (ICON_HEIGHT / 2.0 + TEXT_DISTANCE_FROM_BOTTOM + FONT_SIZE / 2.0);
 
     let txt_bndl = Text2dBundle {
