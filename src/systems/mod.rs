@@ -9,3 +9,4 @@ pub mod rhai_engine;
 pub mod update_connectors;
 pub mod update_message;
 pub mod node_system;
+pub mod clear_node_selection;

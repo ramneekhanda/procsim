@@ -106,7 +106,11 @@ export class LogPanel implements IContentRenderer {
   init(_: GroupPanelPartInitParameters): void {}
 }
 
-export function createDockviewInternal(dockView: HTMLElement, schema: string, data: &Array<LogMessageType>, returnVal: Object) {
+export interface DockviewReturn {
+  codeEditor: Monaco;
+};
+
+export function createDockviewInternal(dockView: HTMLElement, schema: string, data: &Array<LogMessageType>, returnVal: DockviewReturn) {
   const api = createDockview(dockView, {
     className: "dockview-theme-light",
     createComponent: (options) => {

@@ -44,7 +44,6 @@ fn load_resources_from_file(
 pub fn load_assets(
     mut ca: ResMut<CommonAssets>,
     mut ls: ResMut<LoadingState>,
-    commands: Commands,
     g: Res<GraphDefinitionRes>,
     asset_server: Res<AssetServer>,
     mut event_writer: EventWriter<GraphChange>,

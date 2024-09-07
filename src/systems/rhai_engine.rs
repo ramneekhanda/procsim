@@ -18,7 +18,7 @@ pub fn execute_rhai_engine(mut graph_defn: ResMut<GraphDefinitionRes>, time: Res
             continue;
         }
 
-        if let Some(func) = &node.node_data.func {
+        if let Some(_) = &node.node_data.func {
             let scope = &mut node.scope;
             populate_scope(scope, &node.node_data.params);
             if let Err(e) = engine.run_ast_with_scope(scope, &node.ast) {

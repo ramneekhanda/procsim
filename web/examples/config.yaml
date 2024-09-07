@@ -1,0 +1,65 @@
+fns:
+  - &server_fn |
+    log("hello from another world!")
+    
+  - &client_fn |
+    log("this is amazing!")
+
+graph_defn: 
+  graph:
+    - name: server
+      node_type: server
+      links: [client1, client2]
+    - name: client1
+      node_type: client
+      links: []
+    - name: client2
+      node_type: client
+      links: []
+  graph_attrs:
+    background: "#D3D3D3"
+    connection_color: "#000000"
+    text_color: "#000000"
+    title: some graph
+  node_types:
+    - id: server
+      fn: *server_fn
+      params:
+        - name: BooleanParam
+          type: Bool
+          default: false
+        - name: IntParam
+          type: Integer
+          default: 0
+          min: 0
+          max: 10
+        - name: FloatParamm
+          type: Float
+          default: 0.5002
+          min: 0.5001
+          max: 1.5002
+        - name: OptionParamm
+          type: Option
+          values: [a, c, b]
+          default: a
+      attrs:
+        ticks: 5
+        icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
+    
+    - id: client
+      fn: *client_fn
+      params:
+        - name: someint
+          type: Integer
+          default: 0
+          min: 0
+          max: 10
+        - name: somefloat
+          type: Float
+          default: 0
+          min: 0
+          max: 10
+      attrs:
+        ticks: 10
+        icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/EKSAnywhere.png
+

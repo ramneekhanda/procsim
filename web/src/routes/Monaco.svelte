@@ -35,6 +35,11 @@
     return editor.getValue();
   }
 
+  export function setCode(s: string) {
+    return editor.getModel().setValue(s);
+  }
+
+
   onMount(async () => {
     // @ts-ignore
     window.MonacoEnvironment = {
