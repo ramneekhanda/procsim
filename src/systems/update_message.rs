@@ -51,10 +51,21 @@ pub fn update_message_path(
 
     for (mut msgs, nc) in query_conn.iter_mut() {
         let v_points = walk_message(&nc.path); //TODO: cache this - put it in NodeConnector
-        msgs.msg_inbox
-            .retain(|m: &Message| m.timer.duration().as_millis().abs_diff(m.timer.elapsed().as_millis()) > 10); // move to inbox of the node
-
-        for mesg in msgs.msg_inbox.iter_mut() {
+        let mut msg_finished = Vec::<Message>::new();
+        
+        msgs.msg_inflight
+            .retain(|m: &Message| {
+                if m.timer.duration().as_millis().abs_diff(m.timer.elapsed().as_millis()) > 10 {
+                    return true;
+                } else {
+                    msg_finished.push(m.clone());
+                    return false;
+                }
+            }); 
+        
+        msgs.msg_delivered.append(&mut msg_finished);
+        
+        for mesg in msgs.msg_inflight.iter_mut() {
             mesg.timer.tick(time.delta());
             
             let mut loc = ((v_points.len() as f32 * mesg.timer.elapsed().as_millis() as f32)
