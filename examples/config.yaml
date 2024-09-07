@@ -1,16 +1,22 @@
 fns:
   - &server_fn |
-    log("hello from another world!");
-    send(#{
-        to: "client1",
-        display: "hello from server"
-    });
-    
+    if (msg) {
+      log("processing message!");
+    } else {
+      log("generating new request!");
+      send(to: "client1", #{
+          display: "hello from server"
+      });
+    }
   - &client_fn |
-    send(#{
-        to: "server",
+    if (msg) {
+      log("serving request: " + msg);
+      send("server", #{
         display: "hello from some client"
-    });
+      });
+    } else {
+      log("wtf!");
+    }
 
 graph_defn: 
   graph:
