@@ -25,7 +25,7 @@
       });
     }
   }
-  
+
   $: if (schema !== "") {
     configureMonaco();
   }
@@ -37,6 +37,9 @@
   }
 
   export function setCode(s: string) {
+    if (editor == null) {
+      return;
+    }
     return editor.getModel().setValue(s);
   }
 

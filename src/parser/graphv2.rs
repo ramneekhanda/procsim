@@ -242,6 +242,7 @@ pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
                     scope: scope.clone(),
                 };
                 let links: Dynamic = node.links.clone().into();
+                n.scope.push_constant("node_name", n.name.clone());
                 n.scope.push_constant("links", links);
                 m_data.graph_defn.node_instances.push(n);
             } else {

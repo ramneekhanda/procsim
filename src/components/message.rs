@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-#[derive(Component, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Message {
     pub timer: Timer,
     pub str: String,
@@ -7,8 +7,11 @@ pub struct Message {
     pub node_to: String,
 }
 
-#[derive(Component, Debug, Clone)]
-pub struct HotSpot {}
+#[derive(Component, Debug, Clone, Default)]
+pub struct Messages {
+    pub msg_inbox: Vec<Message>,
+}
 
-#[derive(Component)]
-pub struct ColorText;
+#[derive(Component, Debug, Clone)]
+pub struct MessageMarker {}
+

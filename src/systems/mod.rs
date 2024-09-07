@@ -1,7 +1,6 @@
 #[cfg(target_arch = "wasm32")]
 pub mod browser_resize;
 pub mod clearcolor;
-pub mod demo_message;
 pub mod drag;
 pub mod ingest_code;
 pub mod resource_loader;

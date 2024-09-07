@@ -6,6 +6,7 @@ use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 use std::collections::{HashMap, HashSet};
+use crate::components::message::Messages;
 
 pub fn update_connectors(
     g: Res<GraphDefinitionRes>,
@@ -140,6 +141,7 @@ fn generate_line(
                 id2: id2.clone(),
                 path: walking_path,
             },
+            Messages::default(),
             On::<Pointer<Over>>::target_component_mut::<Stroke>(|_, s| {
                 s.options.line_width = 7.;
             }),

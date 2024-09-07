@@ -16,7 +16,6 @@ fn walk_message(path: &lyon_algorithms::path::Path) -> Vec<[f32; 2]> {
             x.push(event.position.to_array());
             true // Return true to continue walking the path.
         },
-        // Invoke the callback above at a regular interval of 3 units.
         interval: 0.1,
     };
 
@@ -28,8 +27,8 @@ fn walk_message(path: &lyon_algorithms::path::Path) -> Vec<[f32; 2]> {
 }
 
 pub fn update_message_path(
-    mut query_conn: Query<(Entity, &mut Message, &NodeConnector)>,
-    mut query_hs: Query<(Entity, &HotSpot)>,
+    mut query_conn: Query<(&mut Messages, &NodeConnector)>,
+    mut query_marker: Query<(Entity, &mut MessageMarker)>,
     ca: Res<CommonAssets>,
     gd: Res<GraphDefinitionRes>,
     time: Res<Time>,
@@ -45,34 +44,37 @@ pub fn update_message_path(
         font_size: 16.0,
         color: gd.graph_defn.graph_attrs.text_color,
     };
-
-    for (entity, _hotspot) in query_hs.iter_mut() {
+    
+    for (entity, _marker) in query_marker.iter_mut() {
         commands.entity(entity).despawn_recursive();
     }
 
-    for (entity, mut mesg, nc) in query_conn.iter_mut() {
-        mesg.timer.tick(time.delta());
-        let v_points = walk_message(&nc.path);
-        let perc_elap: f64 =
-            mesg.timer.elapsed().as_millis() as f64 / mesg.timer.duration().as_millis() as f64;
-        let loc = perc_elap * v_points.len() as f64;
-        let loc_int = loc.round() as usize;
-        if loc_int == v_points.len() as usize {
-            //remove message
-            commands.entity(entity).remove::<Message>();
-        } else {
+    for (mut msgs, nc) in query_conn.iter_mut() {
+        let v_points = walk_message(&nc.path); //TODO: cache this - put it in NodeConnector
+        msgs.msg_inbox
+            .retain(|m: &Message| m.timer.duration().as_millis().abs_diff(m.timer.elapsed().as_millis()) > 10); // move to inbox of the node
+
+        for mesg in msgs.msg_inbox.iter_mut() {
+            mesg.timer.tick(time.delta());
+            
+            let mut loc = ((v_points.len() as f32 * mesg.timer.elapsed().as_millis() as f32)
+            / mesg.timer.duration().as_millis() as f32) as usize;
+
+            if mesg.node_from == nc.id2 {
+                loc = v_points.len() - loc;
+            } 
+            if (loc >= v_points.len()) {
+                continue;
+            }
             let parent = commands
-                .spawn((
-                    HotSpot {},
-                    SpatialBundle {
-                        transform: Transform::from_translation(Vec3::new(
-                            v_points[loc_int][0],
-                            v_points[loc_int][1],
-                            100.,
-                        )),
-                        ..Default::default()
-                    },
-                ))
+                .spawn((SpatialBundle {
+                    transform: Transform::from_translation(Vec3::new(
+                        v_points[loc][0],
+                        v_points[loc][1],
+                        100.,
+                    )),
+                    ..Default::default()
+                }, MessageMarker{}))
                 .id();
 
             let shape = shapes::RegularPolygon {
@@ -84,7 +86,6 @@ pub fn update_message_path(
                 .spawn((
                     ShapeBundle {
                         path: GeometryBuilder::build_as(&shape),
-                        //transform: Transform::from_xyz(0., 0., 100.0),
                         ..default()
                     },
                     Stroke::new(gd.graph_defn.graph_attrs.text_color, 3.0),

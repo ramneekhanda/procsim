@@ -42,9 +42,6 @@ fn setup_app(app: &mut App) {
             resource_map: HashMap::new(),
         })
         .insert_resource(Msaa::Sample4)
-        .insert_resource(systems::demo_message::DemoTimer {
-            timer: Timer::new(Duration::from_secs(4), TimerMode::Repeating),
-        })
         .insert_resource(CodeStorage::default())
         .insert_resource(LoadingState {
             state: LoadingStateOpt::Ready,
@@ -69,9 +66,6 @@ fn setup_app(app: &mut App) {
                 })),
                 systems::resource_loader::load_assets.run_if(resource_equals(LoadingState {
                     state: LoadingStateOpt::Loading,
-                })),
-                systems::demo_message::demo_send_message.run_if(resource_equals(LoadingState {
-                    state: LoadingStateOpt::Ready,
                 })),
                 systems::update_message::update_message_path.run_if(resource_equals(
                     LoadingState {

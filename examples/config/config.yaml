@@ -1,9 +1,16 @@
 fns:
   - &server_fn |
-    log("hello from another world!")
+    log("hello from another world!");
+    send(#{
+        to: "client1",
+        display: "hello from server"
+    });
     
   - &client_fn |
-    log("this is amazing!")
+    send(#{
+        to: "server",
+        display: "hello from some client"
+    });
 
 graph_defn: 
   graph:
