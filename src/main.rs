@@ -15,7 +15,6 @@ use parser::graphv2::GraphDefinition;
 use resources::common_assets::{CommonAssets, LoadingState, LoadingStateOpt};
 use resources::graph_def::{GraphChange, GraphDefinitionRes};
 use std::collections::HashMap;
-use std::time::Duration;
 use ui::CodeStorage;
 
 use bevy_web_asset::WebAssetPlugin;

@@ -82,17 +82,27 @@ fn send_messages(message_store: &Arc<RwLock<Vec<(String, String, Dynamic)>>>, q:
     let mut msg_display: String;
     for (from, to, msg) in store.iter_mut() {
         if msg.is_map() {
-            let val = msg.read_lock::<rhai::Map>().unwrap();
-            msg_display = "".to_string();
+            let mut set_display = false;
+            {
+                let mut val = msg.write_lock::<rhai::Map>().unwrap();
+                msg_display = "".to_string();
+                
+                val.insert("from".into(), from.clone().into());
 
-            let _ = val.get("display").is_some_and(|v| {
-                msg_display = v.to_string();
-                true
-            });
+                set_display = val.get("display").is_some_and(|v| {
+                    msg_display = v.to_string();
+                    true
+                });
+            }
+
+            if !set_display {
+                msg_display = format!("{}", msg);
+            }
 
             for (mut msgs, nc) in q.iter_mut() {
                 if nc.id1.eq(from) && nc.id2.eq(to) || nc.id2.eq(from) && nc.id1.eq(to) {
                     c_log!("sending message from {} to {}", from, to);
+
                     msgs.msg_inflight.push( Message {
                         timer: Timer::new(Duration::from_secs(3), TimerMode::Once),
                         node_from: from.clone(),

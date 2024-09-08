@@ -52,7 +52,7 @@
   }
 
   function getExampleFiles(filename: string) {
-    let fileurl = new URL(`./examples/${filename}`, import.meta.url).href;
+    let fileurl = new URL(`/examples/${filename}`, import.meta.url).href;
     console.log(fileurl, filename);
     return fetch(fileurl)
       .then((response) => response.text())
