@@ -6,8 +6,8 @@ use bevy_egui::{
     EguiContexts,
 };
 
-use crate::resources::graph_def::GraphDefinitionRes;
 use crate::parser::graphv2::Node;
+use crate::resources::graph_def::GraphDefinitionRes;
 
 #[derive(Resource)] //
 pub struct CodeStorage {
@@ -67,7 +67,6 @@ pub fn graph_properties_viewer(
     mut graph_defn: ResMut<GraphDefinitionRes>,
     q_selected: Query<(Entity, &SelectedNodeMarker)>,
 ) {
-    
     egui::Window::new("Graph Properties").show(contexts.ctx_mut(), |ui| {
         color_picker(
             ui,
@@ -89,53 +88,60 @@ pub fn graph_properties_viewer(
         }
 
         for (entity, selected) in q_selected.iter() {
-            egui::CollapsingHeader::new(format!("Selected Node - {}", selected.node_name).as_str()).show(ui, |ui| {
-                if let Some(node) = get_node_with_name_mut(&selected.node_name, &mut graph_defn) {
-                    egui::Grid::new("Grid - Selected").show(ui, |ui| {
-                        for param in &mut node.node_data.params {
-                            if let ParamType::Bool { default } = &mut param.param_type {
-                                ui.label(param.name.clone());
-                                ui.checkbox(default,"");
-                                ui.end_row();
-                            } else if let ParamType::Integer { default, min, max } =
-                                &mut param.param_type
-                            {
-                                ui.label(param.name.clone());
-                                ui.add(Slider::new(
-                                    default,
-                                    std::ops::RangeInclusive::new(*min, *max),
-                                ));
-                                ui.end_row();
-                            } else if let ParamType::Float { default, min, max } =
-                                &mut param.param_type
-                            {
-                                ui.label(param.name.clone());
-                                ui.add(Slider::new(
-                                    default,
-                                    std::ops::RangeInclusive::new(*min, *max),
-                                ));
-                                ui.end_row();
-                            } else if let ParamType::String { default } = &mut param.param_type {
-                                ui.label(param.name.clone());
-                                ui.text_edit_singleline(default);
-                                ui.end_row();
-                            } else if let ParamType::Option { values, default } =
-                                &mut param.param_type
-                            {
-                                ui.label(param.name.clone());
-                                egui::ComboBox::from_label("")
-                                    .selected_text(format!("{}", default))
-                                    .show_ui(ui, |ui| {
-                                        for value in values.iter() {
-                                            ui.selectable_value(default, value.to_string(), value);
-                                        }
-                                    });
-                                ui.end_row();
+            egui::CollapsingHeader::new(format!("Selected Node - {}", selected.node_name).as_str())
+                .show(ui, |ui| {
+                    if let Some(node) = get_node_with_name_mut(&selected.node_name, &mut graph_defn)
+                    {
+                        egui::Grid::new("Grid - Selected").show(ui, |ui| {
+                            for param in &mut node.node_data.params {
+                                if let ParamType::Bool { default } = &mut param.param_type {
+                                    ui.label(param.name.clone());
+                                    ui.checkbox(default, "");
+                                    ui.end_row();
+                                } else if let ParamType::Integer { default, min, max } =
+                                    &mut param.param_type
+                                {
+                                    ui.label(param.name.clone());
+                                    ui.add(Slider::new(
+                                        default,
+                                        std::ops::RangeInclusive::new(*min, *max),
+                                    ));
+                                    ui.end_row();
+                                } else if let ParamType::Float { default, min, max } =
+                                    &mut param.param_type
+                                {
+                                    ui.label(param.name.clone());
+                                    ui.add(Slider::new(
+                                        default,
+                                        std::ops::RangeInclusive::new(*min, *max),
+                                    ));
+                                    ui.end_row();
+                                } else if let ParamType::String { default } = &mut param.param_type
+                                {
+                                    ui.label(param.name.clone());
+                                    ui.text_edit_singleline(default);
+                                    ui.end_row();
+                                } else if let ParamType::Option { values, default } =
+                                    &mut param.param_type
+                                {
+                                    ui.label(param.name.clone());
+                                    egui::ComboBox::from_label("")
+                                        .selected_text(format!("{}", default))
+                                        .show_ui(ui, |ui| {
+                                            for value in values.iter() {
+                                                ui.selectable_value(
+                                                    default,
+                                                    value.to_string(),
+                                                    value,
+                                                );
+                                            }
+                                        });
+                                    ui.end_row();
+                                }
                             }
-                        }
-                    });
-                }
-            });
+                        });
+                    }
+                });
         }
     });
 }

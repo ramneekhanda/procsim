@@ -9,14 +9,14 @@ pub struct NodeMarker {
 impl Default for NodeMarker {
     fn default() -> Self {
         NodeMarker {
-          node_type: "name".to_string(),
-          node_name: "id".to_string(),
+            node_type: "name".to_string(),
+            node_name: "id".to_string(),
         }
     }
 }
 
 #[derive(Component, Debug)]
 pub struct SelectedNodeMarker {
-  pub node_name: String,
-  pub node_type: String,
+    pub node_name: String,
+    pub node_type: String,
 }

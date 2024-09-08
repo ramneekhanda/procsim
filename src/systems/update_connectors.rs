@@ -1,12 +1,12 @@
+use crate::c_log;
+use crate::components::message::Messages;
 use crate::components::node::NodeMarker;
 use crate::resources::graph_def::GraphDefinitionRes;
-use crate::c_log;
 use crate::{components::node_connector::*, parser::graphv2::GraphAttrs};
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 use std::collections::{HashMap, HashSet};
-use crate::components::message::Messages;
 
 pub fn update_connectors(
     g: Res<GraphDefinitionRes>,
@@ -41,7 +41,12 @@ pub fn update_connectors(
         // for each node search its connecting entities
         // and make a line between current node and that node
         for (nodea_id, nodea_loc) in all_node_loc.iter() {
-            let node_idx = g.graph_defn.graph.iter().position(|node| node.name == *nodea_id ).unwrap();
+            let node_idx = g
+                .graph_defn
+                .graph
+                .iter()
+                .position(|node| node.name == *nodea_id)
+                .unwrap();
             let node_links: &Vec<String> = g.graph_defn.graph[node_idx].links.as_ref();
             for nodeb_id in node_links.iter() {
                 let s: String;
@@ -49,15 +54,11 @@ pub fn update_connectors(
                 s = format!("{}-{}", nodea_id, nodeb_id);
                 s2 = format!("{}-{}", nodeb_id, nodea_id);
                 if nodea_id == nodeb_id {
-                    c_log!(
-                        "Ignoring loopback: {}-{}", nodea_id, nodeb_id
-                    );
+                    c_log!("Ignoring loopback: {}-{}", nodea_id, nodeb_id);
                     continue;
                 }
                 if all_node_loc.get(nodeb_id).is_none() {
-                    c_log!(
-                        "Node not found for connector: {}-{}", nodea_id, nodeb_id
-                    );
+                    c_log!("Node not found for connector: {}-{}", nodea_id, nodeb_id);
                     continue;
                 }
                 if !done.contains(&s) {
@@ -88,9 +89,7 @@ pub fn update_connectors(
             let node1_loc = all_node_loc.get(&conn.id1);
             let node2_loc = all_node_loc.get(&conn.id2);
             if node1_loc.is_none() || node2_loc.is_none() {
-                c_log!(
-                    "Node not found for connector: {}-{}", conn.id1, conn.id2
-                );
+                c_log!("Node not found for connector: {}-{}", conn.id1, conn.id2);
                 continue;
             }
             let mut path_builder = PathBuilder::new();
@@ -104,11 +103,11 @@ pub fn update_connectors(
                 Vec2::new(node2_loc.unwrap().x + 50., node2_loc.unwrap().y + 50.),
                 Vec2::new(node2_loc.unwrap().x, node2_loc.unwrap().y),
             );
-            
+
             *path = path_builder.build();
             (*conn).path = path.0.clone();
         }
-    } 
+    }
 }
 
 fn generate_line(

@@ -1,17 +1,20 @@
 use crate::c_log;
 use bevy::{
     color::{Color, Srgba},
-    time::Timer,
     prelude::*,
+    time::Timer,
 };
-use rhai::{Scope, AST};
+use rhai::Dynamic;
+use rhai::{CallFnOptions, Scope, AST};
 use schemars::JsonSchema;
 use serde::de::Error;
 use serde::ser::Serializer;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{collections::{HashMap, HashSet}, fmt::Debug};
 use std::time::Duration;
-use rhai::Dynamic;
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    fmt::Debug,
+};
 
 fn gray_color() -> Color {
     Srgba::hex("#D3D3D3").unwrap().into()
@@ -176,6 +179,7 @@ pub struct Node {
 
     pub ast: AST, //TODO: change this to reference
     pub scope: Scope<'static>,
+    pub state: Dynamic,
 }
 
 impl std::cmp::PartialEq for Node {
@@ -211,14 +215,20 @@ pub struct File {
 }
 
 pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
+    let engine = rhai::Engine::new();
+
     let data: Result<File, serde_yaml::Error> = serde_yaml::from_str(&graph_code);
     if let Ok(mut m_data) = data {
         for node_type in m_data.graph_defn.node_types.iter_mut() {
-            let res = compile_ast(node_type);
+            let res = compile_ast(&engine, node_type);
             if res.is_err() {
                 let e = res.err().unwrap();
                 return Err(serde_yaml::Error::custom(
-                    format!("Error compiling function for node type {} with error: {:?}", node_type.id, e).as_str(),
+                    format!(
+                        "Error compiling function for node type {} with error: {:?}",
+                        node_type.id, e
+                    )
+                    .as_str(),
                 ));
             }
         }
@@ -240,10 +250,9 @@ pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
                     links: node.links.clone(),
                     ast: data_w_type.ast.clone(),
                     scope: scope.clone(),
+                    state: Dynamic::from_map(BTreeMap::new()),
                 };
-                let links: Dynamic = node.links.clone().into();
-                n.scope.push_constant("node_name", n.name.clone());
-                n.scope.push_constant("links", links);
+                init_scope(&engine, &mut n);
                 m_data.graph_defn.node_instances.push(n);
             } else {
                 return Err(serde_yaml::Error::custom(
@@ -256,9 +265,25 @@ pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
     data
 }
 
-pub fn compile_ast(node: &mut NodeType) -> Result<bool, rhai::ParseError> {
-    let engine = rhai::Engine::new();
+pub fn init_scope(engine: &rhai::Engine, node: &mut Node) {
+    let scope = &mut node.scope;
+    scope.push_constant("node_name", node.name.clone());
+    let links: Dynamic = node.links.clone().into();
+    scope.push_constant("links", links);
+    let init_size = scope.len();
+    let options = CallFnOptions::new().eval_ast(false).rewind_scope(false);
 
+    scope.set_value("globals", node.state.clone());
+    let _ = engine.call_fn_with_options::<()>(options, scope, &node.ast, "on_init", ());
+    node.state = scope.get_value::<Dynamic>("globals").unwrap();
+
+    c_log!("scope size: {}", scope.len());
+    c_log!("scope: {:?}", scope);
+    c_log!("globals {:?}", node.state);
+    scope.rewind(init_size);
+}
+
+pub fn compile_ast(engine: &rhai::Engine, node: &mut NodeType) -> Result<bool, rhai::ParseError> {
     c_log!("Compiling code for node type {}", node.id);
     if node.func.is_none() {
         c_log!("No code for node type {}", node.id);

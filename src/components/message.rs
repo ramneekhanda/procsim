@@ -18,4 +18,3 @@ pub struct Messages {
 
 #[derive(Component, Debug, Clone)]
 pub struct MessageMarker {}
-

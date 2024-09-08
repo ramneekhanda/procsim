@@ -44,7 +44,7 @@ pub fn update_message_path(
         font_size: 16.0,
         color: gd.graph_defn.graph_attrs.text_color,
     };
-    
+
     for (entity, _marker) in query_marker.iter_mut() {
         commands.entity(entity).despawn_recursive();
     }
@@ -52,40 +52,47 @@ pub fn update_message_path(
     for (mut msgs, nc) in query_conn.iter_mut() {
         let v_points = walk_message(&nc.path); //TODO: cache this - put it in NodeConnector
         let mut msg_finished = Vec::<Message>::new();
-        
-        msgs.msg_inflight
-            .retain(|m: &Message| {
-                if m.timer.duration().as_millis().abs_diff(m.timer.elapsed().as_millis()) > 10 {
-                    return true;
-                } else {
-                    msg_finished.push(m.clone());
-                    return false;
-                }
-            }); 
-        
+
+        msgs.msg_inflight.retain(|m: &Message| {
+            if m.timer
+                .duration()
+                .as_millis()
+                .abs_diff(m.timer.elapsed().as_millis())
+                > 10
+            {
+                return true;
+            } else {
+                msg_finished.push(m.clone());
+                return false;
+            }
+        });
+
         msgs.msg_delivered.append(&mut msg_finished);
-        
+
         for mesg in msgs.msg_inflight.iter_mut() {
             mesg.timer.tick(time.delta());
-            
+
             let mut loc = ((v_points.len() as f32 * mesg.timer.elapsed().as_millis() as f32)
-            / mesg.timer.duration().as_millis() as f32) as usize;
+                / mesg.timer.duration().as_millis() as f32) as usize;
 
             if mesg.node_from == nc.id2 {
                 loc = v_points.len() - loc;
-            } 
+            }
             if (loc >= v_points.len()) {
                 continue;
             }
             let parent = commands
-                .spawn((SpatialBundle {
-                    transform: Transform::from_translation(Vec3::new(
-                        v_points[loc][0],
-                        v_points[loc][1],
-                        100.,
-                    )),
-                    ..Default::default()
-                }, MessageMarker{}))
+                .spawn((
+                    SpatialBundle {
+                        transform: Transform::from_translation(Vec3::new(
+                            v_points[loc][0],
+                            v_points[loc][1],
+                            100.,
+                        )),
+                        ..Default::default()
+                    },
+                    MessageMarker {},
+                ))
                 .id();
 
             let shape = shapes::RegularPolygon {
