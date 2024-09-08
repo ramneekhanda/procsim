@@ -23,14 +23,15 @@
       Run
     </button>
   </div>
-  <div class="navbar-end">
+  <!-- <div class="navbar-end">
     <div class="dropdown dropdown-bottom dropdown-end">
       <div tabindex="0" role="button" class="btn btn-sm m-1">Examples</div>
-      <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
-        <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "config.yaml"})}>Example 1</a></li>
+      <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-80 p-2 shadow">
+        <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "lifecycle.yml"})}>Basic Lifecycle of a Node</a></li>
+        <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "pingpong.yml"})}>Ping Pong</a></li>
         <li><a>Item 2</a></li>
       </ul>
     </div>    
-  </div>
+  </div> -->
 
 </div>
