@@ -1,0 +1,32 @@
+fns:
+  - &server_fn |
+    fn on_init() {
+        globals.x = 1;
+    }
+
+    fn on_timer() {
+        globals.x += 1;  
+    }
+
+graph_defn: 
+  graph:
+    - name: server
+      node_type: server
+      links: []
+  graph_attrs:
+    background: "#D3D3D3"
+    connection_color: "#000000"
+    text_color: "#000000"
+    title: some graph
+  node_types:
+    - id: server
+      fn: *server_fn
+      params:
+        - name: BooleanParam
+          type: Bool
+          default: false
+      attrs:
+        ticks: 5
+        icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
+    
+   
