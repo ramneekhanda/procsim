@@ -1,4 +1,6 @@
-<script>
+<script lang=ts>
+// @ts-nocheck
+
  import { createEventDispatcher } from "svelte";
  const dispatch = createEventDispatcher();
 </script>
@@ -26,9 +28,17 @@
   <div class="navbar-end">
     <div class="dropdown dropdown-bottom dropdown-end">
       <div tabindex="0" role="button" class="btn btn-sm m-1">Examples</div>
+      <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
       <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-80 p-2 shadow">
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <!-- svelte-ignore a11y-missing-attribute -->
         <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "lifecycle.yml"})}>Basic Lifecycle of a Node</a></li>
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <!-- svelte-ignore a11y-missing-attribute -->
         <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "pingpong.yml"})}>Ping Pong</a></li>
+        <!-- svelte-ignore a11y-missing-attribute -->
         <li><a>Item 2</a></li>
       </ul>
     </div>    

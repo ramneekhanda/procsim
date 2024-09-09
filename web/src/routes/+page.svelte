@@ -6,14 +6,17 @@
   import "dockview-core/dist/styles/dockview.css";
   import "tabulator-tables/dist/css/tabulator.min.css";
   import * as Panels from "./panels";
-   
+  
+
   let id = 0;
+  let code: string;
   let codeEditor: Monaco;
   let schema = "";
   let dockView: HTMLElement;
   let log_event_listener: HTMLDivElement;
   let data: Array<Panels.LogMessageType> = [];
   $: codeEditor && codeEditor.$set({ schema });
+  $: codeEditor && codeEditor.$set({ value: code });
 
   function onLogEvent(e: Event) {
     var customEvent = e as CustomEvent;
@@ -52,19 +55,18 @@
   }
 
   function getExampleFiles(filename: string) {
-    // let fileurl = new URL(`/examples/${filename}`, import.meta.url).href;
-    // console.log(fileurl, filename);
-    // return fetch(fileurl)
-    //   .then((response) => response.text())
-    //   .then((data) => {
-    //     codeEditor.setCode(data);
-    //     return data;
-    //   }).catch((error) => {
-    //     console.error('Error:', error);
-    //   });
+    let fileurl = new URL(`./examples/${filename}`, import.meta.url).href;
+    console.log(fileurl, filename);
+    return fetch(fileurl)
+      .then((response) => response.text())
+      .then((data) => {
+        code = data;
+      }).catch((error) => {
+        console.error('Error:', error);
+      });
   }
   function exampleClicked(i: Object) {
-    //getExampleFiles(i.detail.filename);
+    getExampleFiles(i.detail.filename);
   }
 </script>
 
