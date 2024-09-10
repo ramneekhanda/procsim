@@ -26,22 +26,34 @@
     </button>
   </div>
   <div class="navbar-end">
-    <div class="dropdown dropdown-bottom dropdown-end">
+    
+    <div class="dropdown dropdown-end">
       <div tabindex="0" role="button" class="btn btn-sm m-1">Examples</div>
-      <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
-      <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-80 p-2 shadow">
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <!-- svelte-ignore a11y-missing-attribute -->
-        <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "lifecycle.yml"})}>Basic Lifecycle of a Node</a></li>
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <!-- svelte-ignore a11y-missing-attribute -->
-        <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "pingpong.yml"})}>Ping Pong</a></li>
-        <!-- svelte-ignore a11y-missing-attribute -->
-        <li><a>Item 2</a></li>
-      </ul>
-    </div>    
+    <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
+    <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-80 p-2 shadow">
+      <li>
+        <details open>
+          <summary>Basics</summary>
+          <ul>
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "lifecycle.yml"})}>Node Lifecycle</a></li>
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "pingpong.yml"})}>Ping Pong</a></li>
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "multiclient_pingpong.yml"})}>Multiclient Ping Pong</a></li>
+          </ul>
+        </details>
+      </li>
+    </ul>
+    </div>
   </div>
 
 </div>
+
+      

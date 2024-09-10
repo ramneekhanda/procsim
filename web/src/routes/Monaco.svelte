@@ -43,6 +43,13 @@
     return editor.getModel().setValue(s);
   }
 
+  export function setFocus() {
+    if (editor == null) {
+      return;
+    }
+    editor.focus();
+  };
+
 
   onMount(async () => {
     // @ts-ignore

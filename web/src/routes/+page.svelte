@@ -6,7 +6,6 @@
   import "dockview-core/dist/styles/dockview.css";
   import "tabulator-tables/dist/css/tabulator.min.css";
   import * as Panels from "./panels";
-  
 
   let id = 0;
   let code: string;
@@ -15,8 +14,17 @@
   let dockView: HTMLElement;
   let log_event_listener: HTMLDivElement;
   let data: Array<Panels.LogMessageType> = [];
-  $: codeEditor && codeEditor.$set({ schema });
-  $: codeEditor && codeEditor.$set({ value: code });
+  $: {
+    console.log("code changed");
+    code = code;
+    schema = schema;
+    if (codeEditor) {
+      codeEditor.$set({ schema });
+      codeEditor.setCode(code);
+      codeEditor.setFocus();
+    }
+    code = '';
+  }
 
   function onLogEvent(e: Event) {
     var customEvent = e as CustomEvent;
@@ -30,7 +38,7 @@
 
   onMount(async () => {
     let returnVal = {} as Panels.DockviewReturn;
-    Panels.createDockviewInternal(dockView, schema, data, returnVal);  
+    Panels.createDockviewInternal(dockView, schema, data, returnVal);
     codeEditor = returnVal.codeEditor;
     log_event_listener.addEventListener("dsa-log-event", onLogEvent);
     init()
@@ -54,24 +62,27 @@
     console.log(b.error_log);
   }
 
-  function getExampleFiles(filename: string) {
-    let fileurl = new URL(`./examples/${filename}`, import.meta.url).href;
-    console.log(fileurl, filename);
-    return fetch(fileurl)
-      .then((response) => response.text())
-      .then((data) => {
-        code = data;
-      }).catch((error) => {
-        console.error('Error:', error);
-      });
+  async function getExampleFiles(filename: string) {
+    return await fetch(`examples/${filename}`);
   }
   function exampleClicked(i: Object) {
-    getExampleFiles(i.detail.filename);
+    if (i.detail.filename) 
+      getExampleFiles(i.detail.filename)
+        .then((response) => response.text())
+        .then((data) => {
+          code = data;
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+        });
   }
 </script>
 
 <div class="flex">
-  <Menubar on:runClicked={() => compileCode()} on:exampleClicked={(i)=> exampleClicked(i)}/>
+  <Menubar
+    on:runClicked={() => compileCode()}
+    on:exampleClicked={(i) => exampleClicked(i)}
+  />
   <div class="flex" bind:this={dockView}></div>
 </div>
 <div id="dsa-log-event-listener" bind:this={log_event_listener} />
