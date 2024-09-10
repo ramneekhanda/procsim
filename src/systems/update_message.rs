@@ -78,7 +78,7 @@ pub fn update_message_path(
             if mesg.node_from == nc.id2 {
                 loc = v_points.len() - loc;
             }
-            if (loc >= v_points.len()) {
+            if loc >= v_points.len() {
                 continue;
             }
             let parent = commands

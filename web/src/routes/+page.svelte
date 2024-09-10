@@ -59,7 +59,9 @@
 
   function compileCode() {
     let b = compile_code(codeEditor.getCode());
-    console.log(b.error_log);
+    if (b.error_log && b.error_log.length > 0) {
+      console.log(b.error_log);
+    }
   }
 
   async function getExampleFiles(filename: string) {

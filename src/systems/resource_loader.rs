@@ -16,7 +16,7 @@ fn load_default_fonts_and_icons(ca: &mut ResMut<CommonAssets>, asset_server: &Re
     ca.resource_map.insert(
         "default_font".to_string(),
         ResourceType::FontHandle(
-            asset_server.load("https://fonts.gstatic.com/s/abeezee/v9/mE5BOuZKGln_Ex0uYKpIaw.ttf"),
+            asset_server.load("//raw.githubusercontent.com/ramneekhanda/procsim_assets/main/fonts/ComicNeue-Regular.ttf"),
         ),
     );
     ca.resource_map.insert(

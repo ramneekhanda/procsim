@@ -44,10 +44,6 @@ pub fn execute_rhai_engine(
             {
                 c_log!("error running: {:?}", e);
             } else {
-                c_log!(
-                    "size of message_store: {:?}",
-                    local_message_store.read().unwrap().len()
-                );
                 local_message_store.read().unwrap().iter().for_each(|msg| {
                     message_store.write().unwrap().push((
                         node.name.clone(),
@@ -81,10 +77,6 @@ pub fn execute_rhai_engine(
                     ) {
                         c_log!("error running: {:?}", e);
                     } else {
-                        c_log!(
-                            "size of message_store: {:?}",
-                            message_store.read().unwrap().len()
-                        );
                         local_message_store.read().unwrap().iter().for_each(|msg| {
                             message_store.write().unwrap().push((
                                 node.name.clone(),

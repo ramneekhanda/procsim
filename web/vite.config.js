@@ -5,15 +5,7 @@ import path from 'node:path'
 
 export default defineConfig({
 	plugins: [
-		sveltekit(),
-		viteStaticCopy({
-      targets: [
-        {
-          src: path.resolve(__dirname, './examples') + '/[!.]*',
-          dest: './examples',
-        },
-      ],
-    }),
+		sveltekit()
 	],
 	server: {
 		fs: {
