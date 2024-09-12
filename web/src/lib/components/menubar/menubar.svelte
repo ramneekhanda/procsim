@@ -9,6 +9,7 @@
 <div class="navbar min-h-10">
   <div class="flex-1">
     <img src="favicon.png" alt="icon" width="32px"/>
+    <b><h1>Process Simulator</h1></b>
   </div>
   <div class="navbar-center">
     <button class="btn btn-sm" on:click={() => dispatch('runClicked')}>
