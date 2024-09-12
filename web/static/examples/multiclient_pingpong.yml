@@ -45,7 +45,7 @@ graph_defn:
       node_type: client
       links: [server]
   graph_attrs:
-    background: "#D3D3D3"
+    background: "#FFFFFF"
     connection_color: "#000000"
     text_color: "#000000"
     title: some graph
