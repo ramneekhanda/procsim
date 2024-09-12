@@ -27,10 +27,13 @@
   },
   "type": "module",
   "dependencies": {
+    "@cartamd/plugin-code": "^4.0.6",
     "@monaco-editor/loader": "^1.4.0",
     "carta-md": "^4.4.5",
     "dockview-core": "1.17.1",
+    "marked": "^14.1.2",
     "monaco-yaml": "^5.2.2",
+    "svelte-exmarkdown": "^3.0.5",
     "tabulator-tables": "^6.2.5"
   }
 }

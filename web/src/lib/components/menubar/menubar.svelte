@@ -26,7 +26,7 @@
     </button>
   </div>
   <div class="navbar-end">
-    
+
     <div class="dropdown dropdown-end">
       <div tabindex="0" role="button" class="btn btn-sm m-1">Examples</div>
     <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
@@ -49,28 +49,10 @@
             <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "multiclient_pingpong.yml"})}>Multiclient Ping Pong</a></li>
           </ul>
         </details>
-        <details>
-          <summary>Basics</summary>
-          <ul>
-            <!-- svelte-ignore a11y-click-events-have-key-events -->
-            <!-- svelte-ignore a11y-no-static-element-interactions -->
-            <!-- svelte-ignore a11y-missing-attribute -->
-            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "lifecycle.yml"})}>Node Lifecycle</a></li>
-            <!-- svelte-ignore a11y-click-events-have-key-events -->
-            <!-- svelte-ignore a11y-no-static-element-interactions -->
-            <!-- svelte-ignore a11y-missing-attribute -->
-            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "pingpong.yml"})}>Ping Pong</a></li>
-            <!-- svelte-ignore a11y-click-events-have-key-events -->
-            <!-- svelte-ignore a11y-no-static-element-interactions -->
-            <!-- svelte-ignore a11y-missing-attribute -->
-            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "multiclient_pingpong.yml"})}>Multiclient Ping Pong</a></li>
-          </ul>
-        </details>
+
       </li>
     </ul>
     </div>
   </div>
 
 </div>
-
-      

@@ -2,18 +2,41 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body {height: 100%;}
-
-.flex {
-    display: flex;
-    height: 100%;
-    width: 100%;
-    flex-direction: column;
+html,
+body {
+  height: 100%;
 }
 
-:global(.splitpanes__pane) {
-  justify-content: center;
-  align-items: center;
+.flex {
   display: flex;
-  position: relative;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+}
+.mkdown {
+  overflow-y: auto;
+  margin: 10px;
+}
+.mkdown pre {
+  background-color: #f9f9f9;
+  margin: 10px;
+}
+
+.mkdown h1 {
+  font-size: 2rem;
+  padding-bottom: 10px;
+}
+
+.mkdown h2 {
+  font-size: 2rem;
+}
+
+.mkdown h3 {
+  font-size: 1.25rem;
+}
+
+.mkdown p {
+  font-size: 1rem;
+  padding-top: 5px;
+  padding-bottom: 5px;
 }

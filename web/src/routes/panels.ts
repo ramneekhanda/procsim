@@ -1,5 +1,6 @@
 import Monaco from "./Monaco.svelte";
 import Canvas from "./Canvas.svelte";
+import Help from "./Help.svelte";
 
 import type {
   GroupPanelPartInitParameters,
@@ -42,6 +43,24 @@ export class Tab implements ITabRenderer {
     var text = document.createTextNode(parameters.title);
     this._element.appendChild(text);
   }
+}
+
+export class HelpPanel implements IContentRenderer {
+  private readonly _element: HTMLElement;
+
+  get element(): HTMLElement {
+    return this._element;
+  }
+
+  constructor() {
+    const MDDiv = document.createElement("div");
+    MDDiv.style.width = "100%";
+    MDDiv.style.height = "100%";
+    let canvas = new Help({ target: MDDiv });
+    this._element = MDDiv;
+  }
+
+  init(_: GroupPanelPartInitParameters): void {}
 }
 
 export class ViewPanel implements IContentRenderer {
@@ -122,6 +141,8 @@ export function createDockviewInternal(dockView: HTMLElement, schema: string, da
           return new ViewPanel();
         case "LogPanel":
           return new LogPanel(data);
+        case "HelpPanel":
+            return new HelpPanel();
         default:
           throw new Error(`Unknown component ${options.name}`);
       }
@@ -163,5 +184,17 @@ export function createDockviewInternal(dockView: HTMLElement, schema: string, da
       referencePanel: monacoPanel,
     },
   });
+
+  api.addPanel({
+    id: "md_panel",
+    component: "HelpPanel",
+    title: "Learn",
+    tabComponent: "Tab",
+    position: {
+      referencePanel: monacoPanel,
+    },
+  });
   api.panels[1].focus();
 }
+
+

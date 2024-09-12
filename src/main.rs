@@ -51,7 +51,7 @@ fn setup_app(app: &mut App) {
         .add_event::<GraphChange>()
         .add_plugins(ShapePlugin)
         .add_plugins(TweeningPlugin)
-        .add_plugins(EguiPlugin)
+        //.add_plugins(EguiPlugin)
         .add_plugins(DefaultPickingPlugins)
         .add_systems(Startup, setup_camera)
         .add_systems(
@@ -79,9 +79,9 @@ fn setup_app(app: &mut App) {
                 systems::ingest_code::ingest_codechange.run_if(resource_equals(LoadingState {
                     state: LoadingStateOpt::Ready,
                 })),
-                ui::graph_properties_viewer.run_if(resource_equals(LoadingState {
-                    state: LoadingStateOpt::Ready,
-                })),
+                // ui::graph_properties_viewer.run_if(resource_equals(LoadingState {
+                //     state: LoadingStateOpt::Ready,
+                // })),
                 systems::update_connectors::update_connectors.run_if(resource_equals(
                     LoadingState {
                         state: LoadingStateOpt::Ready,
