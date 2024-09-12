@@ -1,36 +1,36 @@
 fns:
-    - &server_fns |
-        fn on_init() {
-            globals.x = 1;
-        }
+  - &server_fns |
+    fn on_init() {
+    }
 
-        fn on_timer() {
-        }
+    fn on_timer() {
+    }
 
-        fn on_msg(msg) {
-            send(msg.from, #{
-                display: "pong: " + msg.ping_id,
-                ping_id: msg.ping_id
-            });
-        }
+    fn on_msg(msg) {
+        send(msg.from, #{
+            display: "pong: " + msg.ping_id,
+            ping_id: msg.ping_id
+        });
+        log(`${msg.from} pinged with id ${msg.ping_id}`);
+    }
 
-    - &client_fns |
-        fn on_init() {
-            globals.i = 1;
-        }
+  - &client_fns |
+    fn on_init() {
+        globals.i = 1;
+    }
 
-        fn on_timer() {
-            send("server", #{
-                display: "ping: " + globals.i,
-                ping_id: globals.i
-            });
-            globals.i += 1; 
-        }
+    fn on_timer() {
+        send("server", #{
+            display: "ping: " + globals.i,
+            ping_id: globals.i
+        });
+        globals.i += 1;
+    }
 
-        fn on_msg(msg) {
-        }
+    fn on_msg(msg) {
+    }
 
-graph_defn: 
+graph_defn:
   graph:
     - name: server
       node_type: server
@@ -45,7 +45,7 @@ graph_defn:
       node_type: client
       links: [server]
   graph_attrs:
-    background: "#D3D3D3"
+    background: "#FFFFFF"
     connection_color: "#000000"
     text_color: "#000000"
     title: some graph
@@ -69,6 +69,3 @@ graph_defn:
       attrs:
         ticks: 5
         icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
-    
-    
-   
