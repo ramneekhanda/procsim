@@ -107,7 +107,7 @@ fn send_messages(
     let mut msg_display: String;
     for (from, to, msg) in store.iter_mut() {
         if msg.is_map() {
-            let mut set_display = false;
+            let set_display;
             {
                 let mut val = msg.write_lock::<rhai::Map>().unwrap();
                 msg_display = "".to_string();
@@ -158,8 +158,11 @@ fn initialize_engine(message_store: &Arc<RwLock<Vec<(String, Dynamic)>>>) -> Eng
     engine
 }
 
-fn populate_scope(scope: &mut Scope, params: &Vec<NodeParams>) {
-    for param in params {
+fn populate_scope(scope: &mut Scope, params: &Option<Vec<NodeParams>>) {
+    if let None = params {
+        return;
+    }
+    for param in params.as_ref().unwrap() {
         match &param.param_type {
             ParamType::Bool { default } => scope.push_constant(param.name.clone(), *default),
             ParamType::Float { default, .. } => scope.push_constant(param.name.clone(), *default),

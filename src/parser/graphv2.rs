@@ -16,12 +16,12 @@ use std::{
     fmt::Debug,
 };
 
-fn gray_color() -> Color {
-    Srgba::hex("#D3D3D3").unwrap().into()
+fn white_color() -> Color {
+    Srgba::hex("#FFFFFF").unwrap().into()
 }
 
-fn gray_color_str() -> String {
-    "#D3D3D3".to_string()
+fn white_color_str() -> String {
+    "#FFFFFF".to_string()
 }
 
 fn black_color() -> Color {
@@ -56,9 +56,9 @@ where
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct GraphAttrs {
-    #[schemars(with = "String", default = "gray_color_str")]
+    #[schemars(with = "String", default = "white_color_str")]
     #[serde(
-        default = "gray_color",
+        default = "white_color",
         serialize_with = "serialize_color",
         deserialize_with = "deserialize_color"
     )]
@@ -86,7 +86,7 @@ pub struct GraphAttrs {
 impl Default for GraphAttrs {
     fn default() -> Self {
         GraphAttrs {
-            background: gray_color(),
+            background: white_color(),
             connection_color: black_color(),
             title: String::new(),
             text_color: black_color(),
@@ -156,7 +156,7 @@ pub struct NodeType {
     pub func: Option<String>,
     #[serde(default)]
     pub attrs: Attrs,
-    pub params: Vec<NodeParams>,
+    pub params: Option<Vec<NodeParams>>,
     #[serde(skip)]
     pub ast: AST,
 }
