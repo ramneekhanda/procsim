@@ -8,3 +8,4 @@ pub mod resource_loader;
 pub mod rhai_engine;
 pub mod update_connectors;
 pub mod update_message;
+pub mod zoom_panel;

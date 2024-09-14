@@ -11,14 +11,15 @@ use bevy_egui::EguiPlugin;
 use bevy_mod_picking::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::TweeningPlugin;
+use bevy_web_asset::WebAssetPlugin;
 use parser::graphv2::GraphDefinition;
 use resources::common_assets::{CommonAssets, LoadingState, LoadingStateOpt};
 use resources::graph_def::{GraphChange, GraphDefinitionRes};
 use std::collections::HashMap;
-use ui::CodeStorage;
-
-use bevy_web_asset::WebAssetPlugin;
 use systems::browser_resize::handle_browser_resize;
+use systems::zoom_panel::zoom_panel;
+
+use ui::CodeStorage;
 
 fn setup_app(app: &mut App) {
     app.insert_resource(ClearColor(Color::srgb(0.9, 0.9, 0.9)))
@@ -88,6 +89,9 @@ fn setup_app(app: &mut App) {
                     },
                 )),
                 systems::node_system::create_nodes.run_if(resource_equals(LoadingState {
+                    state: LoadingStateOpt::Ready,
+                })),
+                systems::zoom_panel::zoom_panel.run_if(resource_equals(LoadingState {
                     state: LoadingStateOpt::Ready,
                 })),
             ),
