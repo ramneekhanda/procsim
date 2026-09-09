@@ -9,16 +9,16 @@ mod wasm;
 use bevy::{asset::AssetMetaCheck, prelude::*};
 use bevy_egui::EguiPlugin;
 use bevy_mod_picking::prelude::*;
+use bevy_pancam::{PanCam, PanCamPlugin};
 use bevy_prototype_lyon::prelude::*;
 use bevy_tweening::TweeningPlugin;
 use bevy_web_asset::WebAssetPlugin;
 use parser::graphv2::GraphDefinition;
 use resources::common_assets::{CommonAssets, LoadingState, LoadingStateOpt};
-use resources::graph_def::{GraphChange, GraphDefinitionRes};
+use resources::graph_def::{GraphChange, GraphDefinitionRes, NodeTicked};
 use std::collections::HashMap;
 #[cfg(target_arch = "wasm32")]
 use systems::browser_resize::handle_browser_resize;
-use systems::zoom_panel::zoom_panel;
 
 use ui::CodeStorage;
 
@@ -51,10 +51,12 @@ fn setup_app(app: &mut App) {
             graph_defn: GraphDefinition::default(),
         })
         .add_event::<GraphChange>()
+        .add_event::<NodeTicked>()
         .add_plugins(ShapePlugin)
         .add_plugins(TweeningPlugin)
         .add_plugins(EguiPlugin)
         .add_plugins(DefaultPickingPlugins)
+        .add_plugins(PanCamPlugin)
         .add_systems(Startup, setup_camera)
         .add_systems(
             Update,
@@ -73,6 +75,9 @@ fn setup_app(app: &mut App) {
                         state: LoadingStateOpt::Ready,
                     },
                 )),
+                systems::node_pulse::pulse_on_tick.run_if(resource_equals(LoadingState {
+                    state: LoadingStateOpt::Ready,
+                })),
             ),
         )
         .add_systems(
@@ -92,9 +97,6 @@ fn setup_app(app: &mut App) {
                 systems::node_system::create_nodes.run_if(resource_equals(LoadingState {
                     state: LoadingStateOpt::Ready,
                 })),
-                systems::zoom_panel::zoom_panel.run_if(resource_equals(LoadingState {
-                    state: LoadingStateOpt::Ready,
-                })),
             ),
         );
     #[cfg(target_arch = "wasm32")]
@@ -103,9 +105,17 @@ fn setup_app(app: &mut App) {
 }
 
 fn setup_camera(mut commands: Commands) {
-    commands.spawn(Camera2dBundle {
-        ..Default::default()
-    });
+    commands.spawn((
+        Camera2dBundle {
+            ..Default::default()
+        },
+        PanCam {
+            grab_buttons: vec![MouseButton::Right],
+            min_scale: 0.1,
+            max_scale: Some(10.0),
+            ..default()
+        },
+    ));
 }
 
 fn main() {

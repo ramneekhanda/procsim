@@ -8,3 +8,8 @@ pub struct GraphDefinitionRes {
 
 #[derive(Event)]
 pub struct GraphChange {}
+
+#[derive(Event)]
+pub struct NodeTicked {
+    pub name: String,
+}
