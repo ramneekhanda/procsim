@@ -8,6 +8,7 @@ pub struct Message {
     pub node_from: String,
     pub node_to: String,
     pub obj: rhai::Dynamic,
+    pub icon: Option<String>,
 }
 
 #[derive(Component, Debug, Clone, Default)]

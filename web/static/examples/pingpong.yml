@@ -10,7 +10,8 @@ fns:
     fn on_msg(msg) {
         send(msg.from, #{
             display: "pong: " + msg.ping_id,
-            ping_id: msg.ping_id
+            ping_id: msg.ping_id,
+            icon: "message_icon"
         });
     }
 
@@ -22,7 +23,8 @@ fns:
     fn on_timer() {
         send("server", #{
             display: "ping: " + globals.i,
-            ping_id: globals.i
+            ping_id: globals.i,
+            icon: "message_icon"
         });
         globals.i += 1;
     }
@@ -43,6 +45,11 @@ graph_defn:
     connection_color: "#000000"
     text_color: "#000000"
     title: some graph
+  icons:
+    - id: server_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
+    - id: message_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/2709.png
   node_types:
     - id: server
       fn: *server_fns
@@ -52,7 +59,7 @@ graph_defn:
           default: false
       attrs:
         ticks: 5
-        icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
+        icon: server_icon
 
     - id: client
       fn: *client_fns
@@ -62,4 +69,4 @@ graph_defn:
           default: false
       attrs:
         ticks: 5
-        icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
+        icon: server_icon

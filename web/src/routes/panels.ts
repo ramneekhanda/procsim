@@ -126,6 +126,7 @@ export class LogPanel implements IContentRenderer {
 
 export interface DockviewReturn {
   codeEditor: Monaco;
+  viewPanel: IDockviewPanel;
 };
 
 export function createDockviewInternal(dockView: HTMLElement, schema: string, data: &Array<LogMessageType>, returnVal: DockviewReturn) {
@@ -163,6 +164,7 @@ export function createDockviewInternal(dockView: HTMLElement, schema: string, da
     tabComponent: "Tab",
     title: "View",
   });
+  returnVal.viewPanel = viewPanel;
 
   const monacoPanel: IDockviewPanel = api.addPanel({
     id: "monaco_panel",

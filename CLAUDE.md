@@ -77,9 +77,18 @@ This is the single source of truth for the on-disk/YAML data model and is intent
 most important file to read first:
 - `File { graph_defn: GraphDefinition }` is the YAML root.
 - `GraphDefinition` has `node_types` (reusable type definitions, each with an optional Rhai
-  `fn` script, `attrs` (tick interval, icon), and typed `params` — Bool/Float/Integer/String/
-  Option), `graph` (the actual node instances as `NodeConnection { name, node_type, links }`),
-  and `graph_attrs` (colors/title).
+  `fn` script, `attrs` (a tick interval and an on-canvas `icon` id), and typed `params` —
+  Bool/Float/Integer/String/Option), `graph` (the actual node instances as
+  `NodeConnection { name, node_type, links }`), `graph_attrs` (colors/title), and `icons`
+  (a named `IconDef { id, url }` registry — `attrs.icon` and a `send()` payload's own
+  `icon` key both reference an entry here by `id`; `parse_graph2` validates `attrs.icon`
+  against this list the same way it validates `graph[].node_type` against `node_types`).
+  `attrs.ticks` is a `Ticks` enum (untagged, so plain `ticks: 5` still works): either a
+  fixed seconds value, or `{min, max}` resolved to one random value at load time
+  (`resolve_ticks_secs`), or `{min, max, jitter: true}` which re-resolves to a fresh
+  random value every time the timer fires (handled in `rhai_engine.rs`'s tick loop via
+  `Timer::set_duration`, safe to call because `Timer::tick()` only reads whatever
+  duration is currently set, verified against `bevy_time`'s source).
 - `parse_graph2()` deserializes the YAML, **compiles each node type's Rhai script into an
   `AST`** (`compile_ast`), then instantiates a `Node` per graph entry (looking up its
   `NodeType`, creating a per-node Rhai `Scope` and a `Timer` from `attrs.ticks`), and runs
@@ -98,9 +107,12 @@ Every frame, `execute_rhai_engine`:
 2. Drains each connector's `msg_delivered` queue and calls `on_msg(msg)` on the receiving
    node for each delivered message.
 3. Rhai scripts call the registered host functions `log(s)` (→ `stdlib::rhai_lib::rhai_log` →
-   `log_dsa_event!`) and `send(to, msg)` (pushes into a thread-local message store) to talk
-   back to the engine; `send_messages` fans those out to the `Messages` component on whichever
-   `NodeConnector` links the two node names, becoming an in-flight `Message` with a 3s timer.
+   `log_dsa_event!`), `send(to, msg)` (pushes into a thread-local message store), and
+   `random_chance(percent)` (returns `true` with roughly that % probability, for scripts
+   simulating flaky/failing behavior without a manually-toggled param) to talk back to
+   the engine; `send_messages` fans sent messages out to the `Messages` component on
+   whichever `NodeConnector` links the two node names, becoming an in-flight `Message`
+   with a 3s timer.
 4. `state` (the Rhai `globals` map) round-trips through the node's persistent `Dynamic` field
    across calls — this is how a node keeps memory between ticks/messages.
 

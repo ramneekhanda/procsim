@@ -1,0 +1,89 @@
+fns:
+  - &client_fn |
+    fn on_init() {
+      globals.state = "closed";
+      globals.fail_count = 0;
+      globals.cooldown = 0;
+    }
+    fn on_timer() {
+      if globals.state == "open" {
+        globals.cooldown -= 1;
+        if globals.cooldown <= 0 {
+          globals.state = "half_open";
+          log("circuit half-open, probing backend...");
+        } else {
+          log("circuit open, skipping call (" + globals.cooldown + " ticks left)");
+          return;
+        }
+      }
+      send("backend", #{
+        display: "request",
+        icon: "request_icon"
+      });
+    }
+    fn on_msg(msg) {
+      if msg.ok {
+        globals.fail_count = 0;
+        if globals.state == "half_open" {
+          globals.state = "closed";
+          log("backend recovered, circuit closed");
+        }
+      } else {
+        globals.fail_count += 1;
+        log("call failed (" + globals.fail_count + " in a row)");
+        if globals.fail_count >= 3 {
+          globals.state = "open";
+          globals.cooldown = 3;
+          log("circuit opened after 3 failures");
+        }
+      }
+    }
+
+  - &backend_fn |
+    fn on_msg(msg) {
+      if healthy {
+        send(msg.from, #{ display: "ok", ok: true, icon: "response_icon" });
+      } else {
+        send(msg.from, #{ display: "error", ok: false, icon: "error_icon" });
+      }
+    }
+
+graph_defn:
+  graph:
+    - name: client
+      node_type: client
+      links: [backend]
+    - name: backend
+      node_type: backend
+      links: []
+  graph_attrs:
+    background: "#FFFFFF"
+    connection_color: "#000000"
+    text_color: "#000000"
+    title: Circuit Breaker
+  icons:
+    - id: client_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/EKSAnywhere.png
+    - id: backend_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
+    - id: request_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/2709.png
+    - id: response_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/2705.png
+    - id: error_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/274c.png
+  node_types:
+    - id: client
+      fn: *client_fn
+      attrs:
+        ticks: 3
+        icon: client_icon
+    - id: backend
+      fn: *backend_fn
+      params:
+        - name: healthy
+          type: Bool
+          default: true
+      attrs:
+        ticks: 30
+        icon: backend_icon

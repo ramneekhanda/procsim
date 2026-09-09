@@ -7,6 +7,15 @@ use crate::resources::common_assets::CommonAssets;
 use crate::resources::common_assets::ResourceType;
 use crate::resources::graph_def::GraphDefinitionRes;
 
+const BUBBLE_FONT_SIZE: f32 = 16.0;
+const BUBBLE_PADDING_X: f32 = 10.0;
+const BUBBLE_PADDING_Y: f32 = 6.0;
+const BUBBLE_CHAR_WIDTH_FACTOR: f32 = 0.55;
+const BUBBLE_MIN_WIDTH: f32 = 28.0;
+const BUBBLE_CORNER_RADIUS: f32 = 8.0;
+const BUBBLE_ICON_SIZE: f32 = 20.0;
+const BUBBLE_ICON_TEXT_GAP: f32 = 4.0;
+
 fn walk_message(path: &lyon_algorithms::path::Path) -> Vec<[f32; 2]> {
     use lyon_algorithms::walk::{walk_along_path, RegularPattern, WalkerEvent};
 
@@ -41,7 +50,7 @@ pub fn update_message_path(
 
     let text_style = TextStyle {
         font: font.clone(),
-        font_size: 16.0,
+        font_size: BUBBLE_FONT_SIZE,
         color: gd.graph_defn.graph_attrs.text_color,
     };
 
@@ -95,33 +104,77 @@ pub fn update_message_path(
                 ))
                 .id();
 
-            let shape = shapes::RegularPolygon {
-                sides: 4,
-                feature: shapes::RegularPolygonFeature::Radius(4.0),
-                ..shapes::RegularPolygon::default()
+            let msg_icon: Option<Handle<Image>> = mesg.icon.as_ref().and_then(|icon_id| {
+                if let Some(ResourceType::ImageHandle(img)) = ca.resource_map.get(icon_id) {
+                    Some(img.clone())
+                } else {
+                    None
+                }
+            });
+
+            let text_width =
+                (mesg.str.chars().count() as f32) * BUBBLE_FONT_SIZE * BUBBLE_CHAR_WIDTH_FACTOR;
+            let content_width = if msg_icon.is_some() {
+                BUBBLE_ICON_SIZE + BUBBLE_ICON_TEXT_GAP + text_width
+            } else {
+                text_width
             };
-            let icon_child = commands
+            let bubble_width = (content_width + 2.0 * BUBBLE_PADDING_X).max(BUBBLE_MIN_WIDTH);
+            let bubble_height =
+                BUBBLE_FONT_SIZE.max(BUBBLE_ICON_SIZE) + 2.0 * BUBBLE_PADDING_Y;
+            let half = Vec2::new(bubble_width / 2.0, bubble_height / 2.0);
+            let bubble_shape = shapes::RoundedPolygon {
+                points: vec![
+                    Vec2::new(-half.x, -half.y),
+                    Vec2::new(half.x, -half.y),
+                    Vec2::new(half.x, half.y),
+                    Vec2::new(-half.x, half.y),
+                ],
+                radius: BUBBLE_CORNER_RADIUS,
+                ..shapes::RoundedPolygon::default()
+            };
+            let bubble_child = commands
                 .spawn((
                     ShapeBundle {
-                        path: GeometryBuilder::build_as(&shape),
+                        path: GeometryBuilder::build_as(&bubble_shape),
                         ..default()
                     },
-                    Stroke::new(gd.graph_defn.graph_attrs.text_color, 3.0),
+                    Fill::color(gd.graph_defn.graph_attrs.background),
+                    Stroke::new(gd.graph_defn.graph_attrs.text_color, 1.5),
                 ))
                 .id();
+
+            let content_left = -content_width / 2.0;
+            let text_x = if let Some(icon) = &msg_icon {
+                let icon_x = content_left + BUBBLE_ICON_SIZE / 2.0;
+                commands.entity(parent).with_children(|p| {
+                    p.spawn(SpriteBundle {
+                        texture: icon.clone(),
+                        transform: Transform::from_translation(Vec3::new(icon_x, 0.0, 1.0)),
+                        sprite: Sprite {
+                            custom_size: Vec2::new(BUBBLE_ICON_SIZE, BUBBLE_ICON_SIZE).into(),
+                            ..Default::default()
+                        },
+                        ..default()
+                    });
+                });
+                content_left + BUBBLE_ICON_SIZE + BUBBLE_ICON_TEXT_GAP + text_width / 2.0
+            } else {
+                0.0
+            };
 
             let text_child = commands
                 .spawn(Text2dBundle {
                     text: Text::from_section(mesg.str.clone(), text_style.clone())
-                        .with_justify(JustifyText::Center), //.with_alignment(text_alignment),
-                    transform: Transform::from_translation(Vec3::new(0.0, -20., 100.)),
+                        .with_justify(JustifyText::Center),
+                    transform: Transform::from_translation(Vec3::new(text_x, 0.0, 1.0)),
                     ..default()
                 })
                 .id();
 
             commands
                 .entity(parent)
-                .push_children(&[icon_child, text_child]);
+                .push_children(&[bubble_child, text_child]);
         }
     }
 }

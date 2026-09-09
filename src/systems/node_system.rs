@@ -1,4 +1,4 @@
-use crate::components::node::{NodeMarker, SelectedNodeMarker};
+use crate::components::node::{DragState, NodeMarker, SelectedNodeMarker, TickProgressFill};
 use crate::parser::graphv2::{GraphAttrs, Node};
 use crate::resources::common_assets::CommonAssets;
 use crate::resources::common_assets::ResourceType;
@@ -19,6 +19,9 @@ const ICON_HEIGHT: f32 = 64.0;
 const TEXT_DISTANCE_FROM_BOTTOM: f32 = 8.0;
 const FONT_SIZE: f32 = 24.0;
 const BOUNDING_BOX_PADDING: f32 = 8.0;
+pub const TICK_BAR_WIDTH: f32 = 32.0;
+const TICK_BAR_HEIGHT: f32 = 3.0;
+const TICK_BAR_Y: f32 = -(ICON_HEIGHT / 2.0 + TEXT_DISTANCE_FROM_BOTTOM / 2.0);
 
 pub fn create_nodes(
     mut commands: Commands,
@@ -176,6 +179,9 @@ fn spawn_node(
                 node_name: node.name.clone(),
                 ..Default::default()
             },
+            DragState {
+                raw: Vec2::new(x, y),
+            },
             On::<Pointer<Click>>::run(on_click),
             On::<Pointer<Drag>>::run(drag::drag),
             Animator::new(tween),
@@ -196,7 +202,36 @@ fn spawn_node(
 
     let text_child = commands.spawn(txt_bndl).id();
 
+    let track_child = commands
+        .spawn(SpriteBundle {
+            transform: Transform::from_translation(Vec3::new(0.0, TICK_BAR_Y, 100.)),
+            sprite: Sprite {
+                color: Color::srgba(0.0, 0.0, 0.0, 0.25),
+                custom_size: Some(Vec2::new(TICK_BAR_WIDTH, TICK_BAR_HEIGHT)),
+                ..Default::default()
+            },
+            ..default()
+        })
+        .id();
+
+    let fill_child = commands
+        .spawn((
+            SpriteBundle {
+                transform: Transform::from_translation(Vec3::new(0.0, TICK_BAR_Y, 101.)),
+                sprite: Sprite {
+                    color: g_attrs.connection_color,
+                    custom_size: Some(Vec2::new(TICK_BAR_WIDTH, TICK_BAR_HEIGHT)),
+                    ..Default::default()
+                },
+                ..default()
+            },
+            TickProgressFill {
+                node_name: node.name.clone(),
+            },
+        ))
+        .id();
+
     commands
         .entity(parent)
-        .push_children(&[icon_child, text_child]);
+        .push_children(&[icon_child, text_child, track_child, fill_child]);
 }

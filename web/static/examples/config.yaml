@@ -1,27 +1,26 @@
 fns:
-  - &client_fn |
-    if (type_of(msg) == "map") {
-      log("processing response!");
-    } else {
-      log("generating new request!");
-      send("server", #{
-          display: "ping",
-          number: 1
-      });
-    }
-
   - &server_fn |
     if (type_of(msg) == "map") {
+      log("processing message!");
+    } else {
+      log("generating new request!");
+      send("client1", #{
+          display: "hello from server",
+          icon: "request_icon"
+      });
+    }
+  - &client_fn |
+    if (type_of(msg) == "map") {
       log("serving request: " + msg);
-      send(msg.from, #{
-        display: "pong",
-        number: msg.number + 1
+      send("server", #{
+        display: "hello from some client",
+        icon: "client_icon"
       });
     } else {
-      log("timer ignored!");
+      log("wtf!");
     }
 
-graph_defn: 
+graph_defn:
   graph:
     - name: server
       node_type: server
@@ -37,6 +36,13 @@ graph_defn:
     connection_color: "#000000"
     text_color: "#000000"
     title: some graph
+  icons:
+    - id: server_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
+    - id: client_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/EKSAnywhere.png
+    - id: request_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/General/Servers.png
   node_types:
     - id: server
       fn: *server_fn
@@ -60,8 +66,8 @@ graph_defn:
           default: a
       attrs:
         ticks: 5
-        icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
-    
+        icon: server_icon
+
     - id: client
       fn: *client_fn
       params:
@@ -77,5 +83,4 @@ graph_defn:
           max: 10
       attrs:
         ticks: 5
-        icon: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/EKSAnywhere.png
-
+        icon: client_icon

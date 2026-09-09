@@ -3,10 +3,11 @@ use std::sync::{Arc, RwLock};
 use crate::c_log;
 use crate::components::message::{Message, Messages};
 use crate::components::node_connector::NodeConnector;
-use crate::parser::graphv2::{Node, NodeParams, ParamType};
-use crate::resources::graph_def::GraphDefinitionRes;
+use crate::parser::graphv2::{resolve_ticks_secs, Node, NodeParams, ParamType, Ticks};
+use crate::resources::graph_def::{GraphDefinitionRes, NodeTicked};
 use crate::stdlib::rhai_lib::rhai_log;
 use bevy::prelude::*;
+use rand::Rng;
 use rhai::{CallFnOptions, Dynamic, Engine, Scope};
 use std::time::Duration;
 
@@ -14,6 +15,7 @@ pub fn execute_rhai_engine(
     mut graph_defn: ResMut<GraphDefinitionRes>,
     time: Res<Time>,
     mut query_conn: Query<(&mut Messages, &mut NodeConnector)>,
+    mut ticked_writer: EventWriter<NodeTicked>,
 ) {
     let message_store = Arc::new(RwLock::new(Vec::<(String, String, Dynamic)>::new()));
     let local_message_store = Arc::new(RwLock::new(Vec::<(String, Dynamic)>::new()));
@@ -31,6 +33,14 @@ pub fn execute_rhai_engine(
         node.timer.tick(time.delta());
         if !node.timer.finished() {
             continue;
+        }
+        ticked_writer.send(NodeTicked {
+            name: node.name.clone(),
+        });
+        if let Ticks::Range { jitter: true, .. } = &node.node_data.attrs.ticks {
+            node.timer.set_duration(Duration::from_secs(resolve_ticks_secs(
+                &node.node_data.attrs.ticks,
+            )));
         }
         if let Some(_) = &node.node_data.func {
             let options = CallFnOptions::new().eval_ast(false).rewind_scope(false);
@@ -108,6 +118,7 @@ fn send_messages(
     for (from, to, msg) in store.iter_mut() {
         if msg.is_map() {
             let set_display;
+            let icon: Option<String>;
             {
                 let mut val = msg.write_lock::<rhai::Map>().unwrap();
                 msg_display = "".to_string();
@@ -118,6 +129,8 @@ fn send_messages(
                     msg_display = v.to_string();
                     true
                 });
+
+                icon = val.get("icon").map(|v| v.to_string());
             }
 
             if !set_display {
@@ -134,6 +147,7 @@ fn send_messages(
                         node_to: to.clone(),
                         str: msg_display.to_string(),
                         obj: msg.clone(),
+                        icon: icon.clone(),
                     });
                 }
             }
@@ -153,6 +167,12 @@ fn initialize_engine(message_store: &Arc<RwLock<Vec<(String, Dynamic)>>>) -> Eng
         .register_fn("send", move |to: String, msg: Dynamic| {
             let mut store = ms.write().unwrap();
             store.push((to, msg));
+        })
+        // Returns true with roughly `percent` probability (0-100). Lets scripts
+        // simulate flaky/failing behavior (e.g. a participant randomly voting no)
+        // without needing a manually-toggled param for every failure scenario.
+        .register_fn("random_chance", |percent: i64| -> bool {
+            rand::thread_rng().gen_range(0..100) < percent
         });
 
     engine

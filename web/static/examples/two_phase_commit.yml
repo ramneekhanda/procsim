@@ -1,0 +1,110 @@
+fns:
+  - &coordinator_fn |
+    fn on_init() {
+      globals.phase = "idle";
+      globals.tx_id = 0;
+      globals.responses = 0;
+      globals.yes = 0;
+    }
+    fn on_timer() {
+      if globals.phase == "idle" {
+        globals.tx_id += 1;
+        globals.responses = 0;
+        globals.yes = 0;
+        globals.phase = "preparing";
+        log("tx " + globals.tx_id + ": sending PREPARE to " + links.len() + " participants");
+        for p in links {
+          send(p, #{ msg_type: "prepare", tx_id: globals.tx_id, display: "PREPARE", icon: "prepare_icon" });
+        }
+      }
+    }
+    fn on_msg(msg) {
+      if globals.phase == "preparing" && msg.tx_id == globals.tx_id {
+        globals.responses += 1;
+        if msg.vote {
+          globals.yes += 1;
+        }
+        if globals.responses >= links.len() {
+          if globals.yes == links.len() {
+            log("tx " + globals.tx_id + ": all YES, committing");
+            for p in links {
+              send(p, #{ msg_type: "commit", tx_id: globals.tx_id, display: "COMMIT", icon: "commit_icon" });
+            }
+          } else {
+            log("tx " + globals.tx_id + ": a participant voted NO, aborting");
+            for p in links {
+              send(p, #{ msg_type: "abort", tx_id: globals.tx_id, display: "ABORT", icon: "abort_icon" });
+            }
+          }
+          globals.phase = "idle";
+        }
+      }
+    }
+
+  - &participant_fn |
+    fn on_msg(msg) {
+      if msg.msg_type == "prepare" {
+        // vote_yes is a manual override for forcing a scenario; on top of that, even
+        // a participant that's willing to commit has a random chance of failing
+        // (timeout, disk full, whatever) so aborts show up organically over time.
+        let vote = vote_yes && !random_chance(fail_chance);
+        let vote_str = if vote { "YES" } else { "NO" };
+        log("voting " + vote_str + " for tx " + msg.tx_id);
+        send("coordinator", #{ tx_id: msg.tx_id, vote: vote, display: vote_str });
+      } else if msg.msg_type == "commit" {
+        log("committing tx " + msg.tx_id);
+      } else if msg.msg_type == "abort" {
+        log("aborting tx " + msg.tx_id);
+      }
+    }
+
+graph_defn:
+  graph:
+    - name: coordinator
+      node_type: coordinator
+      links: [participant1, participant2, participant3]
+    - name: participant1
+      node_type: participant
+      links: []
+    - name: participant2
+      node_type: participant
+      links: []
+    - name: participant3
+      node_type: participant
+      links: []
+  graph_attrs:
+    background: "#FFFFFF"
+    connection_color: "#000000"
+    text_color: "#000000"
+    title: Two-Phase Commit
+  icons:
+    - id: coordinator_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/General/Servers.png
+    - id: participant_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
+    - id: prepare_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/2709.png
+    - id: commit_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/2705.png
+    - id: abort_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/274c.png
+  node_types:
+    - id: coordinator
+      fn: *coordinator_fn
+      attrs:
+        ticks: 6
+        icon: coordinator_icon
+    - id: participant
+      fn: *participant_fn
+      params:
+        - name: vote_yes
+          type: Bool
+          default: true
+        - name: fail_chance
+          type: Integer
+          default: 15
+          min: 0
+          max: 100
+      attrs:
+        ticks: 30
+        icon: participant_icon

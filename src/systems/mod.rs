@@ -1,8 +1,10 @@
+pub mod background_grid;
 #[cfg(target_arch = "wasm32")]
 pub mod browser_resize;
 pub mod clearcolor;
 pub mod drag;
 pub mod ingest_code;
+pub mod node_progress;
 pub mod node_pulse;
 pub mod node_system;
 pub mod resource_loader;

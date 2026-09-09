@@ -4,6 +4,7 @@ use bevy::{
     prelude::*,
     time::Timer,
 };
+use rand::Rng;
 use rhai::Dynamic;
 use rhai::{CallFnOptions, Scope, AST};
 use schemars::JsonSchema;
@@ -94,16 +95,50 @@ impl Default for GraphAttrs {
     }
 }
 
+/// Either a fixed tick interval in seconds, or a `{min, max}` range. A range with
+/// `jitter: false` (the default) is resolved to one random value once, at node
+/// creation, and stays constant for that instance's lifetime. `jitter: true` instead
+/// re-picks a fresh random value within the range every time the timer fires.
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
+#[serde(untagged)]
+pub enum Ticks {
+    Fixed(u64),
+    Range {
+        min: u64,
+        max: u64,
+        #[serde(default)]
+        jitter: bool,
+    },
+}
+
+impl Default for Ticks {
+    fn default() -> Self {
+        Ticks::Fixed(2)
+    }
+}
+
+/// Resolves a `Ticks` value to a concrete interval in seconds, picking a random value
+/// within the range for `Ticks::Range`.
+pub fn resolve_ticks_secs(ticks: &Ticks) -> u64 {
+    match ticks {
+        Ticks::Fixed(n) => *n,
+        Ticks::Range { min, max, .. } => rand::thread_rng().gen_range(*min..=*max),
+    }
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct Attrs {
-    pub ticks: u64,
+    #[serde(default)]
+    pub ticks: Ticks,
+    /// Id of an entry in the graph's top-level `icons` list, used as this node type's
+    /// on-canvas icon.
     pub icon: Option<String>,
 }
 
 impl Default for Attrs {
     fn default() -> Self {
         Attrs {
-            ticks: 2,
+            ticks: Ticks::default(),
             icon: None,
         }
     }
@@ -196,10 +231,18 @@ pub struct NodeConnection {
 }
 
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
+pub struct IconDef {
+    pub id: String,
+    pub url: String,
+}
+
+#[derive(Default, Debug, PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct GraphDefinition {
     pub node_types: Vec<NodeType>,
     pub graph: Vec<NodeConnection>,
     pub graph_attrs: GraphAttrs,
+    #[serde(default)]
+    pub icons: Vec<IconDef>,
 
     #[serde(skip)]
     pub node_instances: Vec<Node>,
@@ -231,6 +274,28 @@ pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
                     .as_str(),
                 ));
             }
+            if let Some(icon_id) = &node_type.attrs.icon {
+                if !m_data.graph_defn.icons.iter().any(|i| &i.id == icon_id) {
+                    return Err(serde_yaml::Error::custom(
+                        format!(
+                            "Icon '{}' referenced by node type '{}' not found in icons list",
+                            icon_id, node_type.id
+                        )
+                        .as_str(),
+                    ));
+                }
+            }
+            if let Ticks::Range { min, max, .. } = &node_type.attrs.ticks {
+                if min > max {
+                    return Err(serde_yaml::Error::custom(
+                        format!(
+                            "Invalid ticks range for node type '{}': min ({}) > max ({})",
+                            node_type.id, min, max
+                        )
+                        .as_str(),
+                    ));
+                }
+            }
         }
         let scope = Scope::new();
         for node in m_data.graph_defn.graph.iter() {
@@ -244,7 +309,7 @@ pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
                     name: node.name.clone(),
                     node_data: data_w_type.clone(),
                     timer: Timer::new(
-                        Duration::from_secs(data_w_type.attrs.ticks),
+                        Duration::from_secs(resolve_ticks_secs(&data_w_type.attrs.ticks)),
                         TimerMode::Repeating,
                     ),
                     links: node.links.clone(),

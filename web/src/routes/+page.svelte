@@ -3,6 +3,7 @@
   import Menubar from "$lib/components/menubar/menubar.svelte";
   import init, { compile_code, get_code_schema } from "./dsa";
   import { onMount } from "svelte";
+  import type { IDockviewPanel } from "dockview-core";
   import "dockview-core/dist/styles/dockview.css";
   import "tabulator-tables/dist/css/tabulator.min.css";
   import * as Panels from "./panels";
@@ -10,6 +11,7 @@
   let id = 0;
   let code: string;
   let codeEditor: Monaco;
+  let viewPanel: IDockviewPanel;
   let schema = "";
   let dockView: HTMLElement;
   let log_event_listener: HTMLDivElement;
@@ -40,6 +42,7 @@
     let returnVal = {} as Panels.DockviewReturn;
     Panels.createDockviewInternal(dockView, schema, data, returnVal);
     codeEditor = returnVal.codeEditor;
+    viewPanel = returnVal.viewPanel;
     log_event_listener.addEventListener("dsa-log-event", onLogEvent);
     init()
       .catch((error) => {
@@ -56,6 +59,15 @@
         schema = get_code_schema();
       });
   });
+
+  function toggleFullscreen() {
+    if (!viewPanel) return;
+    if (viewPanel.api.isMaximized()) {
+      viewPanel.api.exitMaximized();
+    } else {
+      viewPanel.api.maximize();
+    }
+  }
 
   function compileCode() {
     let b = compile_code(codeEditor.getCode());
@@ -84,6 +96,7 @@
   <Menubar
     on:runClicked={() => compileCode()}
     on:exampleClicked={(i) => exampleClicked(i)}
+    on:fullscreenClicked={() => toggleFullscreen()}
   />
   <div class="flex" bind:this={dockView}></div>
 </div>

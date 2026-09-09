@@ -1,0 +1,157 @@
+fns:
+  - &registry_fn |
+    fn on_init() {
+      globals.clock = 0;
+      globals.last_seen1 = -1000;
+      globals.last_seen2 = -1000;
+      globals.last_seen3 = -1000;
+    }
+    fn on_timer() {
+      globals.clock += 1;
+    }
+    fn on_msg(msg) {
+      if msg.msg_type == "register" || msg.msg_type == "heartbeat" {
+        if msg.msg_type == "register" {
+          log(msg.from + " registered at clock " + globals.clock);
+        }
+        if msg.from == "service1" { globals.last_seen1 = globals.clock; }
+        else if msg.from == "service2" { globals.last_seen2 = globals.clock; }
+        else if msg.from == "service3" { globals.last_seen3 = globals.clock; }
+      } else if msg.msg_type == "discover" {
+        let live = [];
+        if globals.clock - globals.last_seen1 <= expiry { live.push("service1"); }
+        if globals.clock - globals.last_seen2 <= expiry { live.push("service2"); }
+        if globals.clock - globals.last_seen3 <= expiry { live.push("service3"); }
+
+        if live.len() == 0 {
+          log("no live services to offer " + msg.from);
+          send(msg.from, #{ display: "no services found", icon: "error_icon" });
+        } else {
+          let idx = globals.clock % live.len();
+          let chosen = live[idx];
+          log("telling " + msg.from + " to use " + chosen);
+          send(msg.from, #{ msg_type: "discovered", target: chosen, display: "use " + chosen, icon: "discover_icon" });
+        }
+      }
+    }
+
+  - &service_fn |
+    fn on_init() {
+      globals.registered = false;
+      globals.was_down = false;
+    }
+    fn on_timer() {
+      if !alive {
+        globals.was_down = true;
+        return;
+      }
+      if globals.was_down {
+        // Coming back after being down: our old registration may already have
+        // expired in the registry, so re-register properly instead of just
+        // resuming lightweight heartbeats into what could be a stale entry.
+        globals.registered = false;
+        globals.was_down = false;
+      }
+      if !globals.registered {
+        log("registering with registry");
+        send("registry", #{ msg_type: "register", display: "register", icon: "heartbeat_icon" });
+        globals.registered = true;
+      } else {
+        send("registry", #{ msg_type: "heartbeat", display: "heartbeat", icon: "heartbeat_icon" });
+      }
+    }
+    fn on_msg(msg) {
+      if msg.msg_type == "request" {
+        send(msg.from, #{ msg_type: "response", display: "response", icon: "response_icon" });
+      }
+    }
+
+  - &client_fn |
+    fn on_init() {
+      globals.target = "";
+    }
+    fn on_timer() {
+      if globals.target == "" {
+        log("no known service instance - asking registry");
+        send("registry", #{ msg_type: "discover", display: "discover?", icon: "request_icon" });
+      } else {
+        log("calling " + globals.target + " directly");
+        send(globals.target, #{ msg_type: "request", display: "request", icon: "request_icon" });
+      }
+    }
+    fn on_msg(msg) {
+      if msg.msg_type == "discovered" {
+        globals.target = msg.target;
+      } else if msg.msg_type == "response" {
+        log("got response from " + globals.target);
+        // re-discover next cycle instead of latching onto one instance forever, so
+        // the discovery flow keeps happening visibly rather than running once.
+        globals.target = "";
+      }
+    }
+
+graph_defn:
+  graph:
+    - name: client
+      node_type: client
+      links: [registry, service1, service2, service3]
+    - name: registry
+      node_type: registry
+      links: []
+    - name: service1
+      node_type: service
+      links: [registry]
+    - name: service2
+      node_type: service
+      links: [registry]
+    - name: service3
+      node_type: service
+      links: [registry]
+  graph_attrs:
+    background: "#FFFFFF"
+    connection_color: "#000000"
+    text_color: "#000000"
+    title: Service Discovery
+  icons:
+    - id: client_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/EKSAnywhere.png
+    - id: registry_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/General/Servers.png
+    - id: service_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
+    - id: heartbeat_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f493.png
+    - id: request_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/2709.png
+    - id: response_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/2705.png
+    - id: discover_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/2705.png
+    - id: error_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/274c.png
+  node_types:
+    - id: client
+      fn: *client_fn
+      attrs:
+        ticks: 3
+        icon: client_icon
+    - id: registry
+      fn: *registry_fn
+      params:
+        - name: expiry
+          type: Integer
+          default: 3
+          min: 1
+          max: 10
+      attrs:
+        ticks: 1
+        icon: registry_icon
+    - id: service
+      fn: *service_fn
+      params:
+        - name: alive
+          type: Bool
+          default: true
+      attrs:
+        ticks: { min: 2, max: 3, jitter: true }
+        icon: service_icon

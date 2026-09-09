@@ -57,7 +57,10 @@ fn setup_app(app: &mut App) {
         .add_plugins(EguiPlugin)
         .add_plugins(DefaultPickingPlugins)
         .add_plugins(PanCamPlugin)
-        .add_systems(Startup, setup_camera)
+        .add_systems(
+            Startup,
+            (setup_camera, systems::background_grid::setup_grid),
+        )
         .add_systems(
             Update,
             (
@@ -97,6 +100,11 @@ fn setup_app(app: &mut App) {
                 systems::node_system::create_nodes.run_if(resource_equals(LoadingState {
                     state: LoadingStateOpt::Ready,
                 })),
+                systems::node_progress::update_tick_progress.run_if(resource_equals(
+                    LoadingState {
+                        state: LoadingStateOpt::Ready,
+                    },
+                )),
             ),
         );
     #[cfg(target_arch = "wasm32")]

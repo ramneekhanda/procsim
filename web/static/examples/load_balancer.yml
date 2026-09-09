@@ -1,0 +1,166 @@
+fns:
+  - &client_fn |
+    fn on_init() {
+      globals.req_id = 0;
+    }
+    fn on_timer() {
+      globals.req_id += 1;
+      log("sending request #" + globals.req_id);
+      send("lb", #{
+        msg_type: "request",
+        req_id: globals.req_id,
+        display: "request #" + globals.req_id,
+        icon: "request_icon"
+      });
+    }
+    fn on_msg(msg) {
+      log("client got: " + msg.display);
+    }
+
+  - &lb_fn |
+    fn on_init() {
+      globals.cur1 = 0;
+      globals.cur2 = 0;
+      globals.cur3 = 0;
+      globals.healthy1 = true;
+      globals.healthy2 = true;
+      globals.healthy3 = true;
+    }
+    fn on_timer() {
+      // active health checks, independent of request routing
+      send("backend1", #{ msg_type: "health_check", display: "ping", icon: "health_icon" });
+      send("backend2", #{ msg_type: "health_check", display: "ping", icon: "health_icon" });
+      send("backend3", #{ msg_type: "health_check", display: "ping", icon: "health_icon" });
+    }
+    fn on_msg(msg) {
+      if msg.msg_type == "health_response" {
+        let status = if msg.healthy { "up" } else { "down" };
+        log(msg.from + " reported " + status);
+        if msg.from == "backend1" { globals.healthy1 = msg.healthy; }
+        else if msg.from == "backend2" { globals.healthy2 = msg.healthy; }
+        else if msg.from == "backend3" { globals.healthy3 = msg.healthy; }
+      } else if msg.msg_type == "request" {
+        // smooth weighted round-robin over currently-healthy backends
+        globals.cur1 += weight_backend1;
+        globals.cur2 += weight_backend2;
+        globals.cur3 += weight_backend3;
+        let total = weight_backend1 + weight_backend2 + weight_backend3;
+
+        let target = "";
+        let best = -1000000;
+        if globals.healthy1 && globals.cur1 > best { best = globals.cur1; target = "backend1"; }
+        if globals.healthy2 && globals.cur2 > best { best = globals.cur2; target = "backend2"; }
+        if globals.healthy3 && globals.cur3 > best { best = globals.cur3; target = "backend3"; }
+
+        if target == "" {
+          log("no healthy backends - dropping request #" + msg.req_id);
+          send(msg.from, #{ display: "503 no backends", icon: "error_icon" });
+          return;
+        }
+
+        if target == "backend1" { globals.cur1 -= total; }
+        else if target == "backend2" { globals.cur2 -= total; }
+        else { globals.cur3 -= total; }
+
+        log("routing request #" + msg.req_id + " to " + target);
+        send(target, #{
+          msg_type: "request",
+          req_id: msg.req_id,
+          orig_from: msg.from,
+          display: "request #" + msg.req_id,
+          icon: "request_icon"
+        });
+      } else if msg.msg_type == "response" {
+        send(msg.orig_from, #{ display: msg.display, icon: "response_icon" });
+      }
+    }
+
+  - &backend_fn |
+    fn on_msg(msg) {
+      if msg.msg_type == "health_check" {
+        let status = if healthy { "up" } else { "down" };
+        send(msg.from, #{ msg_type: "health_response", healthy: healthy, display: status, icon: "health_icon" });
+      } else if msg.msg_type == "request" {
+        if healthy {
+          send(msg.from, #{ msg_type: "response", orig_from: msg.orig_from, display: "ok #" + msg.req_id, icon: "response_icon" });
+        } else {
+          send(msg.from, #{ msg_type: "response", orig_from: msg.orig_from, display: "error #" + msg.req_id, icon: "error_icon" });
+        }
+      }
+    }
+
+graph_defn:
+  graph:
+    - name: client
+      node_type: client
+      links: [lb]
+    - name: lb
+      node_type: lb
+      links: [backend1, backend2, backend3]
+    - name: backend1
+      node_type: backend
+      links: []
+    - name: backend2
+      node_type: backend
+      links: []
+    - name: backend3
+      node_type: backend
+      links: []
+  graph_attrs:
+    background: "#FFFFFF"
+    connection_color: "#000000"
+    text_color: "#000000"
+    title: Load Balancer (weighted, with health checks)
+  icons:
+    - id: client_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/EKSAnywhere.png
+    - id: lb_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/General/Servers.png
+    - id: backend_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
+    - id: request_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/2709.png
+    - id: response_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/2705.png
+    - id: error_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/274c.png
+    - id: health_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f493.png
+  node_types:
+    - id: client
+      fn: *client_fn
+      attrs:
+        # jitter: true re-picks a random interval in [2,5]s every cycle, instead of
+        # a perfectly regular 3s - real clients don't send requests like a metronome.
+        ticks: { min: 2, max: 5, jitter: true }
+        icon: client_icon
+    - id: lb
+      fn: *lb_fn
+      params:
+        - name: weight_backend1
+          type: Integer
+          default: 1
+          min: 0
+          max: 10
+        - name: weight_backend2
+          type: Integer
+          default: 1
+          min: 0
+          max: 10
+        - name: weight_backend3
+          type: Integer
+          default: 1
+          min: 0
+          max: 10
+      attrs:
+        ticks: 6
+        icon: lb_icon
+    - id: backend
+      fn: *backend_fn
+      params:
+        - name: healthy
+          type: Bool
+          default: true
+      attrs:
+        ticks: 30
+        icon: backend_icon

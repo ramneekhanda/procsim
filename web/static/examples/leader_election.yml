@@ -1,0 +1,92 @@
+fns:
+  - &node_fn |
+    fn on_init() {
+      globals.is_leader = false;
+      globals.leader_name = "";
+      globals.missed = 0;
+      globals.was_down = false;
+    }
+    fn on_timer() {
+      if !alive {
+        globals.was_down = true;
+        return;
+      }
+      if globals.was_down {
+        // Rejoining after being down: forget whatever role we had before and come
+        // back as a plain follower with a full timeout window. A recovering node
+        // must never assume its old leadership still stands - it has to actually
+        // wait to hear from (or fail to hear from) whoever is leading now.
+        globals.is_leader = false;
+        globals.missed = 0;
+        globals.was_down = false;
+        log(node_name + " back online, rejoining as follower");
+      }
+      if globals.is_leader {
+        log(node_name + " (leader) sending heartbeat");
+        for p in links {
+          send(p, #{ msg_type: "heartbeat", display: "heartbeat", icon: "heartbeat_icon" });
+        }
+      } else {
+        globals.missed += 1;
+        if globals.missed > 2 {
+          // Elect the lowest-named peer that isn't the presumed-dead leader we just
+          // stopped hearing from (excluding it, not just any known peer, is what lets
+          // election actually progress once the lowest-named node in the whole
+          // topology is the one that went down).
+          let candidate = node_name;
+          for p in links {
+            if p != globals.leader_name && p < candidate {
+              candidate = p;
+            }
+          }
+          if candidate == node_name {
+            globals.is_leader = true;
+            globals.leader_name = node_name;
+            globals.missed = 0;
+            log(node_name + " heard nothing from the leader - electing self as new leader");
+          }
+        }
+      }
+    }
+    fn on_msg(msg) {
+      if msg.msg_type == "heartbeat" {
+        globals.missed = 0;
+        globals.leader_name = msg.from;
+        if globals.is_leader && msg.from < node_name {
+          globals.is_leader = false;
+          log(node_name + " stepping down, deferring to " + msg.from);
+        }
+      }
+    }
+
+graph_defn:
+  graph:
+    - name: node1
+      node_type: node
+      links: [node2, node3]
+    - name: node2
+      node_type: node
+      links: [node1, node3]
+    - name: node3
+      node_type: node
+      links: [node1, node2]
+  graph_attrs:
+    background: "#FFFFFF"
+    connection_color: "#000000"
+    text_color: "#000000"
+    title: Leader Election (heartbeat)
+  icons:
+    - id: node_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/EKSAnywhere.png
+    - id: heartbeat_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f493.png
+  node_types:
+    - id: node
+      fn: *node_fn
+      params:
+        - name: alive
+          type: Bool
+          default: true
+      attrs:
+        ticks: 4
+        icon: node_icon

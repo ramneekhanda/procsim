@@ -25,6 +25,15 @@
       </svg>
       Run
     </button>
+    <button class="btn btn-sm" on:click={() => dispatch('fullscreenClicked')} title="Toggle fullscreen view">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16px" height="16px" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="8 3 3 3 3 8"></polyline>
+        <polyline points="21 8 21 3 16 3"></polyline>
+        <polyline points="16 21 21 21 21 16"></polyline>
+        <polyline points="3 16 3 21 8 21"></polyline>
+      </svg>
+      Fullscreen
+    </button>
   </div>
   <div class="navbar-end">
 
@@ -51,6 +60,33 @@
           </ul>
         </details>
 
+      </li>
+      <li>
+        <details open>
+          <summary>Distributed Systems Patterns</summary>
+          <ul>
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "load_balancer.yml"})}>Load Balancer</a></li>
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "circuit_breaker.yml"})}>Circuit Breaker</a></li>
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "two_phase_commit.yml"})}>Two-Phase Commit</a></li>
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "leader_election.yml"})}>Leader Election</a></li>
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "service_discovery.yml"})}>Service Discovery</a></li>
+          </ul>
+        </details>
       </li>
     </ul>
     </div>
