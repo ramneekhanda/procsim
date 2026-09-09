@@ -16,6 +16,7 @@ use parser::graphv2::GraphDefinition;
 use resources::common_assets::{CommonAssets, LoadingState, LoadingStateOpt};
 use resources::graph_def::{GraphChange, GraphDefinitionRes};
 use std::collections::HashMap;
+#[cfg(target_arch = "wasm32")]
 use systems::browser_resize::handle_browser_resize;
 use systems::zoom_panel::zoom_panel;
 
@@ -52,7 +53,7 @@ fn setup_app(app: &mut App) {
         .add_event::<GraphChange>()
         .add_plugins(ShapePlugin)
         .add_plugins(TweeningPlugin)
-        //.add_plugins(EguiPlugin)
+        .add_plugins(EguiPlugin)
         .add_plugins(DefaultPickingPlugins)
         .add_systems(Startup, setup_camera)
         .add_systems(
@@ -80,9 +81,9 @@ fn setup_app(app: &mut App) {
                 systems::ingest_code::ingest_codechange.run_if(resource_equals(LoadingState {
                     state: LoadingStateOpt::Ready,
                 })),
-                // ui::graph_properties_viewer.run_if(resource_equals(LoadingState {
-                //     state: LoadingStateOpt::Ready,
-                // })),
+                ui::graph_properties_viewer.run_if(resource_equals(LoadingState {
+                    state: LoadingStateOpt::Ready,
+                })),
                 systems::update_connectors::update_connectors.run_if(resource_equals(
                     LoadingState {
                         state: LoadingStateOpt::Ready,
@@ -96,6 +97,7 @@ fn setup_app(app: &mut App) {
                 })),
             ),
         );
+    #[cfg(target_arch = "wasm32")]
     app.add_systems(Update, handle_browser_resize);
     app.run();
 }

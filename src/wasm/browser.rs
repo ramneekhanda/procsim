@@ -1,9 +1,18 @@
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     pub fn log(s: &str);
+}
+
+// Native builds (cargo build/test on the host) don't have a JS console; fall back to stdout
+// so the shared c_log!/log_dsa_event! call sites don't need to be target-gated everywhere.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn log(s: &str) {
+    println!("{}", s);
 }
 
 #[macro_export]
@@ -13,6 +22,7 @@ macro_rules! c_log {
   };
 }
 
+#[cfg(target_arch = "wasm32")]
 #[macro_export]
 macro_rules! log_dsa_event {
   ($($arg:tt)*) => {
@@ -35,5 +45,13 @@ macro_rules! log_dsa_event {
       return;
     };
     let _ = log_ev_listener.dispatch_event(&event);
+  };
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[macro_export]
+macro_rules! log_dsa_event {
+  ($($arg:tt)*) => {
+      c_log!($($arg)*);
   };
 }

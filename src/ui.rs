@@ -21,7 +21,7 @@ impl Default for CodeStorage {
         }
     }
 }
-/*
+
 fn get_node_with_name_mut<'a>(
     name: &str,
     graph_defn: &'a mut GraphDefinitionRes,
@@ -93,7 +93,7 @@ pub fn graph_properties_viewer(
                     if let Some(node) = get_node_with_name_mut(&selected.node_name, &mut graph_defn)
                     {
                         egui::Grid::new("Grid - Selected").show(ui, |ui| {
-                            for param in &mut node.node_data.params {
+                            for param in node.node_data.params.iter_mut().flatten() {
                                 if let ParamType::Bool { default } = &mut param.param_type {
                                     ui.label(param.name.clone());
                                     ui.checkbox(default, "");
@@ -145,4 +145,3 @@ pub fn graph_properties_viewer(
         }
     });
 }
- */

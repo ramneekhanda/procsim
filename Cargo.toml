@@ -15,12 +15,25 @@ bevy_mod_picking = {version = "0.20", default-features = false, features = ["bac
 lyon_algorithms = "1"
 serde = "1.0.209"
 serde_yaml = "0.9.34+deprecated"
-rhai = { version="1.19.0", features=["wasm-bindgen", "sync"] }
 wasm-bindgen = "0.2.93"
 bevy_web_asset = "0.9.0"
 lazy_static = "1.5.0"
 schemars = "0.8.21"
 serde_json = "1.0.128"
+# Pinned: winit >0.30.5 has a web-backend regression (rust-windowing/winit#3345 class of
+# bug) that panics on load with "created media query doesn't match" on displays using
+# fractional devicePixelRatio scaling (e.g. 1.5x). Keep at the version bevy_winit 0.14.2
+# originally shipped with until winit fixes this upstream.
+winit = "=0.30.5"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+rhai = { version="1.19.0", features=["wasm-bindgen", "sync"] }
+# bevy_asset pulls in uuid transitively; newer uuid requires an explicit randomness
+# source on wasm32, so pin one explicitly to use the browser's crypto API.
+uuid = { version = "1", features = ["js"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rhai = { version="1.19.0", features=["sync"] }
 
 [profile.release]
 lto = true
