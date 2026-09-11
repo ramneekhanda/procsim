@@ -38,6 +38,11 @@ cargo make -p production run
 # just build both halves without serving (used in CI)
 cargo make -p production build-all
 
+# desktop app (Tauri shell around the same SvelteKit + wasm build - see
+# "Desktop shell" below): dev mode with hot reload, or a release .app/.dmg bundle
+cargo make tauri-dev
+cargo make -p production tauri-build
+
 # rust-only checks
 cargo build
 cargo test
@@ -205,8 +210,7 @@ calls `explain()` with it again (e.g. on every tx). Same thread-local-queue patt
   region is necessary because `bevy_mod_picking` here is built
   `features = ["backend_sprite"]` only — lyon `Mesh2d` shapes (the button's visual) are
   never pickable in this app, so anything meant to be clicked needs an invisible `Sprite`
-  on top of it (`update_connectors.rs`'s connector hover uses the identical trick — see
-  that section below).
+  on top of it.
 - Bubble pop-in is a hand-rolled `BubblePop` component + `animate_bubble_pop` system driven
   by `Time<Real>`, **not** `bevy_tweening::Animator` — `Animator` reads the generic `Time`
   resource (which mirrors `Time<Virtual>`), so a tween started the same frame the sim
@@ -258,22 +262,17 @@ itself keeps the shape consistent no matter the layout. `connector_geometry`/
 per-frame retrace loop so newly-created and moving connectors can't drift out of sync
 with each other.
 
-**Hover** works the same way the explain-bubble's Continue button does: a connector's
-own lyon `Mesh2d` is never pickable (`bevy_mod_picking` here only hit-tests `Sprite`s), so
-each connector gets an invisible `Sprite` child (`ConnectorHitRegion`, sized/rotated to
-cover its chord) carrying the real `On::<Pointer<Over>>`/`<Out>` handlers, which reach
-back to the connector via `Parent` and set `NodeConnector.hovered`.
-
-**A real z-fighting bug this hit-region tripped over**: `background_grid.rs` spawns one
-giant 4000x4000 `Sprite` at `z = -1.0` covering the entire visible world. The hit-region
-was originally placed at that same z. `bevy_mod_picking`'s sprite backend sorts candidate
-hits by z (descending) and the first opaque hit blocks every tied-or-lower one from being
-considered at all — so on that exact tie, the always-covering grid sprite won essentially
-every time and no connector hover could ever register, regardless of any other code being
-correct. Fixed by moving hit-regions to `HIT_REGION_Z = -0.5` (above the grid, still below
-node icons at z = 0, 1, 2, ... so a node always wins over an overlapping connector
-hit-region near its edge). Any future full-screen or large sprite needs to stay clear of
-this z if it's meant to be "behind everything, but still not block picking."
+Connectors used to have a hover highlight (an invisible `ConnectorHitRegion` sprite child
+per connector carrying `On::<Pointer<Over>>`/`<Out>` handlers, driving `NodeConnector.hovered`
+in `update_connector_style`) - removed for performance. `bevy_mod_picking`'s sprite backend
+hit-tests and z-sorts *every* pickable `Sprite` on *every* frame regardless of pointer
+movement or button state (hover has to be recomputed continuously since what's under the
+pointer can change with no input at all - e.g. a message bubble animating under a
+stationary cursor), so one extra sprite per connector was a real, scaling cost: at 500
+nodes (~1500 edges) this alone was worth roughly 2x the frame rate (see
+`web/static/examples/random_mesh_200.yml`-scale measurements) once profiling ruled out
+everything else as the bottleneck. Node click/drag/selection still work (unaffected -
+they hit-test node icon sprites directly, not a connector's).
 
 **Live styling** (`update_connector_style`, blends the user-configured `connection_color`
 toward an indigo `ACCENT_COLOR` rather than replacing it, so a custom base color still
@@ -344,3 +343,26 @@ from inside a running simulation back into the frontend's UI log, so grep for
 - `panels.ts` builds the `dockview-core` layout (editor, canvas, log table via
   `tabulator-tables`).
 - Styling is Tailwind + daisyUI (`tailwind.config.js`, `app.css`).
+
+### Desktop shell (`web/src-tauri/`)
+
+A Tauri v2 wrapper around the *same* SvelteKit + wasm build the browser serves - not a
+separate UI, just that static site (`frontendDist` in `tauri.conf.json` points at
+`../../package/release`, the same `adapter-static` output `cargo make build-all` produces)
+loaded into a native webview instead of a browser tab. This is distinct from the plain
+native `cargo run` binary (`src/main.rs`) described above, which renders the Bevy canvas
+directly with no webview/JS/Svelte layer at all - the Tauri shell exists to ship the actual
+web UI (Monaco editor, dockview panels, log table and all) as a installable desktop app.
+
+- `cargo make tauri-dev` / `cargo make -p production tauri-build` build the wasm module
+  first (`build-wasm-module`/`build-all`), then hand off to `npm run tauri dev`/`build` -
+  necessary because Tauri's own `beforeDevCommand`/`beforeBuildCommand` just run
+  `npm run dev`/`build` directly, which - like a bare `npm run dev` in `web/` - can't
+  resolve the symlinked wasm import (`web/src/routes/dsa.js`) on a clean checkout without
+  the wasm side having been built at least once first.
+- The Rust crate here (`procsim-tauri` / lib `procsim_tauri_lib`) is a separate, independent
+  crate from the root `dsa` package - no `[workspace]` ties them together, so building one
+  doesn't pull in or need the other's dependencies (in particular, it never touches
+  `wasm32-unknown-unknown` or Bevy at all).
+- `tauri build` output goes to `web/src-tauri/target/release/bundle/` (`.app`/`.dmg` on
+  macOS) - gitignored the same way `/target` and `/package` are.

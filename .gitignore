@@ -6,3 +6,4 @@
 package-lock.json
 Cargo.lock
 .DS_Store
+/.playwright-mcp

@@ -83,3 +83,18 @@ dependencies = ["build-all"]
 command = "npm"
 args = ["run", "dev", "--prefix", "web/"]
 dependencies = ["build-all"]
+
+# Desktop shell (Tauri) wrapping the same SvelteKit + wasm app the browser
+# build serves - see web/src-tauri/. Both tasks need the wasm module built
+# first (Tauri's own `beforeDevCommand`/`beforeBuildCommand` just run
+# `npm run dev`/`build`, which - like a bare `npm run dev` in web/ - can't
+# resolve the symlinked wasm import on a clean checkout otherwise).
+[tasks.tauri-dev]
+command = "npm"
+args = ["run", "tauri", "--prefix", "web/", "--", "dev"]
+dependencies = ["build-wasm-module"]
+
+[tasks.tauri-build]
+command = "npm"
+args = ["run", "tauri", "--prefix", "web/", "--", "build"]
+dependencies = ["build-all"]
