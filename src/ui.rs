@@ -65,30 +65,50 @@ pub fn color_picker(ui: &mut egui::Ui, color: &mut bevy::color::Color, label: &s
 pub fn graph_properties_viewer(
     mut contexts: EguiContexts,
     mut graph_defn: ResMut<GraphDefinitionRes>,
+    mut sim_time: ResMut<Time<Virtual>>,
     q_selected: Query<(Entity, &SelectedNodeMarker)>,
 ) {
-    egui::Window::new("Graph Properties").show(contexts.ctx_mut(), |ui| {
-        color_picker(
-            ui,
-            &mut graph_defn.graph_defn.graph_attrs.background,
-            "Background Color",
-        );
-        color_picker(
-            ui,
-            &mut graph_defn.graph_defn.graph_attrs.text_color,
-            "Text Color",
-        );
-        color_picker(
-            ui,
-            &mut graph_defn.graph_defn.graph_attrs.connection_color,
-            "Connection Color",
-        );
-        if q_selected.iter().count() == 0 {
-            return;
-        }
+    // Starts collapsed (title bar only) rather than open, so it doesn't sit on
+    // top of the canvas on every load - click the title bar to expand it.
+    egui::Window::new("Graph Properties")
+        .collapsible(true)
+        .default_open(false)
+        .show(contexts.ctx_mut(), |ui| {
+            let mut speed = sim_time.relative_speed();
+            ui.horizontal(|ui| {
+                ui.label("Simulation Speed:");
+                if ui
+                    .add(Slider::new(&mut speed, 0.1..=5.0).suffix("x"))
+                    .changed()
+                {
+                    sim_time.set_relative_speed(speed);
+                }
+            });
+            ui.separator();
 
-        for (entity, selected) in q_selected.iter() {
-            egui::CollapsingHeader::new(format!("Selected Node - {}", selected.node_name).as_str())
+            color_picker(
+                ui,
+                &mut graph_defn.graph_defn.graph_attrs.background,
+                "Background Color",
+            );
+            color_picker(
+                ui,
+                &mut graph_defn.graph_defn.graph_attrs.text_color,
+                "Text Color",
+            );
+            color_picker(
+                ui,
+                &mut graph_defn.graph_defn.graph_attrs.connection_color,
+                "Connection Color",
+            );
+            if q_selected.iter().count() == 0 {
+                return;
+            }
+
+            for (entity, selected) in q_selected.iter() {
+                egui::CollapsingHeader::new(
+                    format!("Selected Node - {}", selected.node_name).as_str(),
+                )
                 .show(ui, |ui| {
                     if let Some(node) = get_node_with_name_mut(&selected.node_name, &mut graph_defn)
                     {
@@ -142,6 +162,6 @@ pub fn graph_properties_viewer(
                         });
                     }
                 });
-        }
-    });
+            }
+        });
 }

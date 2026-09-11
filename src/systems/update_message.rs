@@ -16,6 +16,7 @@ const BUBBLE_CORNER_RADIUS: f32 = 8.0;
 const BUBBLE_ICON_SIZE: f32 = 20.0;
 const BUBBLE_ICON_TEXT_GAP: f32 = 4.0;
 
+/// Samples points at a fixed arc-length interval along a path.
 fn walk_message(path: &lyon_algorithms::path::Path) -> Vec<[f32; 2]> {
     use lyon_algorithms::walk::{walk_along_path, RegularPattern, WalkerEvent};
 
@@ -36,7 +37,7 @@ fn walk_message(path: &lyon_algorithms::path::Path) -> Vec<[f32; 2]> {
 }
 
 pub fn update_message_path(
-    mut query_conn: Query<(&mut Messages, &NodeConnector)>,
+    mut query_conn: Query<(&mut Messages, &mut NodeConnector)>,
     mut query_marker: Query<(Entity, &mut MessageMarker)>,
     ca: Res<CommonAssets>,
     gd: Res<GraphDefinitionRes>,
@@ -58,7 +59,7 @@ pub fn update_message_path(
         commands.entity(entity).despawn_recursive();
     }
 
-    for (mut msgs, nc) in query_conn.iter_mut() {
+    for (mut msgs, mut nc) in query_conn.iter_mut() {
         let v_points = walk_message(&nc.path); //TODO: cache this - put it in NodeConnector
         let mut msg_finished = Vec::<Message>::new();
 
@@ -76,6 +77,12 @@ pub fn update_message_path(
             }
         });
 
+        if !msg_finished.is_empty() {
+            // A brief highlight on the connector itself when a message lands,
+            // decayed back down by `update_connectors::update_connector_style`
+            // - reinforces delivery on the edge, not just the arriving icon.
+            nc.flash = 1.0;
+        }
         msgs.msg_delivered.append(&mut msg_finished);
 
         for mesg in msgs.msg_inflight.iter_mut() {
@@ -84,7 +91,8 @@ pub fn update_message_path(
             let mut loc = ((v_points.len() as f32 * mesg.timer.elapsed().as_millis() as f32)
                 / mesg.timer.duration().as_millis() as f32) as usize;
 
-            if mesg.node_from == nc.id2 {
+            let reversed = mesg.node_from == nc.id2;
+            if reversed {
                 loc = v_points.len() - loc;
             }
             if loc >= v_points.len() {
@@ -120,8 +128,7 @@ pub fn update_message_path(
                 text_width
             };
             let bubble_width = (content_width + 2.0 * BUBBLE_PADDING_X).max(BUBBLE_MIN_WIDTH);
-            let bubble_height =
-                BUBBLE_FONT_SIZE.max(BUBBLE_ICON_SIZE) + 2.0 * BUBBLE_PADDING_Y;
+            let bubble_height = BUBBLE_FONT_SIZE.max(BUBBLE_ICON_SIZE) + 2.0 * BUBBLE_PADDING_Y;
             let half = Vec2::new(bubble_width / 2.0, bubble_height / 2.0);
             let bubble_shape = shapes::RoundedPolygon {
                 points: vec![
