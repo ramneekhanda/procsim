@@ -16,34 +16,28 @@ const BUBBLE_CORNER_RADIUS: f32 = 8.0;
 const BUBBLE_ICON_SIZE: f32 = 20.0;
 const BUBBLE_ICON_TEXT_GAP: f32 = 4.0;
 
-/// Samples points at a fixed arc-length interval along a path.
-fn walk_message(path: &lyon_algorithms::path::Path) -> Vec<[f32; 2]> {
-    use lyon_algorithms::walk::{walk_along_path, RegularPattern, WalkerEvent};
-
-    let mut x: Vec<[f32; 2]> = vec![];
-    let mut pattern = RegularPattern {
-        callback: &mut |event: WalkerEvent| {
-            x.push(event.position.to_array());
-            true // Return true to continue walking the path.
-        },
-        interval: 0.1,
-    };
-
-    let tolerance = 0.1; // The path flattening tolerance.
-    let start_offset = 0.0; // Start walking at the beginning of the path.
-
-    walk_along_path(path.iter(), start_offset, tolerance, &mut pattern);
-    x
-}
-
+/// Animates each in-flight message's bubble along its connector's cached
+/// walk points (`NodeConnector::walk_cache`).
+///
+/// Each message's bubble entity tree (rounded-rect + icon + text) is spawned
+/// *once*, the first frame the message exists, and its `Entity` cached on
+/// `Message::bubble_entity`; every later frame just updates that entity's
+/// `Transform` in place. This used to despawn and fully respawn every
+/// in-flight message's bubble - a fresh lyon shape tessellation, text
+/// layout, and sprite - on *every* frame, which was a real, measurable cost
+/// that scaled with message-traffic volume (a message's bubble content never
+/// changes once created; only its position along the path does).
 pub fn update_message_path(
     mut query_conn: Query<(&mut Messages, &mut NodeConnector)>,
-    mut query_marker: Query<(Entity, &mut MessageMarker)>,
+    mut query_bubble_transform: Query<&mut Transform, With<MessageMarker>>,
     ca: Res<CommonAssets>,
     gd: Res<GraphDefinitionRes>,
     time: Res<Time>,
     mut commands: Commands,
+    // TEMPORARY - see systems::profiling's doc comment.
+    mut prof: ResMut<crate::systems::profiling::ProfilingStats>,
 ) {
+    let __prof_t0 = web_time::Instant::now(); // TEMPORARY
     let mut font: Handle<Font> = Default::default();
     if let Some(ResourceType::FontHandle(f1)) = ca.resource_map.get("default_font") {
         font = f1.clone();
@@ -55,15 +49,16 @@ pub fn update_message_path(
         color: gd.graph_defn.graph_attrs.text_color,
     };
 
-    for (entity, _marker) in query_marker.iter_mut() {
-        commands.entity(entity).despawn_recursive();
-    }
-
     for (mut msgs, mut nc) in query_conn.iter_mut() {
-        let v_points = walk_message(&nc.path); //TODO: cache this - put it in NodeConnector
+        // The overwhelming majority of connectors have no in-flight message at
+        // any given instant, especially on a large/dense graph. Skip
+        // everything below entirely when idle.
+        if msgs.msg_inflight.is_empty() {
+            continue;
+        }
         let mut msg_finished = Vec::<Message>::new();
 
-        msgs.msg_inflight.retain(|m: &Message| {
+        msgs.msg_inflight.retain_mut(|m: &mut Message| {
             if m.timer
                 .duration()
                 .as_millis()
@@ -72,6 +67,11 @@ pub fn update_message_path(
             {
                 return true;
             } else {
+                // Retiring - despawn its bubble now rather than leaving it to
+                // a "despawn everything" sweep (there no longer is one).
+                if let Some(e) = m.bubble_entity.take() {
+                    commands.entity(e).despawn_recursive();
+                }
                 msg_finished.push(m.clone());
                 return false;
             }
@@ -84,6 +84,11 @@ pub fn update_message_path(
             nc.flash = 1.0;
         }
         msgs.msg_delivered.append(&mut msg_finished);
+
+        // Borrowed after the `nc.flash` write above (not before) so this
+        // shared borrow of `nc.walk_cache`/`nc.id2` doesn't overlap that
+        // mutation - `nc` isn't written again for the rest of this connector.
+        let v_points = &nc.walk_cache;
 
         for mesg in msgs.msg_inflight.iter_mut() {
             mesg.timer.tick(time.delta());
@@ -98,19 +103,29 @@ pub fn update_message_path(
             if loc >= v_points.len() {
                 continue;
             }
+            let translation = Vec3::new(v_points[loc][0], v_points[loc][1], 100.);
+
+            // Already spawned - just move it and move on, no respawn.
+            if let Some(entity) = mesg.bubble_entity {
+                if let Ok(mut transform) = query_bubble_transform.get_mut(entity) {
+                    transform.translation = translation;
+                    continue;
+                }
+                // Entity's gone missing somehow (shouldn't normally happen) -
+                // fall through and treat this message as needing a fresh spawn.
+                mesg.bubble_entity = None;
+            }
+
             let parent = commands
                 .spawn((
                     SpatialBundle {
-                        transform: Transform::from_translation(Vec3::new(
-                            v_points[loc][0],
-                            v_points[loc][1],
-                            100.,
-                        )),
+                        transform: Transform::from_translation(translation),
                         ..Default::default()
                     },
                     MessageMarker {},
                 ))
                 .id();
+            mesg.bubble_entity = Some(parent);
 
             let msg_icon: Option<Handle<Image>> = mesg.icon.as_ref().and_then(|icon_id| {
                 if let Some(ResourceType::ImageHandle(img)) = ca.resource_map.get(icon_id) {
@@ -184,4 +199,5 @@ pub fn update_message_path(
                 .push_children(&[bubble_child, text_child]);
         }
     }
+    prof.message_path_ms += __prof_t0.elapsed().as_secs_f64() * 1000.0; // TEMPORARY
 }

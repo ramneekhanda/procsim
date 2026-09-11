@@ -26,7 +26,10 @@ pub fn execute_rhai_engine(
     mut node_added_writer: EventWriter<NodeAdded>,
     mut node_removed_writer: EventWriter<NodeRemoved>,
     mut pending_explain: ResMut<PendingExplain>,
+    // TEMPORARY - see systems::profiling's doc comment.
+    mut prof: ResMut<crate::systems::profiling::ProfilingStats>,
 ) {
+    let __prof_t0 = web_time::Instant::now(); // TEMPORARY
     let message_store = Arc::new(RwLock::new(Vec::<(String, String, Dynamic)>::new()));
     let local_message_store = Arc::new(RwLock::new(Vec::<(String, Dynamic)>::new()));
     // Set by a handler calling `draw([...])`; `None` means the handler left the
@@ -208,6 +211,7 @@ pub fn execute_rhai_engine(
     }
 
     send_messages(&message_store, &mut query_conn);
+    prof.rhai_ms += __prof_t0.elapsed().as_secs_f64() * 1000.0; // TEMPORARY
 }
 
 /// Drains the `spawn`/`despawn`/`link`/`unlink` calls the handler that just returned
@@ -407,6 +411,7 @@ fn send_messages(
                         str: msg_display.to_string(),
                         obj: msg.clone(),
                         icon: icon.clone(),
+                        bubble_entity: None,
                     });
                 }
             }

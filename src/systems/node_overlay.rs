@@ -34,7 +34,11 @@ pub fn render_node_overlays(
     ca: Res<CommonAssets>,
     nodes: Query<(Entity, &NodeMarker)>,
     existing: Query<(Entity, &NodeOverlayShape)>,
+    // TEMPORARY - see systems::profiling's doc comment.
+    mut prof: ResMut<crate::systems::profiling::ProfilingStats>,
 ) {
+    let __prof_t0 = web_time::Instant::now(); // TEMPORARY
+    (|| {
     let dirty: Vec<String> = gd
         .graph_defn
         .node_instances
@@ -84,6 +88,8 @@ pub fn render_node_overlays(
     for node in gd.graph_defn.node_instances.iter_mut() {
         node.overlay_dirty = false;
     }
+    })(); // TEMPORARY
+    prof.overlays_ms += __prof_t0.elapsed().as_secs_f64() * 1000.0; // TEMPORARY
 }
 
 fn apply_paint(ec: &mut EntityCommands, paint: &Paint) {

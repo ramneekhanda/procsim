@@ -118,6 +118,7 @@ struct RadialBlurNode;
 impl ViewNode for RadialBlurNode {
     type ViewQuery = (
         &'static ViewTarget,
+        &'static RadialBlurSettings,
         &'static DynamicUniformIndex<RadialBlurSettings>,
     );
 
@@ -125,9 +126,16 @@ impl ViewNode for RadialBlurNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, settings_index): QueryItem<Self::ViewQuery>,
+        (view_target, settings, settings_index): QueryItem<Self::ViewQuery>,
         world: &bevy::ecs::world::World,
     ) -> Result<(), NodeRunError> {
+        // No narration bubble showing (the overwhelming common case) means
+        // `intensity` has faded to ~0 - skip the whole full-screen, 10-tap
+        // blur pass rather than paying its GPU cost every frame for a
+        // no-visible-effect blend.
+        if settings.intensity <= 0.001 {
+            return Ok(());
+        }
         let pipeline_res = world.resource::<RadialBlurPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_res.pipeline_id) else {

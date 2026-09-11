@@ -1,21 +1,73 @@
 use crate::c_log;
 use crate::components::message::Messages;
 use crate::components::node::{NodeMarker, SelectedNodeMarker};
-use crate::resources::common_assets::{CommonAssets, ResourceType};
 use crate::resources::graph_def::GraphDefinitionRes;
 use crate::{components::node_connector::*, parser::graphv2::GraphAttrs};
 use bevy::prelude::*;
-use bevy_mod_picking::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 use std::collections::{HashMap, HashSet};
 
+/// Roughly how many points `walk_path` samples along a connector, regardless
+/// of how long it actually is in world units - see that function's doc
+/// comment for why this needs to be length-independent.
+const WALK_TARGET_POINTS: f32 = 120.0;
+/// Floor on the sample spacing, so a very short (near-zero-length) connector
+/// doesn't get a degenerate/huge point count.
+const WALK_MIN_INTERVAL: f32 = 0.5;
+
+/// Samples points along a path, spaced so the *count* stays roughly constant
+/// (`WALK_TARGET_POINTS`) regardless of the path's actual length - used to
+/// place an in-flight message along a connector's curve. Called only when a
+/// connector's `Path` is (re)built, with the result cached on
+/// `NodeConnector::walk_cache`, rather than every frame in the message
+/// animation system (see that field's doc comment for why).
+///
+/// The interval used to be a fixed `0.1` world units regardless of path
+/// length - fine for the small, tightly-packed example graphs this was
+/// written against (connectors tens of units long), but on a larger/more
+/// spread-out graph (`web/static/examples/random_mesh_200.yml`'s nodes are
+/// spread across a much larger area - see `node_system::spawn_spread_radius`)
+/// connectors can be many hundreds of units long, so a fixed `0.1` spacing
+/// was generating thousands of sample points per connector - a real,
+/// measurable cost distinct from (and larger than) the allocation cost fixed
+/// alongside it, since this ran on every retrace (frequent - pulse
+/// animations touch many connectors' endpoints across frames). A message
+/// only needs on the order of a hundred points along its path for smooth
+/// animation regardless of the path's physical length, so scaling the
+/// interval to the path's own length keeps both quality and cost constant
+/// across graph scales.
+pub fn walk_path(path: &lyon_algorithms::path::Path) -> Vec<[f32; 2]> {
+    use lyon_algorithms::length::approximate_length;
+    use lyon_algorithms::walk::{walk_along_path, RegularPattern, WalkerEvent};
+
+    let tolerance = 0.5; // The path flattening tolerance.
+    let length = approximate_length(path.iter(), tolerance);
+    let interval = (length / WALK_TARGET_POINTS).max(WALK_MIN_INTERVAL);
+
+    let mut x: Vec<[f32; 2]> = vec![];
+    let mut pattern = RegularPattern {
+        callback: &mut |event: WalkerEvent| {
+            x.push(event.position.to_array());
+            true // Return true to continue walking the path.
+        },
+        interval,
+    };
+
+    let start_offset = 0.0; // Start walking at the beginning of the path.
+
+    walk_along_path(path.iter(), start_offset, tolerance, &mut pattern);
+    x
+}
+
 /// Normalizes an (a, b) pair so `edge_key(a, b) == edge_key(b, a)` - a connector is
 /// undirected and only needs to exist once regardless of which side declared the link.
-fn edge_key(a: &str, b: &str) -> (String, String) {
+/// Borrows rather than allocates - see the doc comment on `update_connectors`'s
+/// `desired`/`existing` maps for why that matters here.
+fn edge_key<'a>(a: &'a str, b: &'a str) -> (&'a str, &'a str) {
     if a <= b {
-        (a.to_string(), b.to_string())
+        (a, b)
     } else {
-        (b.to_string(), a.to_string())
+        (b, a)
     }
 }
 
@@ -81,69 +133,9 @@ fn connector_stroke(color: Color) -> Stroke {
     }
 }
 
-/// Extra half-thickness (beyond the curve's own bow) the hit-region gets on
-/// each side, in pixels - generous since it only needs to be a comfortable
-/// click/hover target, not pixel-exact against the tessellated curve.
-const HIT_REGION_PADDING: f32 = 16.0;
-/// z the hit-region sprite sits at - below every node icon (spawned at
-/// z = 0, 1, 2, ... by spawn index, see `node_system::create_nodes`), so a
-/// node always wins picking over a connector hit-region it happens to
-/// overlap near the node's edge, but *above* `background_grid`'s one giant
-/// 4000x4000 sprite at z = -1.0 (`background_grid::setup_grid`). Sitting at
-/// the same z as that sprite was a real bug: `bevy_mod_picking`'s sprite
-/// backend sorts hits by z descending and the first opaque hit blocks every
-/// tied-or-lower one, so on a z tie the grid - which covers the entire
-/// visible world - won essentially every time and no connector hover ever
-/// registered.
-const HIT_REGION_Z: f32 = -0.5;
-
-/// A rectangle covering the connector's chord - close enough to its actual
-/// (modestly bowed) curve to be a comfortable pointer target - sized and
-/// rotated to match, at `HIT_REGION_Z`.
-fn hit_region_transform_and_size(start: Vec2, end: Vec2) -> (Transform, Vec2) {
-    let delta = end - start;
-    let dist = delta.length().max(1.0);
-    let angle = delta.y.atan2(delta.x);
-    let mid = (start + end) / 2.0;
-    let half_h = bow_amount(dist) + HIT_REGION_PADDING;
-    let transform = Transform::from_translation(mid.extend(HIT_REGION_Z))
-        .with_rotation(Quat::from_rotation_z(angle));
-    (transform, Vec2::new(dist, half_h * 2.0))
-}
-
-/// `bevy_mod_picking` here only hit-tests `Sprite` entities (see
-/// `Cargo.toml`'s `backend_sprite`-only feature set), so a connector's own
-/// lyon `Mesh2d` can never receive pointer events directly - these two
-/// handlers live on its invisible `ConnectorHitRegion` sprite child instead
-/// and reach back to the connector via `Parent`. This is the same pattern
-/// `explain_bubble`'s Continue button uses for the same reason.
-fn connector_hover_start(
-    e: Listener<Pointer<Over>>,
-    parents: Query<&Parent>,
-    mut connectors: Query<&mut NodeConnector>,
-) {
-    if let Ok(parent) = parents.get(e.target) {
-        if let Ok(mut conn) = connectors.get_mut(parent.get()) {
-            conn.hovered = true;
-        }
-    }
-}
-
-fn connector_hover_end(
-    e: Listener<Pointer<Out>>,
-    parents: Query<&Parent>,
-    mut connectors: Query<&mut NodeConnector>,
-) {
-    if let Ok(parent) = parents.get(e.target) {
-        if let Ok(mut conn) = connectors.get_mut(parent.get()) {
-            conn.hovered = false;
-        }
-    }
-}
-
 /// Adds/removes connector entities to match the currently-declared `links`, and
-/// retraces existing connectors' (and their hit-regions') paths as their endpoints
-/// move. Runs as a diff every frame (cheap at these graph sizes) rather than
+/// retraces existing connectors' paths as their endpoints move. Runs as a
+/// diff every frame (cheap at these graph sizes) rather than
 /// despawning and rebuilding every connector whenever any single node is added or
 /// removed - that used to happen on every `spawn()`/`despawn()` (and every YAML
 /// edit), destroying every *other* connector's in-flight `Messages` queue along
@@ -154,16 +146,15 @@ fn connector_hover_end(
 /// single source of truth for "who is connected to whom" while the sim is running.
 pub fn update_connectors(
     g: Res<GraphDefinitionRes>,
-    ca: Res<CommonAssets>,
     mut commands: Commands,
     query_changed: Query<(&NodeMarker, &Transform), Changed<Transform>>,
     query_all: Query<(&NodeMarker, &Transform)>,
     mut query_conn: Query<(Entity, &mut Path, &mut NodeConnector)>,
-    mut query_hit_region: Query<
-        (&mut Transform, &mut Sprite),
-        (With<ConnectorHitRegion>, Without<NodeMarker>),
-    >,
+    // TEMPORARY - see systems::profiling's doc comment.
+    mut prof: ResMut<crate::systems::profiling::ProfilingStats>,
 ) {
+    let __prof_t0 = web_time::Instant::now(); // TEMPORARY
+    (|| {
     if g.graph_defn.node_instances.is_empty() {
         for (entity, _, _) in query_conn.iter_mut() {
             commands.entity(entity).despawn_recursive();
@@ -178,8 +169,16 @@ pub fn update_connectors(
         all_node_loc.insert(node.node_name.clone(), pos);
     }
 
-    // edges that should exist right now, keyed so A-B and B-A collapse to one entry
-    let mut desired: HashMap<(String, String), (String, String)> = HashMap::new();
+    // edges that should exist right now, keyed so A-B and B-A collapse to one entry.
+    // Keys/values borrow from `node_instances`/`query_conn` rather than cloning -
+    // this diff runs unconditionally every frame (it has to: `link()`/`unlink()`
+    // mutate a node's `links` directly with no event firing, so there's no cheap
+    // "topology changed" signal to gate it behind), and on a graph with a few
+    // hundred edges the old `(String, String)`-keyed version was allocating on the
+    // order of a few thousand `String`s per frame just to build and throw away two
+    // `HashMap`s - a real, measurable cost distinct from (and larger than) the
+    // path-retrace cost fixed above.
+    let mut desired: HashMap<(&str, &str), (&str, &str)> = HashMap::new();
     for node in g.graph_defn.node_instances.iter() {
         for peer in node.links.iter() {
             if &node.name == peer {
@@ -191,19 +190,19 @@ pub fn update_connectors(
                 // pick this edge up on a later frame once they have been.
                 continue;
             }
+            let key = edge_key(&node.name, peer);
             desired
-                .entry(edge_key(&node.name, peer))
-                .or_insert_with(|| (node.name.clone(), peer.clone()));
+                .entry(key)
+                .or_insert_with(|| (node.name.as_str(), peer.as_str()));
         }
     }
 
-    let mut existing: HashMap<(String, String), Entity> = HashMap::new();
+    let mut existing: HashMap<(&str, &str), Entity> = HashMap::new();
     for (entity, _, conn) in query_conn.iter() {
         existing.insert(edge_key(&conn.id1, &conn.id2), entity);
     }
 
     // drop connectors for edges that are no longer declared by either side
-    // (the hit-region child despawns along with it via despawn_recursive)
     for (key, entity) in existing.iter() {
         if !desired.contains_key(key) {
             commands.entity(*entity).despawn_recursive();
@@ -211,19 +210,34 @@ pub fn update_connectors(
     }
 
     // add connectors for newly-declared edges
-    for (key, (a, b)) in desired.iter() {
+    for (key, &(a, b)) in desired.iter() {
         if existing.contains_key(key) {
             continue;
         }
         let a_loc = all_node_loc.get(a).unwrap();
         let b_loc = all_node_loc.get(b).unwrap();
-        let _ = generate_line(a_loc, b_loc, &g.graph_defn.graph_attrs, a, b, &ca, &mut commands);
+        let _ = generate_line(a_loc, b_loc, &g.graph_defn.graph_attrs, a, b, &mut commands);
     }
 
-    // keep every surviving connector's path (and hit-region) glued to its
-    // endpoints as nodes move
+    // keep every surviving connector's path glued to its
+    // endpoints as nodes move - but only the connectors actually touching a
+    // node that moved *this frame*, not every connector in the graph. A
+    // node's tick pulse (`node_pulse.rs`) animates `Transform.scale` for
+    // 300ms on whichever node just ticked, so on a graph with many nodes on
+    // short/staggered tick intervals `query_changed` is non-empty on
+    // essentially every frame - retracing (bezier rebuild + lyon
+    // re-tessellation) *every* connector on *every* frame regardless of
+    // whether its own endpoints moved was a real, measurable bottleneck at a
+    // few hundred nodes (see `web/static/examples/random_mesh_200.yml`).
     if !query_changed.is_empty() {
+        let moved: HashSet<&str> = query_changed
+            .iter()
+            .map(|(m, _)| m.node_name.as_str())
+            .collect();
         for (_, mut path, mut conn) in query_conn.iter_mut() {
+            if !moved.contains(conn.id1.as_str()) && !moved.contains(conn.id2.as_str()) {
+                continue;
+            }
             let node1_loc = all_node_loc.get(&conn.id1);
             let node2_loc = all_node_loc.get(&conn.id2);
             if node1_loc.is_none() || node2_loc.is_none() {
@@ -238,23 +252,19 @@ pub fn update_connectors(
 
             *path = path_builder.build();
             conn.path = path.0.clone();
-
-            if let Ok((mut transform, mut sprite)) = query_hit_region.get_mut(conn.hit_region) {
-                let (t, size) = hit_region_transform_and_size(start, end);
-                *transform = t;
-                sprite.custom_size = Some(size);
-            }
+            conn.walk_cache = walk_path(&conn.path);
         }
     }
+    })(); // TEMPORARY
+    prof.update_connectors_ms += __prof_t0.elapsed().as_secs_f64() * 1000.0; // TEMPORARY
 }
 
 fn generate_line(
     a: &Vec3,
     b: &Vec3,
     ga: &GraphAttrs,
-    id1: &String,
-    id2: &String,
-    ca: &Res<CommonAssets>,
+    id1: &str,
+    id2: &str,
     commands: &mut Commands,
 ) -> Entity {
     let (start, c1, c2, end) = connector_geometry(a.truncate(), b.truncate());
@@ -264,56 +274,27 @@ fn generate_line(
 
     let path = path_builder.build();
     let walking_path = path.0.clone();
+    let walk_cache = walk_path(&walking_path);
     let cc = ga.connection_color;
 
-    // Reuses whatever texture is already loaded for node icons purely as a
-    // sprite to hang a hit-test on - `sprite.color = Color::NONE` makes it
-    // fully invisible. Same trick `explain_bubble`'s Continue button uses.
-    let mut icon: Handle<Image> = Default::default();
-    if let Some(ResourceType::ImageHandle(img)) = ca.resource_map.get("default_system_icon") {
-        icon = img.clone();
-    }
-    let (hit_transform, hit_size) = hit_region_transform_and_size(start, end);
-    let hit_region = commands
-        .spawn((
-            SpriteBundle {
-                texture: icon,
-                sprite: Sprite {
-                    color: Color::NONE,
-                    custom_size: Some(hit_size),
-                    ..default()
-                },
-                transform: hit_transform,
-                ..default()
-            },
-            ConnectorHitRegion,
-            On::<Pointer<Over>>::run(connector_hover_start),
-            On::<Pointer<Out>>::run(connector_hover_end),
-        ))
-        .id();
-
-    let connector = commands
+    commands
         .spawn((
             ShapeBundle { path, ..default() },
             connector_stroke(cc),
             NodeConnector {
-                id1: id1.clone(),
-                id2: id2.clone(),
+                id1: id1.to_string(),
+                id2: id2.to_string(),
                 path: walking_path,
-                hit_region,
-                hovered: false,
+                walk_cache,
                 flash: 0.0,
             },
             Messages::default(),
         ))
-        .id();
-    commands.entity(connector).add_child(hit_region);
-    connector
+        .id()
 }
 
 const BASE_WIDTH: f32 = 3.0;
 const TRAFFIC_WIDTH_BONUS: f32 = 2.0;
-const HOVER_WIDTH_BONUS: f32 = 2.5;
 const SELECTED_WIDTH_BONUS: f32 = 1.5;
 const FLASH_WIDTH_BONUS: f32 = 2.0;
 /// How long a delivery flash (`NodeConnector::flash`) takes to fully decay.
@@ -324,7 +305,7 @@ const FLASH_DECAY_SECS: f32 = 0.5;
 const ACCENT_COLOR: Color = Color::srgb(0.49, 0.55, 0.98);
 
 /// Recolors/re-weights each connector's stroke from its current state -
-/// hover, adjacency to the selected node, in-flight message traffic, and a
+/// adjacency to the selected node, in-flight message traffic, and a
 /// brief flash on delivery - by blending from the user-configured
 /// `connection_color` (see `ui::graph_properties_viewer`'s color picker)
 /// toward `ACCENT_COLOR`, rather than replacing it outright, so a custom
@@ -334,7 +315,10 @@ pub fn update_connector_style(
     g: Res<GraphDefinitionRes>,
     selected: Query<&SelectedNodeMarker>,
     mut connectors: Query<(&Messages, &mut NodeConnector, &mut Stroke)>,
+    // TEMPORARY - see systems::profiling's doc comment.
+    mut prof: ResMut<crate::systems::profiling::ProfilingStats>,
 ) {
+    let __prof_t0 = web_time::Instant::now(); // TEMPORARY
     let selected_names: HashSet<&str> = selected.iter().map(|s| s.node_name.as_str()).collect();
     let base = g.graph_defn.graph_attrs.connection_color;
 
@@ -347,18 +331,26 @@ pub fn update_connector_style(
 
         let mut width = BASE_WIDTH + traffic * TRAFFIC_WIDTH_BONUS;
         let mut accent = traffic * 0.25;
-        if conn.hovered {
-            width += HOVER_WIDTH_BONUS;
-            accent = accent.max(0.55);
-        }
         if adjacent_selected {
             width += SELECTED_WIDTH_BONUS;
             accent = accent.max(0.4);
         }
         width += conn.flash * FLASH_WIDTH_BONUS;
         accent = accent.max(conn.flash * 0.9);
+        let color = base.mix(&ACCENT_COLOR, accent.min(1.0));
 
-        stroke.options.line_width = width;
-        stroke.color = base.mix(&ACCENT_COLOR, accent.min(1.0));
+        // `bevy_prototype_lyon` fully re-tessellates and allocates a brand-new
+        // `Mesh` asset on *any* write to `Stroke` (it reacts to `Changed<Stroke>`,
+        // and `Mut` derefs mark a component changed regardless of whether the
+        // value actually differs) - on an idle connector (by far the common case
+        // on a large graph) both `width` and `color` are identical to last
+        // frame's, so writing unconditionally was re-tessellating every
+        // connector's geometry every frame for nothing. Only touch `Stroke` when
+        // something actually changed.
+        if (stroke.options.line_width - width).abs() > 0.01 || stroke.color != color {
+            stroke.options.line_width = width;
+            stroke.color = color;
+        }
     }
+    prof.connector_style_ms += __prof_t0.elapsed().as_secs_f64() * 1000.0; // TEMPORARY
 }
