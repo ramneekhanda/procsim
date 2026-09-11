@@ -1,0 +1,640 @@
+fns:
+  - &peer_fn |
+      fn on_init() {
+          globals.sent = 0;
+          globals.received = 0;
+      }
+
+      fn on_timer() {
+          if links.len() == 0 { return; }
+          let idx = random_int(0, links.len());
+          let peer = links[idx];
+          globals.sent += 1;
+          send(peer, #{
+              display: "#" + globals.sent,
+              icon: "message_icon"
+          });
+      }
+
+      fn on_msg(msg) {
+          globals.received += 1;
+      }
+
+graph_defn:
+  graph:
+    - name: n0
+      node_type: peer
+      links: [n67, n102, n188, n194]
+    - name: n1
+      node_type: peer
+      links: [n77, n95]
+    - name: n2
+      node_type: peer
+      links: [n55, n76, n123, n160]
+    - name: n3
+      node_type: peer
+      links: [n95, n103, n188]
+    - name: n4
+      node_type: peer
+      links: [n66, n144, n157]
+    - name: n5
+      node_type: peer
+      links: [n29, n38, n147, n191]
+    - name: n6
+      node_type: peer
+      links: [n17, n73, n198]
+    - name: n7
+      node_type: peer
+      links: [n105, n125]
+    - name: n8
+      node_type: peer
+      links: [n115, n186, n199]
+    - name: n9
+      node_type: peer
+      links: [n117, n188]
+    - name: n10
+      node_type: peer
+      links: [n1, n74, n122, n141]
+    - name: n11
+      node_type: peer
+      links: [n12, n23, n93, n97]
+    - name: n12
+      node_type: peer
+      links: [n46, n128, n131, n155]
+    - name: n13
+      node_type: peer
+      links: [n91, n94, n128, n176]
+    - name: n14
+      node_type: peer
+      links: [n88, n127, n164, n190]
+    - name: n15
+      node_type: peer
+      links: [n52, n140, n174]
+    - name: n16
+      node_type: peer
+      links: [n21, n167]
+    - name: n17
+      node_type: peer
+      links: [n42, n54, n151]
+    - name: n18
+      node_type: peer
+      links: [n17, n154]
+    - name: n19
+      node_type: peer
+      links: [n13, n90, n181]
+    - name: n20
+      node_type: peer
+      links: [n80, n175]
+    - name: n21
+      node_type: peer
+      links: [n51, n62, n69, n135]
+    - name: n22
+      node_type: peer
+      links: [n13, n72, n129, n134]
+    - name: n23
+      node_type: peer
+      links: [n107, n145, n195]
+    - name: n24
+      node_type: peer
+      links: [n5, n52, n109, n113]
+    - name: n25
+      node_type: peer
+      links: [n163, n167]
+    - name: n26
+      node_type: peer
+      links: [n3, n15, n143]
+    - name: n27
+      node_type: peer
+      links: [n7, n85, n125]
+    - name: n28
+      node_type: peer
+      links: [n10, n72, n172, n173]
+    - name: n29
+      node_type: peer
+      links: [n7, n41, n107, n192]
+    - name: n30
+      node_type: peer
+      links: [n110, n135]
+    - name: n31
+      node_type: peer
+      links: [n85, n155, n180]
+    - name: n32
+      node_type: peer
+      links: [n34, n105, n165]
+    - name: n33
+      node_type: peer
+      links: [n60, n128]
+    - name: n34
+      node_type: peer
+      links: [n18, n89, n112, n172]
+    - name: n35
+      node_type: peer
+      links: [n2, n15, n54, n134]
+    - name: n36
+      node_type: peer
+      links: [n55, n70, n177]
+    - name: n37
+      node_type: peer
+      links: [n140, n166, n176]
+    - name: n38
+      node_type: peer
+      links: [n111, n171, n175]
+    - name: n39
+      node_type: peer
+      links: [n94, n125]
+    - name: n40
+      node_type: peer
+      links: [n64, n94, n127, n158]
+    - name: n41
+      node_type: peer
+      links: [n48, n71, n109]
+    - name: n42
+      node_type: peer
+      links: [n124, n163]
+    - name: n43
+      node_type: peer
+      links: [n84, n96, n115, n171]
+    - name: n44
+      node_type: peer
+      links: [n194, n198]
+    - name: n45
+      node_type: peer
+      links: [n75, n159]
+    - name: n46
+      node_type: peer
+      links: [n48, n84]
+    - name: n47
+      node_type: peer
+      links: [n40, n56, n138, n164]
+    - name: n48
+      node_type: peer
+      links: [n27, n64, n127]
+    - name: n49
+      node_type: peer
+      links: [n69, n74]
+    - name: n50
+      node_type: peer
+      links: [n34, n169]
+    - name: n51
+      node_type: peer
+      links: [n2, n7, n118, n141]
+    - name: n52
+      node_type: peer
+      links: [n66, n68]
+    - name: n53
+      node_type: peer
+      links: [n109, n165]
+    - name: n54
+      node_type: peer
+      links: [n92, n122, n161]
+    - name: n55
+      node_type: peer
+      links: [n26, n35, n79, n104]
+    - name: n56
+      node_type: peer
+      links: [n86, n109, n194]
+    - name: n57
+      node_type: peer
+      links: [n4, n77, n171]
+    - name: n58
+      node_type: peer
+      links: [n133, n143, n153]
+    - name: n59
+      node_type: peer
+      links: [n21, n116, n189]
+    - name: n60
+      node_type: peer
+      links: [n32, n63, n98, n169]
+    - name: n61
+      node_type: peer
+      links: [n15, n34, n38, n72]
+    - name: n62
+      node_type: peer
+      links: [n92, n149, n173]
+    - name: n63
+      node_type: peer
+      links: [n5, n51, n135]
+    - name: n64
+      node_type: peer
+      links: [n97, n169]
+    - name: n65
+      node_type: peer
+      links: [n25, n107, n160, n171]
+    - name: n66
+      node_type: peer
+      links: [n57, n133]
+    - name: n67
+      node_type: peer
+      links: [n86, n168]
+    - name: n68
+      node_type: peer
+      links: [n1, n94, n130, n142]
+    - name: n69
+      node_type: peer
+      links: [n44, n192, n199]
+    - name: n70
+      node_type: peer
+      links: [n22, n69]
+    - name: n71
+      node_type: peer
+      links: [n98, n196]
+    - name: n72
+      node_type: peer
+      links: [n14, n15, n120, n141]
+    - name: n73
+      node_type: peer
+      links: [n12, n119]
+    - name: n74
+      node_type: peer
+      links: [n7, n52, n94, n131]
+    - name: n75
+      node_type: peer
+      links: [n41, n113]
+    - name: n76
+      node_type: peer
+      links: [n7, n8, n89]
+    - name: n77
+      node_type: peer
+      links: [n27, n65]
+    - name: n78
+      node_type: peer
+      links: [n5, n96, n129]
+    - name: n79
+      node_type: peer
+      links: [n61, n142]
+    - name: n80
+      node_type: peer
+      links: [n13, n73]
+    - name: n81
+      node_type: peer
+      links: [n55, n153, n163]
+    - name: n82
+      node_type: peer
+      links: [n59, n73]
+    - name: n83
+      node_type: peer
+      links: [n135, n155, n190]
+    - name: n84
+      node_type: peer
+      links: [n43, n105, n114]
+    - name: n85
+      node_type: peer
+      links: [n7, n74]
+    - name: n86
+      node_type: peer
+      links: [n66, n88, n167, n196]
+    - name: n87
+      node_type: peer
+      links: [n9, n11, n57, n71]
+    - name: n88
+      node_type: peer
+      links: [n21, n38, n94, n176]
+    - name: n89
+      node_type: peer
+      links: [n39, n142, n165, n170]
+    - name: n90
+      node_type: peer
+      links: [n14, n45, n121, n193]
+    - name: n91
+      node_type: peer
+      links: [n0, n126, n159]
+    - name: n92
+      node_type: peer
+      links: [n41, n188]
+    - name: n93
+      node_type: peer
+      links: [n29, n44, n103, n173]
+    - name: n94
+      node_type: peer
+      links: [n56, n112, n122]
+    - name: n95
+      node_type: peer
+      links: [n28, n123, n178]
+    - name: n96
+      node_type: peer
+      links: [n113, n145, n163]
+    - name: n97
+      node_type: peer
+      links: [n43, n120, n161, n177]
+    - name: n98
+      node_type: peer
+      links: [n9, n18, n59, n162]
+    - name: n99
+      node_type: peer
+      links: [n3, n123]
+    - name: n100
+      node_type: peer
+      links: [n4, n28, n115, n125]
+    - name: n101
+      node_type: peer
+      links: [n91, n114, n173, n184]
+    - name: n102
+      node_type: peer
+      links: [n97, n157, n169]
+    - name: n103
+      node_type: peer
+      links: [n38, n46]
+    - name: n104
+      node_type: peer
+      links: [n53, n97, n107, n131]
+    - name: n105
+      node_type: peer
+      links: [n18, n75, n118, n153]
+    - name: n106
+      node_type: peer
+      links: [n157, n192]
+    - name: n107
+      node_type: peer
+      links: [n96, n114, n177, n192]
+    - name: n108
+      node_type: peer
+      links: [n18, n119, n121, n177]
+    - name: n109
+      node_type: peer
+      links: [n66, n124, n161, n193]
+    - name: n110
+      node_type: peer
+      links: [n36, n60, n87, n191]
+    - name: n111
+      node_type: peer
+      links: [n42, n44, n127, n194]
+    - name: n112
+      node_type: peer
+      links: [n16, n90]
+    - name: n113
+      node_type: peer
+      links: [n32, n74]
+    - name: n114
+      node_type: peer
+      links: [n58, n122]
+    - name: n115
+      node_type: peer
+      links: [n74, n194]
+    - name: n116
+      node_type: peer
+      links: [n78, n124, n175]
+    - name: n117
+      node_type: peer
+      links: [n56, n69, n116]
+    - name: n118
+      node_type: peer
+      links: [n69, n134, n173, n175]
+    - name: n119
+      node_type: peer
+      links: [n21, n72, n168]
+    - name: n120
+      node_type: peer
+      links: [n60, n69, n114, n154]
+    - name: n121
+      node_type: peer
+      links: [n96, n129]
+    - name: n122
+      node_type: peer
+      links: [n34, n82, n178]
+    - name: n123
+      node_type: peer
+      links: [n0, n175]
+    - name: n124
+      node_type: peer
+      links: [n21, n91]
+    - name: n125
+      node_type: peer
+      links: [n8, n17, n40, n44]
+    - name: n126
+      node_type: peer
+      links: [n116, n159, n174]
+    - name: n127
+      node_type: peer
+      links: [n1, n143, n169, n192]
+    - name: n128
+      node_type: peer
+      links: [n63, n81, n86, n93]
+    - name: n129
+      node_type: peer
+      links: [n28, n93, n103, n180]
+    - name: n130
+      node_type: peer
+      links: [n42, n94, n117]
+    - name: n131
+      node_type: peer
+      links: [n51, n73, n136]
+    - name: n132
+      node_type: peer
+      links: [n56, n95, n107, n119]
+    - name: n133
+      node_type: peer
+      links: [n31, n123, n140, n156]
+    - name: n134
+      node_type: peer
+      links: [n2, n83, n113]
+    - name: n135
+      node_type: peer
+      links: [n77, n92, n152]
+    - name: n136
+      node_type: peer
+      links: [n99, n101]
+    - name: n137
+      node_type: peer
+      links: [n9, n177]
+    - name: n138
+      node_type: peer
+      links: [n22, n97, n162, n181]
+    - name: n139
+      node_type: peer
+      links: [n118, n160, n176, n184]
+    - name: n140
+      node_type: peer
+      links: [n101, n171, n199]
+    - name: n141
+      node_type: peer
+      links: [n18, n64, n69, n90]
+    - name: n142
+      node_type: peer
+      links: [n60, n79, n111, n126]
+    - name: n143
+      node_type: peer
+      links: [n70, n96]
+    - name: n144
+      node_type: peer
+      links: [n13, n23, n109]
+    - name: n145
+      node_type: peer
+      links: [n31, n127]
+    - name: n146
+      node_type: peer
+      links: [n66, n102]
+    - name: n147
+      node_type: peer
+      links: [n30, n67, n185]
+    - name: n148
+      node_type: peer
+      links: [n23, n50, n76, n150]
+    - name: n149
+      node_type: peer
+      links: [n38, n76, n95, n99]
+    - name: n150
+      node_type: peer
+      links: [n75, n167]
+    - name: n151
+      node_type: peer
+      links: [n33, n78, n131, n167]
+    - name: n152
+      node_type: peer
+      links: [n119, n184]
+    - name: n153
+      node_type: peer
+      links: [n0, n16, n165, n180]
+    - name: n154
+      node_type: peer
+      links: [n40, n66, n178]
+    - name: n155
+      node_type: peer
+      links: [n47, n197]
+    - name: n156
+      node_type: peer
+      links: [n32, n66, n74, n77]
+    - name: n157
+      node_type: peer
+      links: [n4, n51, n148]
+    - name: n158
+      node_type: peer
+      links: [n41, n121, n152, n195]
+    - name: n159
+      node_type: peer
+      links: [n9, n69, n96]
+    - name: n160
+      node_type: peer
+      links: [n6, n145, n148, n162]
+    - name: n161
+      node_type: peer
+      links: [n84, n94, n176]
+    - name: n162
+      node_type: peer
+      links: [n23, n127]
+    - name: n163
+      node_type: peer
+      links: [n161, n198]
+    - name: n164
+      node_type: peer
+      links: [n120, n144]
+    - name: n165
+      node_type: peer
+      links: [n46, n56, n160, n194]
+    - name: n166
+      node_type: peer
+      links: [n42, n81, n180]
+    - name: n167
+      node_type: peer
+      links: [n18, n190]
+    - name: n168
+      node_type: peer
+      links: [n36, n176]
+    - name: n169
+      node_type: peer
+      links: [n5, n101]
+    - name: n170
+      node_type: peer
+      links: [n63, n81]
+    - name: n171
+      node_type: peer
+      links: [n154, n170, n193]
+    - name: n172
+      node_type: peer
+      links: [n69, n74, n177]
+    - name: n173
+      node_type: peer
+      links: [n9, n17, n133, n196]
+    - name: n174
+      node_type: peer
+      links: [n71, n82, n153, n191]
+    - name: n175
+      node_type: peer
+      links: [n51, n67]
+    - name: n176
+      node_type: peer
+      links: [n16, n133, n180]
+    - name: n177
+      node_type: peer
+      links: [n98, n128, n135]
+    - name: n178
+      node_type: peer
+      links: [n92, n127, n158, n194]
+    - name: n179
+      node_type: peer
+      links: [n49, n67, n196]
+    - name: n180
+      node_type: peer
+      links: [n164, n187, n188]
+    - name: n181
+      node_type: peer
+      links: [n13, n24, n180, n187]
+    - name: n182
+      node_type: peer
+      links: [n169, n170]
+    - name: n183
+      node_type: peer
+      links: [n79, n94, n96, n150]
+    - name: n184
+      node_type: peer
+      links: [n42, n103, n110]
+    - name: n185
+      node_type: peer
+      links: [n100, n102]
+    - name: n186
+      node_type: peer
+      links: [n90, n196]
+    - name: n187
+      node_type: peer
+      links: [n44, n136]
+    - name: n188
+      node_type: peer
+      links: [n48, n161]
+    - name: n189
+      node_type: peer
+      links: [n108, n142, n165]
+    - name: n190
+      node_type: peer
+      links: [n16, n47, n174, n199]
+    - name: n191
+      node_type: peer
+      links: [n50, n151, n180, n198]
+    - name: n192
+      node_type: peer
+      links: [n72, n89]
+    - name: n193
+      node_type: peer
+      links: [n83, n135]
+    - name: n194
+      node_type: peer
+      links: [n24, n25, n79, n167]
+    - name: n195
+      node_type: peer
+      links: [n151, n162]
+    - name: n196
+      node_type: peer
+      links: [n94, n112, n120, n183]
+    - name: n197
+      node_type: peer
+      links: [n136, n174, n193, n198]
+    - name: n198
+      node_type: peer
+      links: [n149, n161]
+    - name: n199
+      node_type: peer
+      links: [n33, n80, n116]
+  graph_attrs:
+    background: "#FAFAFA"
+    connection_color: "#999999"
+    text_color: "#333333"
+    title: Random Mesh (200 nodes)
+  icons:
+    - id: node_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/EKSAnywhere.png
+    - id: message_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/2709.png
+  node_types:
+    - id: peer
+      fn: *peer_fn
+      attrs:
+        ticks: { min: 3, max: 8, jitter: true }
+        icon: node_icon
