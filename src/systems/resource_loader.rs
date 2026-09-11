@@ -1,13 +1,6 @@
 use bevy::prelude::*;
-use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen]
-extern "C" {
-    // Use `js_namespace` here to bind `console.log(..)` instead of just
-    // `log(..)`
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
+use crate::c_log;
 use crate::resources::common_assets::{CommonAssets, LoadingState, LoadingStateOpt, ResourceType};
 use crate::resources::graph_def::GraphChange;
 use crate::resources::graph_def::GraphDefinitionRes;
@@ -16,7 +9,14 @@ fn load_default_fonts_and_icons(ca: &mut ResMut<CommonAssets>, asset_server: &Re
     ca.resource_map.insert(
         "default_font".to_string(),
         ResourceType::FontHandle(
-            asset_server.load("//raw.githubusercontent.com/ramneekhanda/procsim_assets/main/fonts/ComicNeue-Regular.ttf"),
+            // Needs the explicit `https://` scheme (not just `//host/path`) to be
+            // routed through `bevy_web_asset`'s registered `https` AssetSource on
+            // both platforms - a protocol-relative path only "worked" in the
+            // browser because Bevy's wasm asset fetcher hands any unmatched path
+            // straight to `fetch()`, which browsers resolve as protocol-relative;
+            // native's filesystem-based default asset reader has no such fallback
+            // and just reports the literal path not found.
+            asset_server.load("https://raw.githubusercontent.com/ramneekhanda/procsim_assets/main/fonts/ComicNeue-Regular.ttf"),
         ),
     );
     ca.resource_map.insert(
@@ -65,8 +65,8 @@ pub fn load_assets(
         match asset_server.get_load_state(uh.id()).unwrap() {
             LoadState::Failed(x) => {
                 // one of our assets had an error
-                log("asset load error");
-                log(&x.to_string());
+                c_log!("asset load error");
+                c_log!("{}", x.to_string());
                 failed_res_vec.push(res.clone());
             }
             LoadState::Loaded => {
@@ -94,6 +94,6 @@ pub fn load_assets(
     if still_loading != true {
         ls.state = LoadingStateOpt::Ready;
         event_writer.send(GraphChange {});
-        log("all resources ready");
+        c_log!("all resources ready");
     }
 }

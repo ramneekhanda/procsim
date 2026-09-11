@@ -53,6 +53,8 @@ fn setup_app(app: &mut App) {
         graph_defn: GraphDefinition::default(),
     })
     .insert_resource(PendingExplain::default())
+    // TEMPORARY - see systems::profiling's doc comment.
+    .insert_resource(systems::profiling::ProfilingStats::default())
     .add_event::<GraphChange>()
     .add_event::<NodeTicked>()
     .add_event::<NodeAdded>()
@@ -66,8 +68,24 @@ fn setup_app(app: &mut App) {
     .add_systems(
         Startup,
         (setup_camera, systems::background_grid::setup_grid),
-    )
-    .add_systems(
+    );
+    // Native-only: see `ingest_code::load_native_demo_on_startup`'s doc comment -
+    // there's no browser/Monaco editor in a native `cargo run` to ever call
+    // `compile_code()`, so without this a native window shows an empty grid forever.
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_systems(
+        Startup,
+        systems::ingest_code::load_native_demo_on_startup,
+    );
+    // Native-only "Examples" picker window - see native_examples.rs's doc comment.
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_systems(
+        Update,
+        systems::native_examples::examples_picker.run_if(resource_equals(LoadingState {
+            state: LoadingStateOpt::Ready,
+        })),
+    );
+    app.add_systems(
         Update,
         (
             systems::rhai_engine::execute_rhai_engine.run_if(resource_equals(LoadingState {
@@ -83,6 +101,10 @@ fn setup_app(app: &mut App) {
                 state: LoadingStateOpt::Ready,
             })),
             systems::node_pulse::pulse_on_tick.run_if(resource_equals(LoadingState {
+                state: LoadingStateOpt::Ready,
+            })),
+            // TEMPORARY - see systems::profiling's doc comment.
+            systems::profiling::report_profiling_stats.run_if(resource_equals(LoadingState {
                 state: LoadingStateOpt::Ready,
             })),
         ),

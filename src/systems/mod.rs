@@ -5,10 +5,13 @@ pub mod clearcolor;
 pub mod drag;
 pub mod explain_bubble;
 pub mod ingest_code;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod native_examples;
 pub mod node_overlay;
 pub mod node_progress;
 pub mod node_pulse;
 pub mod node_system;
+pub mod profiling;
 pub mod radial_blur;
 pub mod resource_loader;
 pub mod rhai_engine;

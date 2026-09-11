@@ -66,6 +66,23 @@ pub fn compile_code(s: String) -> CompileResult {
     }
 } //
 
+/// Native-only: `compile_code`/`get_code_schema` only ever get called from the
+/// SvelteKit frontend's JS, through wasm-bindgen - there's no browser (and no
+/// Monaco editor) in a native `cargo run`, so without this a native window
+/// would just show an empty background grid forever, with nothing to load a
+/// graph. Seeds `E_CODE` at `Startup` with one of the checked-in examples
+/// (embedded via `include_str!` so this doesn't depend on the process's
+/// working directory) through the exact same `compile_code` path the browser
+/// uses, so it's picked up by `ingest_codechange` on the first `Update` frame
+/// like any other "code changed" edit.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn load_native_demo_on_startup() {
+    let result = compile_code(crate::systems::native_examples::DEFAULT_EXAMPLE.to_string());
+    if !result.result {
+        eprintln!("failed to load native demo graph: {}", result.error_log);
+    }
+}
+
 #[allow(dead_code)]
 pub fn ingest_codechange(
     mut code_store: ResMut<CodeStorage>,
