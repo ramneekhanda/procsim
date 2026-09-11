@@ -46,8 +46,9 @@ pub fn create_nodes(
         }
         let mut z = 0.;
         let g_attrs: &GraphAttrs = &g.graph_defn.graph_attrs;
+        let node_count = g.graph_defn.node_instances.len();
         for node in g.graph_defn.node_instances.iter() {
-            spawn_node(z, node, &mut commands, &ca, g_attrs);
+            spawn_node(z, node, &mut commands, &ca, g_attrs, node_count);
             z += 1.;
         }
         // a full rebuild already reflects any adds/removes queued this same frame
@@ -72,6 +73,7 @@ pub fn create_nodes(
     }
     let g_attrs: &GraphAttrs = &g.graph_defn.graph_attrs;
     let mut z = query.iter().count() as f32;
+    let node_count = g.graph_defn.node_instances.len();
     for added in added_reader.read() {
         if let Some(node) = g
             .graph_defn
@@ -79,7 +81,7 @@ pub fn create_nodes(
             .iter()
             .find(|n| n.name == added.name)
         {
-            spawn_node(z, node, &mut commands, &ca, g_attrs);
+            spawn_node(z, node, &mut commands, &ca, g_attrs, node_count);
             z += 1.;
         }
     }
@@ -192,12 +194,30 @@ pub fn on_click(
     }
 }
 
+/// Below this many nodes, spawn spread stays at the original fixed
+/// `BASE_SPREAD` radius (tuned for the typical 5-20 node example graphs).
+/// Above it, `spawn_spread_radius` grows the radius so larger graphs (e.g. a
+/// several-hundred-node stress test) don't spawn every node crammed into the
+/// same small area.
+const BASE_SPREAD_NODE_COUNT: f32 = 20.0;
+const BASE_SPREAD_RADIUS: f32 = 250.0;
+
+/// Random spawn spread scales with `sqrt(node_count)` (not linearly) so
+/// on-screen node *density* stays roughly constant as a graph grows - circle
+/// area is proportional to radius squared, so radius needs to grow with the
+/// square root of node count to keep area-per-node fixed.
+fn spawn_spread_radius(node_count: usize) -> f32 {
+    let count = (node_count as f32).max(1.0);
+    BASE_SPREAD_RADIUS * (count / BASE_SPREAD_NODE_COUNT).sqrt().max(1.0)
+}
+
 fn spawn_node(
     z: f32,
     node: &Node,
     commands: &mut Commands,
     ca: &Res<CommonAssets>,
     g_attrs: &GraphAttrs,
+    node_count: usize,
 ) {
     let mut font: Handle<Font> = Default::default();
     if let Some(ResourceType::FontHandle(f1)) = ca.resource_map.get("default_font") {
@@ -224,8 +244,9 @@ fn spawn_node(
     });
 
     let mut rng = rand::thread_rng();
-    let x = rng.gen_range(-250.0..250.0);
-    let y = rng.gen_range(-250.0..250.0);
+    let spread = spawn_spread_radius(node_count);
+    let x = rng.gen_range(-spread..spread);
+    let y = rng.gen_range(-spread..spread);
 
     let tween: Tween<Transform> = Tween::new(
         EaseFunction::QuadraticInOut,

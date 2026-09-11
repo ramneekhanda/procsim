@@ -104,6 +104,17 @@
           </ul>
         </details>
       </li>
+      <li>
+        <details open>
+          <summary>Scale / Stress Test</summary>
+          <ul>
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "random_mesh_500.yml"})}>Random Mesh (500 nodes)</a></li>
+          </ul>
+        </details>
+      </li>
     </ul>
     </div>
   </div>

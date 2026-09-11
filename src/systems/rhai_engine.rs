@@ -458,6 +458,17 @@ fn initialize_engine(
         .register_fn("random_chance", |percent: i64| -> bool {
             rand::thread_rng().gen_range(0..100) < percent
         })
+        // Returns a random integer in [min, max) - e.g. `random_int(0, links.len())`
+        // to pick a random peer out of a node's own `links`. `max <= min` returns
+        // `min` rather than panicking on an empty/degenerate range (a node with no
+        // links calling `random_int(0, links.len())` would otherwise crash it).
+        .register_fn("random_int", |min: i64, max: i64| -> i64 {
+            if max <= min {
+                min
+            } else {
+                rand::thread_rng().gen_range(min..max)
+            }
+        })
         // Create a new node instance of `node_type` named `name`, linked to `links`
         // (peers that must already exist - no forward references). Applied once at
         // the end of the frame; its `on_init` runs immediately when applied.
