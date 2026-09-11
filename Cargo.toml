@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { version = "0.14.2", default-features = false, features = ["bevy_asset", "bevy_color", "bevy_sprite", "bevy_text", "png", "bevy_render", "webgl2"] }
+bevy = { version = "0.14.2", default-features = false, features = ["bevy_asset", "bevy_color", "bevy_sprite", "bevy_text", "png", "bevy_render", "bevy_core_pipeline", "webgl2"] }
 bevy_egui = {version = "0.29.0", default-features = false, features = ["default_fonts", "open_url", "render"] }
 rand = "0.8.5"
 bevy_tweening = "0.11.0"
@@ -36,6 +36,15 @@ uuid = { version = "1", features = ["js"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rhai = { version="1.19.0", features=["sync"] }
 
+[dev-dependencies]
+criterion = "0.5"
+
+# Native-only (see `benches/rhai_state_roundtrip.rs`'s doc comment) - measures the
+# node-state round-trip cost in `systems::rhai_engine`'s tick loop. Run with `cargo bench`.
+[[bench]]
+name = "rhai_state_roundtrip"
+harness = false
+
 [profile.release]
 lto = true
 opt-level = 'z'
@@ -48,6 +57,14 @@ debug = true
 
 [profile.dev.package."*"]
 opt-level = 'z'
+
+# winit 0.30.5's web backend has a `debug_assert!` in resize_scaling.rs that trips on
+# fractional devicePixelRatio (e.g. a 1.5x-scaled display): it builds a
+# `(resolution: 1.5dppx)` media query the browser reports as not matching 1.5, and
+# panics during window creation. Release builds compile the assert out; this keeps dev
+# builds usable on such displays without turning off debug-assertions globally.
+[profile.dev.package.winit]
+debug-assertions = false
 
 [package.metadata.commands]
 watch = "cargo watch -x 'run --target wasm32-unknown-unknown --release'"
