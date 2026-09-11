@@ -1,13 +1,28 @@
 fns:
   - &registry_fn |
+    // Clock plus one liveness dot per known service - green while its
+    // registration/heartbeat is within `expiry`, grey once it's aged out.
+    fn viz(clock, seen1, seen2, seen3) {
+      let g = [];
+      g.push(#{ shape: "text", x: 0, y: 44, text: "clock " + clock, size: 10, color: "#333333" });
+      let seen = [seen1, seen2, seen3];
+      for i in 0..3 {
+        let col = "#dddddd";
+        if clock - seen[i] <= expiry { col = "#3fae49"; }
+        g.push(#{ shape: "circle", x: -14 + i * 14, y: 58, r: 4, fill: col, stroke: "#888888", stroke_width: 0.5 });
+      }
+      draw(g);
+    }
     fn on_init() {
       globals.clock = 0;
       globals.last_seen1 = -1000;
       globals.last_seen2 = -1000;
       globals.last_seen3 = -1000;
+      viz(0, -1000, -1000, -1000);
     }
     fn on_timer() {
       globals.clock += 1;
+      viz(globals.clock, globals.last_seen1, globals.last_seen2, globals.last_seen3);
     }
     fn on_msg(msg) {
       if msg.msg_type == "register" || msg.msg_type == "heartbeat" {
@@ -33,16 +48,27 @@ fns:
           send(msg.from, #{ msg_type: "discovered", target: chosen, display: "use " + chosen, icon: "discover_icon" });
         }
       }
+      viz(globals.clock, globals.last_seen1, globals.last_seen2, globals.last_seen3);
     }
 
   - &service_fn |
+    // Status ring: green = registered and healthy, grey = not yet registered,
+    // red = reporting down.
+    fn viz(registered, is_alive) {
+      let col = "#999999";
+      if !is_alive { col = "#d1453b"; }
+      else if registered { col = "#3fae49"; }
+      draw([ #{ shape: "circle", x: 0, y: 0, r: 34, stroke: col, stroke_width: 3 } ]);
+    }
     fn on_init() {
       globals.registered = false;
       globals.was_down = false;
+      viz(false, true);
     }
     fn on_timer() {
       if !alive {
         globals.was_down = true;
+        viz(globals.registered, false);
         return;
       }
       if globals.was_down {
@@ -59,16 +85,24 @@ fns:
       } else {
         send("registry", #{ msg_type: "heartbeat", display: "heartbeat", icon: "heartbeat_icon" });
       }
+      viz(globals.registered, alive);
     }
     fn on_msg(msg) {
       if msg.msg_type == "request" {
         send(msg.from, #{ msg_type: "response", display: "response", icon: "response_icon" });
       }
+      viz(globals.registered, alive);
     }
 
   - &client_fn |
+    fn viz(target) {
+      let lbl = "discovering...";
+      if target != "" { lbl = "-> " + target; }
+      draw([ #{ shape: "text", x: 0, y: 44, text: lbl, size: 10, color: "#333333" } ]);
+    }
     fn on_init() {
       globals.target = "";
+      viz("");
     }
     fn on_timer() {
       if globals.target == "" {
@@ -78,6 +112,7 @@ fns:
         log("calling " + globals.target + " directly");
         send(globals.target, #{ msg_type: "request", display: "request", icon: "request_icon" });
       }
+      viz(globals.target);
     }
     fn on_msg(msg) {
       if msg.msg_type == "discovered" {
@@ -88,6 +123,7 @@ fns:
         // the discovery flow keeps happening visibly rather than running once.
         globals.target = "";
       }
+      viz(globals.target);
     }
 
 graph_defn:

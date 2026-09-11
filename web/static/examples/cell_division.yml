@@ -1,0 +1,85 @@
+fns:
+  - &cell_fn |
+    // A ring that turns gold once this cell has handed off to its successor, plus
+    // an age label.
+    fn viz(age, divided) {
+      let col = "#4a90d2";
+      if divided { col = "#e8b33a"; }
+      draw([
+        #{ shape: "circle", x: 0, y: 0, r: 34, stroke: col, stroke_width: 3 },
+        #{ shape: "text", x: 0, y: 44, text: "age " + age, size: 9, color: "#333333" }
+      ]);
+    }
+
+    fn on_init() {
+      globals.age = 0;
+      globals.divided = false;
+      globals.child = "";
+      viz(0, false);
+    }
+
+    fn on_timer() {
+      globals.age += 1;
+
+      if !globals.divided && globals.age >= split_age {
+        // Hand off to a single successor and self-link to it (link() only touches
+        // this node's own outbound links, so the new connector runs parent -> child).
+        // Each lineage replaces itself one-for-one, so the population this keeps
+        // spawning/despawning stays bounded instead of growing forever.
+        globals.divided = true;
+        globals.child = node_name + "'";
+        spawn_node(globals.child, "cell", []);
+        link(globals.child);
+        log(node_name + " spawned successor " + globals.child);
+      } else if globals.divided && globals.age == split_age + retire_after {
+        // The successor is established now: drop the direct link (the connector
+        // retracts) without touching either node itself.
+        unlink(globals.child);
+        log(node_name + " released " + globals.child);
+      } else if globals.age >= max_age {
+        log(node_name + " died of old age");
+        despawn(node_name);
+        return;
+      }
+
+      viz(globals.age, globals.divided);
+    }
+
+graph_defn:
+  graph:
+    - name: cell1
+      node_type: cell
+      links: []
+    - name: cell2
+      node_type: cell
+      links: []
+  graph_attrs:
+    background: "#FFFFFF"
+    connection_color: "#000000"
+    text_color: "#000000"
+    title: Cell Division (runtime spawn/link/despawn)
+  icons:
+    - id: cell_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f9a0.png
+  node_types:
+    - id: cell
+      fn: *cell_fn
+      params:
+        - name: split_age
+          type: Integer
+          default: 2
+          min: 1
+          max: 10
+        - name: retire_after
+          type: Integer
+          default: 2
+          min: 1
+          max: 10
+        - name: max_age
+          type: Integer
+          default: 5
+          min: 2
+          max: 30
+      attrs:
+        ticks: 3
+        icon: cell_icon

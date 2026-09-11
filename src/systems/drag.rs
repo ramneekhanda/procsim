@@ -1,3 +1,4 @@
+use crate::components::camera::BubbleCamera;
 use crate::components::node::{DragState, NodeMarker};
 use crate::systems::background_grid::GRID_SPACING;
 use bevy::prelude::*;
@@ -10,7 +11,12 @@ fn snap(value: f32) -> f32 {
 pub fn drag(
     e: Listener<Pointer<Drag>>,
     mut q: Query<(&mut Transform, &mut DragState, &Children, &NodeMarker)>,
-    mut query_camera: Query<&mut OrthographicProjection, With<Camera2d>>,
+    // `With<Camera2d>` alone used to be unambiguous, but the narration-bubble
+    // compositing camera (`BubbleCamera`, see `systems::radial_blur`) is also a
+    // `Camera2dBundle`, so it also matches `Camera2d`. Without `Without<BubbleCamera>`
+    // here, `.single()` below finds two entities and panics on every drag - which,
+    // since a wasm panic halts the whole Bevy app loop, looks exactly like a freeze.
+    mut query_camera: Query<&mut OrthographicProjection, (With<Camera2d>, Without<BubbleCamera>)>,
 ) {
     let projection = query_camera.single();
     if q.iter().count() == 0 {

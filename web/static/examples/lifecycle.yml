@@ -2,11 +2,13 @@ fns:
   - &server_fn |
     fn on_init() {
         globals.x = 1;
+        draw([ #{ shape: "text", x: 0, y: 44, text: "x = " + globals.x, size: 12, color: "#333333" } ]);
     }
 
     fn on_timer() {
         globals.x += 1;
         log("x is now " + globals.x);
+        draw([ #{ shape: "text", x: 0, y: 44, text: "x = " + globals.x, size: 12, color: "#333333" } ]);
     }
 
 graph_defn:

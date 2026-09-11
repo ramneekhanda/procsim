@@ -7,7 +7,8 @@ use crate::systems::drag;
 use bevy::text::TextLayoutInfo;
 use bevy_prototype_lyon::prelude::*;
 
-use crate::resources::graph_def::GraphChange;
+use crate::resources::graph_def::{GraphChange, NodeAdded, NodeRemoved};
+use crate::resources::narration::PendingExplain;
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bevy_tweening::{lens::*, *};
@@ -23,15 +24,24 @@ pub const TICK_BAR_WIDTH: f32 = 32.0;
 const TICK_BAR_HEIGHT: f32 = 3.0;
 const TICK_BAR_Y: f32 = -(ICON_HEIGHT / 2.0 + TEXT_DISTANCE_FROM_BOTTOM / 2.0);
 
+/// `GraphChange` (a YAML edit) still does a full despawn/respawn of every node - the
+/// whole graph may have changed shape and there's no live simulation state worth
+/// preserving across an edit. `NodeAdded`/`NodeRemoved` (a script's runtime `spawn()`/
+/// `despawn()`) are handled as a single-entity add/remove instead, so every other
+/// node's position, drag state and overlay survive untouched.
 pub fn create_nodes(
     mut commands: Commands,
     ca: Res<CommonAssets>,
     g: Res<GraphDefinitionRes>,
-    query: Query<Entity, With<NodeMarker>>,
-    mut event_reader: EventReader<GraphChange>,
+    query: Query<(Entity, &NodeMarker)>,
+    mut change_reader: EventReader<GraphChange>,
+    mut added_reader: EventReader<NodeAdded>,
+    mut removed_reader: EventReader<NodeRemoved>,
+    mut pending_explain: ResMut<PendingExplain>,
+    mut sim_time: ResMut<Time<Virtual>>,
 ) {
-    if event_reader.read().count() > 0 {
-        for entity in query.iter() {
+    if change_reader.read().count() > 0 {
+        for (entity, _) in query.iter() {
             commands.entity(entity).despawn_recursive();
         }
         let mut z = 0.;
@@ -39,6 +49,72 @@ pub fn create_nodes(
         for node in g.graph_defn.node_instances.iter() {
             spawn_node(z, node, &mut commands, &ca, g_attrs);
             z += 1.;
+        }
+        // a full rebuild already reflects any adds/removes queued this same frame
+        added_reader.clear();
+        removed_reader.clear();
+        // A fresh run should get to re-introduce itself, and a reload mid-dialog
+        // shouldn't leave the sim stuck paused (the despawn above already took the
+        // narration bubble with it, as a child of whichever node held it).
+        pending_explain.reset();
+        sim_time.unpause();
+        return;
+    }
+
+    for removed in removed_reader.read() {
+        if let Some((entity, _)) = query.iter().find(|(_, m)| m.node_name == removed.name) {
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+
+    if added_reader.is_empty() {
+        return;
+    }
+    let g_attrs: &GraphAttrs = &g.graph_defn.graph_attrs;
+    let mut z = query.iter().count() as f32;
+    for added in added_reader.read() {
+        if let Some(node) = g
+            .graph_defn
+            .node_instances
+            .iter()
+            .find(|n| n.name == added.name)
+        {
+            spawn_node(z, node, &mut commands, &ca, g_attrs);
+            z += 1.;
+        }
+    }
+}
+
+/// Clears the current node selection when a left click lands on nothing pickable that
+/// belongs to a node (e.g. empty canvas, the background grid) - `on_click` above only
+/// runs when a node's own sprite is the click target, so it can't see misses.
+pub fn deselect_on_background_click(
+    mut commands: Commands,
+    mouse: Res<ButtonInput<MouseButton>>,
+    hover_map: Res<bevy_mod_picking::focus::HoverMap>,
+    parents: Query<&Parent>,
+    is_node: Query<(), With<NodeMarker>>,
+    q_selected: Query<Entity, With<SelectedNodeMarker>>,
+) {
+    if !mouse.just_pressed(MouseButton::Left) {
+        return;
+    }
+    if q_selected.iter().count() == 0 {
+        return;
+    }
+
+    let hit_node = hover_map.values().any(|hits| {
+        hits.keys().any(|entity| {
+            is_node.contains(*entity)
+                || parents
+                    .get(*entity)
+                    .is_ok_and(|parent| is_node.contains(parent.get()))
+        })
+    });
+
+    if !hit_node {
+        for entity in q_selected.iter() {
+            commands.entity(entity).despawn_recursive();
         }
     }
 }

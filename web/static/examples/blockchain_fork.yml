@@ -1,0 +1,214 @@
+fns:
+  - &miner_fn |
+    // Same block-stack overlay as the basic blockchain example, plus a red ring +
+    // "PARTITIONED" label while this miner has lost its cross-group links.
+    fn redraw(chain, mined, me, is_partitioned) {
+      let g = [];
+      let h = chain.len();
+      let shown = h;
+      if shown > 14 { shown = 14; }
+      for i in 0..shown {
+        let b = chain[h - shown + i];
+        let col = "#4a90d2";
+        if b.miner == me { col = "#e8873a"; }
+        g.push(#{
+          shape: "rect", x: 48, y: -38 + i * 7, w: 34, h: 6,
+          fill: col, stroke: "#1b3a5c", stroke_width: 0.5, radius: 1
+        });
+      }
+      let lbl_col = "#333333";
+      let lbl = "h=" + (h - 1) + "  mined=" + mined;
+      if is_partitioned {
+        lbl_col = "#d1453b";
+        lbl = "PARTITIONED  h=" + (h - 1);
+        g.push(#{ shape: "circle", x: 0, y: 0, r: 40, stroke: "#d1453b", stroke_width: 3 });
+      }
+      g.push(#{ shape: "text", x: 48, y: 42, text: lbl, size: 10, color: lbl_col });
+      draw(g);
+    }
+
+    fn on_init() {
+      globals.chain = [
+        #{ index: 0, prev_hash: "0x0", hash: "GENESIS", miner: "genesis" }
+      ];
+      globals.mined = 0;
+      globals.nonce = 0;
+      globals.age = 0;
+      globals.partitioned = false;
+      globals.healed_pending = false;
+      redraw(globals.chain, globals.mined, node_name, false);
+    }
+
+    fn on_timer() {
+      globals.age += 1;
+
+      // ordinary PoW mining + gossip, same as the basic blockchain example
+      if mining {
+        let tip = globals.chain[globals.chain.len() - 1];
+        if random_chance(hashrate) {
+          globals.nonce += 1;
+          let block = #{
+            msg_type: "block",
+            index: tip.index + 1,
+            prev_hash: tip.hash,
+            hash: node_name + "-b" + (tip.index + 1) + "-n" + globals.nonce,
+            miner: node_name,
+            display: "block #" + (tip.index + 1),
+            icon: "block_icon"
+          };
+          globals.chain.push(block);
+          globals.mined += 1;
+          log(node_name + " mined block #" + block.index + " -> height " + (globals.chain.len() - 1));
+          for p in links {
+            send(p, block);
+          }
+        }
+      }
+
+      // scripted network partition: sever this miner's link to the other group at
+      // `partition_at`, reconnect at `heal_at`. `cross_group_peers` (set per node
+      // type below) is who's on the other side - link()/unlink() are self-scoped,
+      // so each miner only ever touches its own view of the topology.
+      if !globals.partitioned && globals.age == partition_at {
+        globals.partitioned = true;
+        for p in cross_group_peers.split(",") {
+          unlink(p);
+        }
+        log(node_name + " lost connectivity to " + cross_group_peers + " (network partition)");
+      } else if globals.partitioned && globals.age == heal_at {
+        globals.partitioned = false;
+        globals.healed_pending = true;
+        for p in cross_group_peers.split(",") {
+          link(p);
+        }
+        log(node_name + " reconnected to " + cross_group_peers);
+      } else if globals.healed_pending {
+        // wait one full tick after healing so update_connectors has had a chance
+        // to actually create the connector before we try to send across it
+        globals.healed_pending = false;
+        for p in cross_group_peers.split(",") {
+          send(p, #{ msg_type: "chain_announce", chain: globals.chain, display: "sync", icon: "sync_icon" });
+        }
+        log(node_name + " announcing " + (globals.chain.len() - 1) + "-block chain to " + cross_group_peers);
+      }
+
+      redraw(globals.chain, globals.mined, node_name, globals.partitioned);
+    }
+
+    fn on_msg(msg) {
+      if msg.msg_type == "block" {
+        let tip = globals.chain[globals.chain.len() - 1];
+        if msg.index == tip.index + 1 && msg.prev_hash == tip.hash {
+          globals.chain.push(#{
+            index: msg.index, prev_hash: msg.prev_hash, hash: msg.hash, miner: msg.miner
+          });
+          log(node_name + " accepted block #" + msg.index + " from " + msg.from + " -> height " + (globals.chain.len() - 1));
+          for p in links {
+            if p != msg.from {
+              send(p, msg);
+            }
+          }
+        } else if msg.index == tip.index && msg.hash != tip.hash {
+          log(node_name + " saw a competing block #" + msg.index + " from " + msg.miner + " (fork!)");
+        } else if msg.index <= tip.index {
+          // stale - already built past it
+        } else {
+          log(node_name + " is behind: tip #" + tip.index + " but saw #" + msg.index + " from " + msg.miner);
+        }
+      } else if msg.msg_type == "chain_announce" {
+        // The longest-chain rule, applied on reconnect: whichever side of the
+        // partition grew more blocks wins, and the loser drops its whole fork.
+        if msg.chain.len() > globals.chain.len() {
+          log(node_name + " REORG: adopting " + (msg.chain.len() - 1) + "-block chain from " + msg.from + " (had " + (globals.chain.len() - 1) + ")");
+          globals.chain = msg.chain;
+        } else if msg.chain.len() < globals.chain.len() {
+          log(node_name + "'s chain is longer - telling " + msg.from + " to reorg");
+          send(msg.from, #{ msg_type: "chain_announce", chain: globals.chain, display: "sync", icon: "sync_icon" });
+        } else {
+          log(node_name + " and " + msg.from + " still tied at height " + (globals.chain.len() - 1));
+        }
+      }
+      redraw(globals.chain, globals.mined, node_name, globals.partitioned);
+    }
+
+graph_defn:
+  graph:
+    - name: a1
+      node_type: minerA
+      links: [a2, b1, b2]
+    - name: a2
+      node_type: minerA
+      links: [a1, b1, b2]
+    - name: b1
+      node_type: minerB
+      links: [a1, a2, b2]
+    - name: b2
+      node_type: minerB
+      links: [a1, a2, b1]
+  graph_attrs:
+    background: "#FFFFFF"
+    connection_color: "#000000"
+    text_color: "#000000"
+    title: "Blockchain: Network Partition & Fork Resolution"
+  icons:
+    - id: miner_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/26cf.png
+    - id: block_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f4e6.png
+    - id: sync_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f504.png
+  node_types:
+    - id: minerA
+      fn: *miner_fn
+      params:
+        - name: mining
+          type: Bool
+          default: true
+        - name: hashrate
+          type: Integer
+          default: 30
+          min: 0
+          max: 100
+        - name: partition_at
+          type: Integer
+          default: 3
+          min: 1
+          max: 30
+        - name: heal_at
+          type: Integer
+          default: 10
+          min: 2
+          max: 60
+        - name: cross_group_peers
+          type: String
+          default: "b1,b2"
+      attrs:
+        ticks: 3
+        icon: miner_icon
+    - id: minerB
+      fn: *miner_fn
+      params:
+        - name: mining
+          type: Bool
+          default: true
+        - name: hashrate
+          type: Integer
+          default: 30
+          min: 0
+          max: 100
+        - name: partition_at
+          type: Integer
+          default: 3
+          min: 1
+          max: 30
+        - name: heal_at
+          type: Integer
+          default: 10
+          min: 2
+          max: 60
+        - name: cross_group_peers
+          type: String
+          default: "a1,a2"
+      attrs:
+        ticks: 3
+        icon: miner_icon

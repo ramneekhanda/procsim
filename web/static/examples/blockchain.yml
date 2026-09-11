@@ -1,0 +1,143 @@
+fns:
+  - &miner_fn |
+    // Redraw this miner's canvas overlay: a stack of the most recent blocks
+    // (orange = mined here, blue = received) plus a height/mined-count label.
+    // Rhai functions don't see script-level variables, so the caller passes in
+    // everything `redraw` needs (`chain`, `mined`, and this node's name `me`).
+    fn redraw(chain, mined, me) {
+      let g = [];
+      let h = chain.len();
+      let shown = h;
+      if shown > 14 { shown = 14; }
+      for i in 0..shown {
+        let b = chain[h - shown + i];
+        let col = "#4a90d2";
+        if b.miner == me { col = "#e8873a"; }
+        g.push(#{
+          shape: "rect",
+          x: 48, y: -38 + i * 7,
+          w: 34, h: 6,
+          fill: col,
+          stroke: "#1b3a5c", stroke_width: 0.5,
+          radius: 1
+        });
+      }
+      g.push(#{
+        shape: "text", x: 48, y: 42,
+        text: "h=" + (h - 1) + "  mined=" + mined,
+        size: 11, color: "#333333"
+      });
+      draw(g);
+    }
+
+    fn on_init() {
+      // Every miner starts from the same genesis block. The chain is just an
+      // ordered list of blocks; height == chain.len(), tip == last block.
+      globals.chain = [
+        #{ index: 0, prev_hash: "0x0", hash: "GENESIS", miner: "genesis" }
+      ];
+      globals.mined = 0;
+      globals.nonce = 0;
+      redraw(globals.chain, globals.mined, node_name);
+    }
+
+    fn on_timer() {
+      if mining {
+        let tip = globals.chain[globals.chain.len() - 1];
+        // random_chance() stands in for the proof-of-work lottery: on any given
+        // tick this miner has `hashrate` percent odds of being the one to find a
+        // valid nonce for the next block.
+        if random_chance(hashrate) {
+          globals.nonce += 1;
+          let block = #{
+            msg_type: "block",
+            index: tip.index + 1,
+            prev_hash: tip.hash,
+            hash: node_name + "-b" + (tip.index + 1) + "-n" + globals.nonce,
+            miner: node_name,
+            display: "block #" + (tip.index + 1),
+            icon: "block_icon"
+          };
+          globals.chain.push(block);
+          globals.mined += 1;
+          log(node_name + " mined block #" + block.index + " [" + block.hash + "] -> height " + (globals.chain.len() - 1));
+          for p in links {
+            send(p, block);
+          }
+        }
+      }
+      redraw(globals.chain, globals.mined, node_name);
+    }
+
+    fn on_msg(msg) {
+      if msg.msg_type != "block" {
+        return;
+      }
+      let tip = globals.chain[globals.chain.len() - 1];
+      if msg.index == tip.index + 1 && msg.prev_hash == tip.hash {
+        // Block builds directly on our tip: accept it and gossip it onward to
+        // every peer except the one who just told us about it.
+        globals.chain.push(#{
+          index: msg.index,
+          prev_hash: msg.prev_hash,
+          hash: msg.hash,
+          miner: msg.miner
+        });
+        log(node_name + " accepted block #" + msg.index + " from " + msg.from + " -> height " + (globals.chain.len() - 1));
+        for p in links {
+          if p != msg.from {
+            send(p, msg);
+          }
+        }
+        redraw(globals.chain, globals.mined, node_name);
+      } else if msg.index == tip.index && msg.hash != tip.hash {
+        log(node_name + " saw a competing block #" + msg.index + " from " + msg.miner + " (fork!)");
+      } else if msg.index <= tip.index {
+        // stale block we already built past - ignore
+      } else {
+        log(node_name + " is behind: tip #" + tip.index + " but saw #" + msg.index + " from " + msg.miner);
+      }
+    }
+
+graph_defn:
+  graph:
+    - name: miner1
+      node_type: miner
+      links: [miner2, miner3, miner4]
+    - name: miner2
+      node_type: miner
+      links: [miner1, miner3, miner4]
+    - name: miner3
+      node_type: miner
+      links: [miner1, miner2, miner4]
+    - name: miner4
+      node_type: miner
+      links: [miner1, miner2, miner3]
+  graph_attrs:
+    background: "#FFFFFF"
+    connection_color: "#000000"
+    text_color: "#000000"
+    title: Blockchain (Proof of Work gossip)
+  icons:
+    - id: miner_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/26cf.png
+    - id: block_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f4e6.png
+  node_types:
+    - id: miner
+      fn: *miner_fn
+      params:
+        - name: mining
+          type: Bool
+          default: true
+        - name: hashrate
+          type: Integer
+          default: 20
+          min: 0
+          max: 100
+      attrs:
+        ticks:
+          min: 2
+          max: 5
+          jitter: true
+        icon: miner_icon

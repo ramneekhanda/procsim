@@ -215,6 +215,12 @@ pub struct Node {
     pub ast: AST, //TODO: change this to reference
     pub scope: Scope<'static>,
     pub state: Dynamic,
+
+    /// Custom canvas overlay for this node, set from a Rhai handler via `draw([...])`.
+    /// Persists until the node calls `draw()` again; `overlay_dirty` flags a pending
+    /// re-render for `systems::node_overlay`.
+    pub overlay: Vec<crate::parser::draw::DrawCmd>,
+    pub overlay_dirty: bool,
 }
 
 impl std::cmp::PartialEq for Node {
@@ -258,7 +264,11 @@ pub struct File {
 }
 
 pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
-    let engine = rhai::Engine::new();
+    let mut engine = rhai::Engine::new();
+    // Rhai's default nesting limit inside a function is only 32 levels, which a
+    // realistic handler (a map literal with an inline `if`, say) can trip. Raise
+    // it well clear of hand-written scripts while still bounding pathological input.
+    engine.set_max_expr_depths(256, 256);
 
     let data: Result<File, serde_yaml::Error> = serde_yaml::from_str(&graph_code);
     if let Ok(mut m_data) = data {
@@ -297,7 +307,6 @@ pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
                 }
             }
         }
-        let scope = Scope::new();
         for node in m_data.graph_defn.graph.iter() {
             let type_data = m_data
                 .graph_defn
@@ -305,19 +314,8 @@ pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
                 .iter()
                 .find(|x| x.id == node.node_type);
             if let Some(data_w_type) = type_data {
-                let mut n = Node {
-                    name: node.name.clone(),
-                    node_data: data_w_type.clone(),
-                    timer: Timer::new(
-                        Duration::from_secs(resolve_ticks_secs(&data_w_type.attrs.ticks)),
-                        TimerMode::Repeating,
-                    ),
-                    links: node.links.clone(),
-                    ast: data_w_type.ast.clone(),
-                    scope: scope.clone(),
-                    state: Dynamic::from_map(BTreeMap::new()),
-                };
-                init_scope(&engine, &mut n);
+                let n =
+                    instantiate_node(&engine, data_w_type, node.name.clone(), node.links.clone());
                 m_data.graph_defn.node_instances.push(n);
             } else {
                 return Err(serde_yaml::Error::custom(
@@ -328,6 +326,35 @@ pub fn parse_graph2(graph_code: &String) -> Result<File, serde_yaml::Error> {
         return Ok(m_data);
     }
     data
+}
+
+/// Builds a fresh `Node` instance of `node_type` and runs its `on_init` once. Used
+/// both at initial YAML parse time (a bare, unconfigured `engine` - `log`/`send`/
+/// `draw`/`spawn`/etc all silently no-op there, matching prior behavior) and by
+/// `rhai_engine::apply_spawns` for a script's runtime `spawn()` (the fully-registered
+/// engine there, so `draw()` in `on_init` paints the new node's overlay immediately).
+pub fn instantiate_node(
+    engine: &rhai::Engine,
+    node_type: &NodeType,
+    name: String,
+    links: Vec<String>,
+) -> Node {
+    let mut n = Node {
+        name,
+        node_data: node_type.clone(),
+        timer: Timer::new(
+            Duration::from_secs(resolve_ticks_secs(&node_type.attrs.ticks)),
+            TimerMode::Repeating,
+        ),
+        links,
+        ast: node_type.ast.clone(),
+        scope: Scope::new(),
+        state: Dynamic::from_map(BTreeMap::new()),
+        overlay: Vec::new(),
+        overlay_dirty: false,
+    };
+    init_scope(engine, &mut n);
+    n
 }
 
 pub fn init_scope(engine: &rhai::Engine, node: &mut Node) {

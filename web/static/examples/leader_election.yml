@@ -1,52 +1,84 @@
 fns:
   - &node_fn |
+    // Status ring (gold = leader, blue = follower, grey = down), a gold crown while
+    // this node holds leadership, and three "missed heartbeat" pips that fill red as
+    // the node stops hearing from the leader - when all three are red it stands for
+    // election.
+    fn viz(is_leader, leader_name, missed, alive) {
+      let g = [];
+      let col = "#4a90d2";
+      if is_leader { col = "#e8b33a"; }
+      if !alive { col = "#999999"; }
+      g.push(#{ shape: "circle", x: 0, y: 0, r: 40, stroke: col, stroke_width: 3 });
+
+      if is_leader {
+        g.push(#{ shape: "polygon",
+          points: [[-14, 44], [-9, 54], [-4, 46], [0, 54], [4, 46], [9, 54], [14, 44]],
+          fill: "#e8b33a", stroke: "#8a6d1f", stroke_width: 1 });
+      }
+
+      for i in 0..3 {
+        let pc = "#dddddd";
+        if i < missed { pc = "#d1453b"; }
+        g.push(#{ shape: "circle", x: -48, y: 14 - i * 14, r: 4,
+                  fill: pc, stroke: "#888888", stroke_width: 0.5 });
+      }
+
+      let lbl = "leader: " + leader_name;
+      if leader_name == "" { lbl = "leader: ?"; }
+      g.push(#{ shape: "text", x: 0, y: 64, text: lbl, size: 9, color: "#333333" });
+      draw(g);
+    }
+
     fn on_init() {
       globals.is_leader = false;
       globals.leader_name = "";
       globals.missed = 0;
       globals.was_down = false;
+      viz(false, "", 0, true);
     }
     fn on_timer() {
       if !alive {
         globals.was_down = true;
-        return;
-      }
-      if globals.was_down {
-        // Rejoining after being down: forget whatever role we had before and come
-        // back as a plain follower with a full timeout window. A recovering node
-        // must never assume its old leadership still stands - it has to actually
-        // wait to hear from (or fail to hear from) whoever is leading now.
-        globals.is_leader = false;
-        globals.missed = 0;
-        globals.was_down = false;
-        log(node_name + " back online, rejoining as follower");
-      }
-      if globals.is_leader {
-        log(node_name + " (leader) sending heartbeat");
-        for p in links {
-          send(p, #{ msg_type: "heartbeat", display: "heartbeat", icon: "heartbeat_icon" });
-        }
       } else {
-        globals.missed += 1;
-        if globals.missed > 2 {
-          // Elect the lowest-named peer that isn't the presumed-dead leader we just
-          // stopped hearing from (excluding it, not just any known peer, is what lets
-          // election actually progress once the lowest-named node in the whole
-          // topology is the one that went down).
-          let candidate = node_name;
+        if globals.was_down {
+          // Rejoining after being down: forget whatever role we had before and come
+          // back as a plain follower with a full timeout window. A recovering node
+          // must never assume its old leadership still stands - it has to actually
+          // wait to hear from (or fail to hear from) whoever is leading now.
+          globals.is_leader = false;
+          globals.missed = 0;
+          globals.was_down = false;
+          log(node_name + " back online, rejoining as follower");
+        }
+        if globals.is_leader {
+          log(node_name + " (leader) sending heartbeat");
           for p in links {
-            if p != globals.leader_name && p < candidate {
-              candidate = p;
+            send(p, #{ msg_type: "heartbeat", display: "heartbeat", icon: "heartbeat_icon" });
+          }
+        } else {
+          globals.missed += 1;
+          if globals.missed > 2 {
+            // Elect the lowest-named peer that isn't the presumed-dead leader we just
+            // stopped hearing from (excluding it, not just any known peer, is what lets
+            // election actually progress once the lowest-named node in the whole
+            // topology is the one that went down).
+            let candidate = node_name;
+            for p in links {
+              if p != globals.leader_name && p < candidate {
+                candidate = p;
+              }
+            }
+            if candidate == node_name {
+              globals.is_leader = true;
+              globals.leader_name = node_name;
+              globals.missed = 0;
+              log(node_name + " heard nothing from the leader - electing self as new leader");
             }
           }
-          if candidate == node_name {
-            globals.is_leader = true;
-            globals.leader_name = node_name;
-            globals.missed = 0;
-            log(node_name + " heard nothing from the leader - electing self as new leader");
-          }
         }
       }
+      viz(globals.is_leader, globals.leader_name, globals.missed, alive);
     }
     fn on_msg(msg) {
       if msg.msg_type == "heartbeat" {
@@ -57,6 +89,7 @@ fns:
           log(node_name + " stepping down, deferring to " + msg.from);
         }
       }
+      viz(globals.is_leader, globals.leader_name, globals.missed, alive);
     }
 
 graph_defn:

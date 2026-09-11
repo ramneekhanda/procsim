@@ -1,7 +1,11 @@
 fns:
   - &client_fn |
+    fn viz(sent) {
+      draw([ #{ shape: "text", x: 0, y: 44, text: "sent " + sent, size: 10, color: "#333333" } ]);
+    }
     fn on_init() {
       globals.req_id = 0;
+      viz(0);
     }
     fn on_timer() {
       globals.req_id += 1;
@@ -12,19 +16,43 @@ fns:
         display: "request #" + globals.req_id,
         icon: "request_icon"
       });
+      viz(globals.req_id);
     }
     fn on_msg(msg) {
       log("client got: " + msg.display);
     }
 
   - &lb_fn |
+    // A live bar chart of requests routed to each backend, one row per backend.
+    // Bar length scales to the busiest backend; green = healthy, red = marked down.
+    fn viz(r1, r2, r3, h1, h2, h3) {
+      let g = [];
+      let counts = [r1, r2, r3];
+      let health = [h1, h2, h3];
+      let mx = 1;
+      for c in counts { if c > mx { mx = c; } }
+      for i in 0..3 {
+        let w = 8 + counts[i] * 48 / mx;
+        let col = "#3fae49";
+        if !health[i] { col = "#d1453b"; }
+        g.push(#{ shape: "rect", x: 42 + w / 2, y: 20 - i * 16, w: w, h: 11,
+                  fill: col, stroke: "#1b3a5c", stroke_width: 0.5, radius: 1 });
+        g.push(#{ shape: "text", x: 42 + w + 16, y: 20 - i * 16,
+                  text: "b" + (i + 1) + ": " + counts[i], size: 9, color: "#333333" });
+      }
+      draw(g);
+    }
     fn on_init() {
       globals.cur1 = 0;
       globals.cur2 = 0;
       globals.cur3 = 0;
+      globals.routed1 = 0;
+      globals.routed2 = 0;
+      globals.routed3 = 0;
       globals.healthy1 = true;
       globals.healthy2 = true;
       globals.healthy3 = true;
+      viz(0, 0, 0, true, true, true);
     }
     fn on_timer() {
       // active health checks, independent of request routing
@@ -39,6 +67,8 @@ fns:
         if msg.from == "backend1" { globals.healthy1 = msg.healthy; }
         else if msg.from == "backend2" { globals.healthy2 = msg.healthy; }
         else if msg.from == "backend3" { globals.healthy3 = msg.healthy; }
+        viz(globals.routed1, globals.routed2, globals.routed3,
+            globals.healthy1, globals.healthy2, globals.healthy3);
       } else if msg.msg_type == "request" {
         // smooth weighted round-robin over currently-healthy backends
         globals.cur1 += weight_backend1;
@@ -58,9 +88,9 @@ fns:
           return;
         }
 
-        if target == "backend1" { globals.cur1 -= total; }
-        else if target == "backend2" { globals.cur2 -= total; }
-        else { globals.cur3 -= total; }
+        if target == "backend1" { globals.cur1 -= total; globals.routed1 += 1; }
+        else if target == "backend2" { globals.cur2 -= total; globals.routed2 += 1; }
+        else { globals.cur3 -= total; globals.routed3 += 1; }
 
         log("routing request #" + msg.req_id + " to " + target);
         send(target, #{
@@ -70,22 +100,40 @@ fns:
           display: "request #" + msg.req_id,
           icon: "request_icon"
         });
+        viz(globals.routed1, globals.routed2, globals.routed3,
+            globals.healthy1, globals.healthy2, globals.healthy3);
       } else if msg.msg_type == "response" {
         send(msg.orig_from, #{ display: msg.display, icon: "response_icon" });
       }
     }
 
   - &backend_fn |
+    // A health lamp (green up / red down) plus a running count of requests served.
+    fn viz(is_healthy, served) {
+      let col = "#3fae49";
+      if !is_healthy { col = "#d1453b"; }
+      draw([
+        #{ shape: "circle", x: 30, y: 30, r: 6, fill: col, stroke: "#1b3a5c", stroke_width: 1 },
+        #{ shape: "text", x: 0, y: 44, text: "served " + served, size: 9, color: "#333333" }
+      ]);
+    }
+    fn on_init() {
+      globals.served = 0;
+      viz(true, 0);
+    }
     fn on_msg(msg) {
       if msg.msg_type == "health_check" {
         let status = if healthy { "up" } else { "down" };
         send(msg.from, #{ msg_type: "health_response", healthy: healthy, display: status, icon: "health_icon" });
+        viz(healthy, globals.served);
       } else if msg.msg_type == "request" {
+        globals.served += 1;
         if healthy {
           send(msg.from, #{ msg_type: "response", orig_from: msg.orig_from, display: "ok #" + msg.req_id, icon: "response_icon" });
         } else {
           send(msg.from, #{ msg_type: "response", orig_from: msg.orig_from, display: "error #" + msg.req_id, icon: "error_icon" });
         }
+        viz(healthy, globals.served);
       }
     }
 

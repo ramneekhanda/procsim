@@ -2,22 +2,27 @@ fns:
   - &server_fns |
     fn on_init() {
         globals.x = 1;
+        globals.served = 0;
+        draw([ #{ shape: "text", x: 0, y: 44, text: "served 0", size: 10, color: "#333333" } ]);
     }
 
     fn on_timer() {
     }
 
     fn on_msg(msg) {
+        globals.served += 1;
         send(msg.from, #{
             display: "pong: " + msg.ping_id,
             ping_id: msg.ping_id,
             icon: "message_icon"
         });
+        draw([ #{ shape: "text", x: 0, y: 44, text: "served " + globals.served, size: 10, color: "#333333" } ]);
     }
 
   - &client_fns |
     fn on_init() {
         globals.i = 1;
+        draw([ #{ shape: "text", x: 0, y: 44, text: "sent 0", size: 10, color: "#333333" } ]);
     }
 
     fn on_timer() {
@@ -26,6 +31,7 @@ fns:
             ping_id: globals.i,
             icon: "message_icon"
         });
+        draw([ #{ shape: "text", x: 0, y: 44, text: "sent " + globals.i, size: 10, color: "#333333" } ]);
         globals.i += 1;
     }
 

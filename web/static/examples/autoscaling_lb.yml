@@ -1,0 +1,248 @@
+fns:
+  - &client_fn |
+    fn viz(sent) {
+      draw([ #{ shape: "text", x: 0, y: 44, text: "sent " + sent, size: 10, color: "#333333" } ]);
+    }
+    fn on_init() {
+      globals.req_id = 0;
+      viz(0);
+    }
+    fn on_timer() {
+      globals.req_id += 1;
+      send("lb", #{
+        msg_type: "request",
+        req_id: globals.req_id,
+        display: "request #" + globals.req_id,
+        icon: "request_icon"
+      });
+      viz(globals.req_id);
+    }
+    fn on_msg(msg) {
+      log("client got: " + msg.display);
+    }
+
+  - &lb_fn |
+    // A live bar chart of requests routed to each backend (grows/shrinks as
+    // backends are added/removed), plus a "N backends, avg load" label.
+    fn viz(backends, healthy_map, routed_map, avg) {
+      let g = [];
+      let n = backends.len();
+      let mx = 1;
+      for b in backends {
+        let c = 0;
+        if b in routed_map { c = routed_map[b]; }
+        if c > mx { mx = c; }
+      }
+      for i in 0..n {
+        let b = backends[i];
+        let c = 0;
+        if b in routed_map { c = routed_map[b]; }
+        let h = true;
+        if b in healthy_map { h = healthy_map[b]; }
+        let w = 8 + c * 46 / mx;
+        let col = "#3fae49";
+        if !h { col = "#d1453b"; }
+        g.push(#{ shape: "rect", x: 42 + w / 2, y: 24 - i * 14, w: w, h: 10,
+                  fill: col, stroke: "#1b3a5c", stroke_width: 0.5, radius: 1 });
+      }
+      g.push(#{ shape: "text", x: 0, y: 46, text: n + " backends, avg " + avg, size: 10, color: "#333333" });
+      draw(g);
+    }
+
+    fn on_init() {
+      // Discover the initial backend set from our own declared links, rather than
+      // hardcoding names, since spawn_node()/despawn() will grow and shrink it.
+      globals.backends = links;
+      globals.healthy = #{};
+      globals.routed = #{};
+      globals.window_count = 0;
+      globals.rr_idx = -1;
+      globals.next_id = links.len();
+      viz(globals.backends, globals.healthy, globals.routed, 0);
+    }
+
+    fn on_timer() {
+      for b in globals.backends {
+        send(b, #{ msg_type: "health_check", display: "ping", icon: "health_icon" });
+      }
+
+      let n = globals.backends.len();
+      let avg = 0;
+      if n > 0 { avg = globals.window_count / n; }
+
+      if avg > scale_up_threshold && n < max_backends {
+        globals.next_id += 1;
+        let name = "backend" + globals.next_id;
+        // spawn_node()'s on_init runs immediately; link() makes it reachable next
+        // frame once update_connectors notices the new edge.
+        spawn_node(name, "backend", []);
+        link(name);
+        globals.backends.push(name);
+        globals.healthy[name] = true;
+        globals.routed[name] = 0;
+        log(node_name + " scaling UP -> " + name + " (avg load " + avg + "/backend)");
+      } else if avg < scale_down_threshold && n > min_backends {
+        let victim = globals.backends[globals.backends.len() - 1];
+        // despawn() already scrubs `victim` out of every surviving node's links
+        // (including our own), so no separate unlink() call is needed here.
+        despawn(victim);
+        let kept = [];
+        for b in globals.backends {
+          if b != victim { kept.push(b); }
+        }
+        globals.backends = kept;
+        log(node_name + " scaling DOWN -> removed " + victim + " (avg load " + avg + "/backend)");
+      }
+
+      globals.window_count = 0;
+      viz(globals.backends, globals.healthy, globals.routed, avg);
+    }
+
+    fn on_msg(msg) {
+      if msg.msg_type == "health_response" {
+        globals.healthy[msg.from] = msg.healthy;
+      } else if msg.msg_type == "request" {
+        globals.window_count += 1;
+        let live = [];
+        for b in globals.backends {
+          let h = true;
+          if b in globals.healthy { h = globals.healthy[b]; }
+          if h { live.push(b); }
+        }
+        if live.len() == 0 {
+          log("no healthy backends - dropping request #" + msg.req_id);
+          send(msg.from, #{ display: "503 no backends", icon: "error_icon" });
+        } else {
+          globals.rr_idx = (globals.rr_idx + 1) % live.len();
+          let target = live[globals.rr_idx];
+          let c = 0;
+          if target in globals.routed { c = globals.routed[target]; }
+          globals.routed[target] = c + 1;
+          log("routing request #" + msg.req_id + " to " + target);
+          send(target, #{
+            msg_type: "request",
+            req_id: msg.req_id,
+            orig_from: msg.from,
+            display: "request #" + msg.req_id,
+            icon: "request_icon"
+          });
+        }
+      } else if msg.msg_type == "response" {
+        send(msg.orig_from, #{ display: msg.display, icon: "response_icon" });
+      }
+      let n = globals.backends.len();
+      let avg_now = 0;
+      if n > 0 { avg_now = globals.window_count / n; }
+      viz(globals.backends, globals.healthy, globals.routed, avg_now);
+    }
+
+  - &backend_fn |
+    fn viz(is_healthy, served) {
+      let col = "#3fae49";
+      if !is_healthy { col = "#d1453b"; }
+      draw([
+        #{ shape: "circle", x: 30, y: 30, r: 6, fill: col, stroke: "#1b3a5c", stroke_width: 1 },
+        #{ shape: "text", x: 0, y: 44, text: "served " + served, size: 9, color: "#333333" }
+      ]);
+    }
+    fn on_init() {
+      globals.served = 0;
+      viz(true, 0);
+    }
+    fn on_msg(msg) {
+      if msg.msg_type == "health_check" {
+        let status = if healthy { "up" } else { "down" };
+        send(msg.from, #{ msg_type: "health_response", healthy: healthy, display: status, icon: "health_icon" });
+        viz(healthy, globals.served);
+      } else if msg.msg_type == "request" {
+        globals.served += 1;
+        if healthy {
+          send(msg.from, #{ msg_type: "response", orig_from: msg.orig_from, display: "ok #" + msg.req_id, icon: "response_icon" });
+        } else {
+          send(msg.from, #{ msg_type: "response", orig_from: msg.orig_from, display: "error #" + msg.req_id, icon: "error_icon" });
+        }
+        viz(healthy, globals.served);
+      }
+    }
+
+graph_defn:
+  graph:
+    - name: client1
+      node_type: client
+      links: [lb]
+    - name: client2
+      node_type: client
+      links: [lb]
+    - name: client3
+      node_type: client
+      links: [lb]
+    - name: lb
+      node_type: lb
+      links: [backend1, backend2]
+    - name: backend1
+      node_type: backend
+      links: []
+    - name: backend2
+      node_type: backend
+      links: []
+  graph_attrs:
+    background: "#FFFFFF"
+    connection_color: "#000000"
+    text_color: "#000000"
+    title: Autoscaling Load Balancer
+  icons:
+    - id: client_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/EKSAnywhere.png
+    - id: lb_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/General/Servers.png
+    - id: backend_icon
+      url: https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png
+    - id: request_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/2709.png
+    - id: response_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/2705.png
+    - id: error_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/274c.png
+    - id: health_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f493.png
+  node_types:
+    - id: client
+      fn: *client_fn
+      attrs:
+        ticks: { min: 1, max: 2, jitter: true }
+        icon: client_icon
+    - id: lb
+      fn: *lb_fn
+      params:
+        - name: scale_up_threshold
+          type: Integer
+          default: 4
+          min: 1
+          max: 20
+        - name: scale_down_threshold
+          type: Integer
+          default: 1
+          min: 0
+          max: 10
+        - name: min_backends
+          type: Integer
+          default: 1
+          min: 1
+          max: 5
+        - name: max_backends
+          type: Integer
+          default: 6
+          min: 1
+          max: 10
+      attrs:
+        ticks: 5
+        icon: lb_icon
+    - id: backend
+      fn: *backend_fn
+      params:
+        - name: healthy
+          type: Bool
+          default: true
+      attrs:
+        ticks: 30
+        icon: backend_icon

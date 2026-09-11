@@ -1,10 +1,34 @@
 fns:
   - &coordinator_fn |
+    // A phase banner (grey idle / amber preparing) and a row of vote slots - one per
+    // participant - that fill green for YES votes and red for NO as replies arrive.
+    fn viz(phase, tx_id, responses, yes, total) {
+      let g = [];
+      let col = "#999999";
+      let txt = "idle";
+      if phase == "preparing" {
+        col = "#e8b33a";
+        txt = "tx " + tx_id + ": preparing";
+      }
+      g.push(#{ shape: "rect", x: 0, y: 46, w: 104, h: 15,
+                fill: col, stroke: "#1b3a5c", stroke_width: 0.5, radius: 2 });
+      g.push(#{ shape: "text", x: 0, y: 46, text: txt, size: 9, color: "#ffffff" });
+
+      for i in 0..total {
+        let sc = "#dddddd";
+        if i < yes { sc = "#3fae49"; }
+        else if i < responses { sc = "#d1453b"; }
+        g.push(#{ shape: "rect", x: -20 + i * 20, y: 66, w: 15, h: 15,
+                  fill: sc, stroke: "#888888", stroke_width: 0.5, radius: 2 });
+      }
+      draw(g);
+    }
     fn on_init() {
       globals.phase = "idle";
       globals.tx_id = 0;
       globals.responses = 0;
       globals.yes = 0;
+      viz("idle", 0, 0, 0, links.len());
     }
     fn on_timer() {
       if globals.phase == "idle" {
@@ -13,10 +37,17 @@ fns:
         globals.yes = 0;
         globals.phase = "preparing";
         log("tx " + globals.tx_id + ": sending PREPARE to " + links.len() + " participants");
+        if globals.tx_id == 1 {
+          explain("first-prepare",
+            "This is a two-phase commit. The coordinator just sent PREPARE to all " +
+            links.len() + " participants, asking each to vote. Nothing commits until " +
+            "every single one votes YES.");
+        }
         for p in links {
           send(p, #{ msg_type: "prepare", tx_id: globals.tx_id, display: "PREPARE", icon: "prepare_icon" });
         }
       }
+      viz(globals.phase, globals.tx_id, globals.responses, globals.yes, links.len());
     }
     fn on_msg(msg) {
       if globals.phase == "preparing" && msg.tx_id == globals.tx_id {
@@ -27,11 +58,19 @@ fns:
         if globals.responses >= links.len() {
           if globals.yes == links.len() {
             log("tx " + globals.tx_id + ": all YES, committing");
+            explain("first-commit",
+              "Every participant voted YES, so the coordinator just sent COMMIT to all of " +
+              "them. This is the point of no return in two-phase commit - once COMMIT goes " +
+              "out, every participant is obligated to apply the transaction.");
             for p in links {
               send(p, #{ msg_type: "commit", tx_id: globals.tx_id, display: "COMMIT", icon: "commit_icon" });
             }
           } else {
             log("tx " + globals.tx_id + ": a participant voted NO, aborting");
+            explain("first-abort",
+              "A participant voted NO, so the coordinator just sent ABORT to everyone " +
+              "instead of COMMIT. A single NO vote is enough to abort the whole " +
+              "transaction - this is what keeps two-phase commit consistent.");
             for p in links {
               send(p, #{ msg_type: "abort", tx_id: globals.tx_id, display: "ABORT", icon: "abort_icon" });
             }
@@ -39,9 +78,27 @@ fns:
           globals.phase = "idle";
         }
       }
+      viz(globals.phase, globals.tx_id, globals.responses, globals.yes, links.len());
     }
 
   - &participant_fn |
+    // Status ring coloured by where this participant is in the protocol:
+    // amber = voted YES (holding locks), red = voted NO / aborted, green = committed.
+    fn viz(state) {
+      let col = "#999999";
+      if state == "voted YES" { col = "#e8b33a"; }
+      if state == "voted NO" { col = "#d1453b"; }
+      if state == "committed" { col = "#3fae49"; }
+      if state == "aborted" { col = "#d1453b"; }
+      draw([
+        #{ shape: "circle", x: 0, y: 0, r: 40, stroke: col, stroke_width: 3 },
+        #{ shape: "text", x: 0, y: 46, text: state, size: 9, color: "#333333" }
+      ]);
+    }
+    fn on_init() {
+      globals.state = "waiting";
+      viz("waiting");
+    }
     fn on_msg(msg) {
       if msg.msg_type == "prepare" {
         // vote_yes is a manual override for forcing a scenario; on top of that, even
@@ -50,12 +107,22 @@ fns:
         let vote = vote_yes && !random_chance(fail_chance);
         let vote_str = if vote { "YES" } else { "NO" };
         log("voting " + vote_str + " for tx " + msg.tx_id);
+        if !vote {
+          explain("first-no-vote",
+            "I just voted NO - simulating a real failure like a timeout or a full disk. " +
+            "Every participant has a random chance of this happening, so aborts show up " +
+            "organically over time rather than being scripted.");
+        }
         send("coordinator", #{ tx_id: msg.tx_id, vote: vote, display: vote_str });
+        globals.state = "voted " + vote_str;
       } else if msg.msg_type == "commit" {
         log("committing tx " + msg.tx_id);
+        globals.state = "committed";
       } else if msg.msg_type == "abort" {
         log("aborting tx " + msg.tx_id);
+        globals.state = "aborted";
       }
+      viz(globals.state);
     }
 
 graph_defn:

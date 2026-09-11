@@ -1,9 +1,24 @@
 fns:
   - &client_fn |
+    // Status ring: green = closed (calls flow), amber = half-open (probing),
+    // red = open (calls skipped) - plus a fail-count/cooldown label.
+    fn viz(state, fail_count, cooldown) {
+      let col = "#3fae49";
+      if state == "half_open" { col = "#e8b33a"; }
+      if state == "open" { col = "#d1453b"; }
+      let lbl = state;
+      if state == "open" { lbl = state + " (" + cooldown + ")"; }
+      else if fail_count > 0 { lbl = state + " (" + fail_count + " fail)"; }
+      draw([
+        #{ shape: "circle", x: 0, y: 0, r: 40, stroke: col, stroke_width: 3 },
+        #{ shape: "text", x: 0, y: 46, text: lbl, size: 9, color: "#333333" }
+      ]);
+    }
     fn on_init() {
       globals.state = "closed";
       globals.fail_count = 0;
       globals.cooldown = 0;
+      viz("closed", 0, 0);
     }
     fn on_timer() {
       if globals.state == "open" {
@@ -13,6 +28,7 @@ fns:
           log("circuit half-open, probing backend...");
         } else {
           log("circuit open, skipping call (" + globals.cooldown + " ticks left)");
+          viz(globals.state, globals.fail_count, globals.cooldown);
           return;
         }
       }
@@ -20,6 +36,7 @@ fns:
         display: "request",
         icon: "request_icon"
       });
+      viz(globals.state, globals.fail_count, globals.cooldown);
     }
     fn on_msg(msg) {
       if msg.ok {
@@ -37,15 +54,25 @@ fns:
           log("circuit opened after 3 failures");
         }
       }
+      viz(globals.state, globals.fail_count, globals.cooldown);
     }
 
   - &backend_fn |
+    fn viz(is_healthy) {
+      let col = "#3fae49";
+      if !is_healthy { col = "#d1453b"; }
+      draw([ #{ shape: "circle", x: 30, y: 30, r: 6, fill: col, stroke: "#1b3a5c", stroke_width: 1 } ]);
+    }
+    fn on_init() {
+      viz(true);
+    }
     fn on_msg(msg) {
       if healthy {
         send(msg.from, #{ display: "ok", ok: true, icon: "response_icon" });
       } else {
         send(msg.from, #{ display: "error", ok: false, icon: "error_icon" });
       }
+      viz(healthy);
     }
 
 graph_defn:

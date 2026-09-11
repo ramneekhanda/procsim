@@ -85,6 +85,22 @@
             <!-- svelte-ignore a11y-no-static-element-interactions -->
             <!-- svelte-ignore a11y-missing-attribute -->
             <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "service_discovery.yml"})}>Service Discovery</a></li>
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "blockchain.yml"})}>Blockchain (Proof of Work)</a></li>
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "blockchain_fork.yml"})}>Blockchain (Network Partition & Fork)</a></li>
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "cell_division.yml"})}>Cell Division (runtime spawn)</a></li>
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-missing-attribute -->
+            <li><a on:click={()=>dispatch('exampleClicked', {id: 1, filename: "autoscaling_lb.yml"})}>Autoscaling Load Balancer</a></li>
           </ul>
         </details>
       </li>

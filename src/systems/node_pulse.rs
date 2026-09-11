@@ -35,9 +35,14 @@ pub fn pulse_on_tick(
                 },
             );
 
+            // `try_insert`, not `insert`: a node can `despawn()` itself on the very
+            // tick that fires this `NodeTicked` (its last), and whether that
+            // despawn's command or this insert's command lands first when the
+            // schedule flushes them isn't guaranteed - `insert` on an
+            // already-gone entity panics (bevy error B0003), `try_insert` no-ops.
             commands
                 .entity(entity)
-                .insert(Animator::new(scale_up.then(scale_down)));
+                .try_insert(Animator::new(scale_up.then(scale_down)));
         }
     }
 }
