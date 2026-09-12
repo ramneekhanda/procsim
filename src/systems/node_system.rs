@@ -1,3 +1,4 @@
+use crate::components::camera::BubbleCamera;
 use crate::components::node::{DragState, NodeMarker, SelectedNodeMarker, TickProgressFill};
 use crate::parser::graphv2::{GraphAttrs, Node};
 use crate::resources::common_assets::CommonAssets;
@@ -9,6 +10,7 @@ use bevy_prototype_lyon::prelude::*;
 
 use crate::resources::graph_def::{GraphChange, NodeAdded, NodeRemoved};
 use crate::resources::narration::PendingExplain;
+use crate::resources::ui_state::{LastNodeClick, NodePropertiesPopup};
 use bevy::prelude::*;
 use bevy_mod_picking::prelude::*;
 use bevy_tweening::{lens::*, *};
@@ -39,6 +41,7 @@ pub fn create_nodes(
     mut removed_reader: EventReader<NodeRemoved>,
     mut pending_explain: ResMut<PendingExplain>,
     mut sim_time: ResMut<Time<Virtual>>,
+    mut node_props: ResMut<crate::resources::ui_state::NodePropertiesPopup>,
 ) {
     if change_reader.read().count() > 0 {
         for (entity, _) in query.iter() {
@@ -59,12 +62,21 @@ pub fn create_nodes(
         // narration bubble with it, as a child of whichever node held it).
         pending_explain.reset();
         sim_time.unpause();
+        // A fresh YAML load may have removed/renamed the node the popup refers
+        // to (or none at all, but there's no state worth preserving across a
+        // full rebuild either way).
+        *node_props = crate::resources::ui_state::NodePropertiesPopup::default();
         return;
     }
 
     for removed in removed_reader.read() {
         if let Some((entity, _)) = query.iter().find(|(_, m)| m.node_name == removed.name) {
             commands.entity(entity).despawn_recursive();
+        }
+        // A script-driven despawn() of the node the popup is currently
+        // showing shouldn't leave it open pointing at nothing.
+        if node_props.node_name.as_deref() == Some(removed.name.as_str()) {
+            *node_props = crate::resources::ui_state::NodePropertiesPopup::default();
         }
     }
 
@@ -121,12 +133,85 @@ pub fn deselect_on_background_click(
     }
 }
 
+/// Two clicks on empty background within this many (real-time) seconds opens
+/// `GraphPropertiesOpen` - the background equivalent of a node's
+/// `DOUBLE_CLICK_SECS` double-click (see `on_click`), since there's no gear
+/// button or other summon control any more. (Closing is exclusively via
+/// `ui::graph_properties_viewer`'s click-elsewhere handling, not a second
+/// double-click - see that function's doc comment for why toggling here
+/// was flaky.)
+const BACKGROUND_DOUBLE_CLICK_SECS: f32 = 0.4;
+
+pub fn open_graph_properties_on_background_double_click(
+    mut contexts: bevy_egui::EguiContexts,
+    mouse: Res<ButtonInput<MouseButton>>,
+    hover_map: Res<bevy_mod_picking::focus::HoverMap>,
+    parents: Query<&Parent>,
+    is_node: Query<(), With<NodeMarker>>,
+    real_time: Res<Time<Real>>,
+    mut last_click_at: Local<f32>,
+    mut open: ResMut<crate::resources::ui_state::GraphPropertiesOpen>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+) {
+    if !mouse.just_pressed(MouseButton::Left) {
+        return;
+    }
+    // Don't count a click that landed on an egui window (Graph Properties
+    // itself, a Node Properties popup, ...) as a background click - only
+    // bevy_mod_picking's own sprite hit-testing is checked below, which
+    // can't see egui at all, so without this a click on top of any open
+    // window would look identical to a background click from here.
+    if contexts.ctx_mut().is_pointer_over_area() {
+        return;
+    }
+
+    let hit_node = hover_map.values().any(|hits| {
+        hits.keys().any(|entity| {
+            is_node.contains(*entity)
+                || parents
+                    .get(*entity)
+                    .is_ok_and(|parent| is_node.contains(parent.get()))
+        })
+    });
+    if hit_node {
+        return;
+    }
+
+    let now = real_time.elapsed_seconds();
+    let is_double_click = now - *last_click_at <= BACKGROUND_DOUBLE_CLICK_SECS;
+    if is_double_click {
+        // Always open (never toggle-close from here) - a real double-click
+        // gesture can easily register as *three* button-up events rather
+        // than two (mouse hardware/driver bounce, or the browser's own
+        // click coalescing), which with a toggle meant the third click
+        // flipped it straight back closed - the window would flash open
+        // and disappear in what looked like one interaction. Resetting the
+        // timer here (rather than to `now`) also means that spurious third
+        // click can't chain into a second match against this same pair.
+        open.open = true;
+        open.click_pos = windows.get_single().ok().and_then(Window::cursor_position);
+        *last_click_at = f32::NEG_INFINITY;
+    } else {
+        *last_click_at = now;
+    }
+}
+
+/// Two clicks on the same node within this many (real-time) seconds count as
+/// a double-click - opens `NodePropertiesPopup` (see that resource's doc
+/// comment; `bevy_mod_picking`'s `Pointer<Click>` has no built-in click-count
+/// to detect this from directly).
+const DOUBLE_CLICK_SECS: f32 = 0.4;
+
 pub fn on_click(
     e: Listener<Pointer<Click>>,
     mut commands: Commands,
     mut q_selected: Query<(Entity, &SelectedNodeMarker)>,
     mut q: Query<(Entity, &mut Transform, &mut Children, &NodeMarker)>,
     text_query: Query<&TextLayoutInfo>,
+    real_time: Res<Time<Real>>,
+    mut last_click: ResMut<LastNodeClick>,
+    mut node_props: ResMut<NodePropertiesPopup>,
+    query_camera: Query<(&Camera, &GlobalTransform), (With<Camera2d>, Without<BubbleCamera>)>,
 ) {
     if q.iter().count() == 0 {
         return;
@@ -135,7 +220,7 @@ pub fn on_click(
         commands.entity(entity).despawn_recursive();
     }
 
-    for (entity, _, children, node) in q.iter_mut() {
+    for (entity, transform, children, node) in q.iter_mut() {
         let mut selected: bool = false;
         for child in children.iter() {
             if *child == e.target() {
@@ -147,6 +232,23 @@ pub fn on_click(
 
         // find bounding box and create a shape around it
         if selected {
+            let now = real_time.elapsed_seconds();
+            let is_double_click = last_click.node_name.as_deref() == Some(node.node_name.as_str())
+                && now - last_click.at <= DOUBLE_CLICK_SECS;
+            last_click.node_name = Some(node.node_name.clone());
+            last_click.at = now;
+            if is_double_click {
+                // Screen position of the node *right now*, so the popup opens
+                // anchored just above wherever the node actually is (it may
+                // have drifted since spawn - drag, pulse, pan/zoom all move
+                // it in screen space independent of world position).
+                let screen_pos = query_camera.get_single().ok().and_then(|(cam, cam_transform)| {
+                    cam.world_to_viewport(cam_transform, transform.translation)
+                });
+                node_props.node_name = Some(node.node_name.clone());
+                node_props.anchor_screen_pos = screen_pos;
+            }
+
             let mut text_rect = Vec2::default();
             for child in children.iter() {
                 if let Ok(text) = text_query.get(*child) {

@@ -53,6 +53,9 @@ fn setup_app(app: &mut App) {
         graph_defn: GraphDefinition::default(),
     })
     .insert_resource(PendingExplain::default())
+    .insert_resource(resources::ui_state::GraphPropertiesOpen::default())
+    .insert_resource(resources::ui_state::NodePropertiesPopup::default())
+    .insert_resource(resources::ui_state::LastNodeClick::default())
     // TEMPORARY - see systems::profiling's doc comment.
     .insert_resource(systems::profiling::ProfilingStats::default())
     .add_event::<GraphChange>()
@@ -100,6 +103,11 @@ fn setup_app(app: &mut App) {
             systems::update_message::update_message_path.run_if(resource_equals(LoadingState {
                 state: LoadingStateOpt::Ready,
             })),
+            systems::update_message::cleanup_messages_on_graph_change.run_if(resource_equals(
+                LoadingState {
+                    state: LoadingStateOpt::Ready,
+                },
+            )),
             systems::node_pulse::pulse_on_tick.run_if(resource_equals(LoadingState {
                 state: LoadingStateOpt::Ready,
             })),
@@ -116,6 +124,9 @@ fn setup_app(app: &mut App) {
                 state: LoadingStateOpt::Ready,
             })),
             ui::graph_properties_viewer.run_if(resource_equals(LoadingState {
+                state: LoadingStateOpt::Ready,
+            })),
+            ui::node_properties_popup.run_if(resource_equals(LoadingState {
                 state: LoadingStateOpt::Ready,
             })),
             systems::update_connectors::update_connectors.run_if(resource_equals(LoadingState {
@@ -137,6 +148,11 @@ fn setup_app(app: &mut App) {
                     state: LoadingStateOpt::Ready,
                 },
             )),
+            systems::node_system::open_graph_properties_on_background_double_click.run_if(
+                resource_equals(LoadingState {
+                    state: LoadingStateOpt::Ready,
+                }),
+            ),
             systems::node_overlay::render_node_overlays.run_if(resource_equals(LoadingState {
                 state: LoadingStateOpt::Ready,
             })),

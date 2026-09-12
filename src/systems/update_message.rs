@@ -5,7 +5,7 @@ use crate::components::message::*;
 use crate::components::node_connector::*;
 use crate::resources::common_assets::CommonAssets;
 use crate::resources::common_assets::ResourceType;
-use crate::resources::graph_def::GraphDefinitionRes;
+use crate::resources::graph_def::{GraphChange, GraphDefinitionRes};
 
 const BUBBLE_FONT_SIZE: f32 = 16.0;
 const BUBBLE_PADDING_X: f32 = 10.0;
@@ -200,4 +200,37 @@ pub fn update_message_path(
         }
     }
     prof.message_path_ms += __prof_t0.elapsed().as_secs_f64() * 1000.0; // TEMPORARY
+}
+
+/// Despawns every in-flight message's bubble and clears both message queues
+/// on every connector when the graph reloads (`GraphChange`).
+///
+/// A message bubble is a free-standing entity (spawned in
+/// `update_message_path` above, parented to nothing) - it's tracked only via
+/// `Message::bubble_entity` inside a connector's `Messages` component, not
+/// via Bevy's entity hierarchy. `node_system::create_nodes` despawns node
+/// entities on `GraphChange` and `update_connectors` diffs connector entities
+/// against the newly-loaded graph's edges, but neither of those touches a
+/// bubble entity directly - so without this, a bubble left in flight at
+/// reload time was simply orphaned (never despawned, since nothing else's
+/// cleanup reaches it) rather than cleared, and a connector that happened to
+/// share both endpoint names with an edge in the new graph would silently
+/// carry over its old `Messages` state (including now-meaningless
+/// `bubble_entity` references) instead of starting fresh.
+pub fn cleanup_messages_on_graph_change(
+    mut commands: Commands,
+    mut change_reader: EventReader<GraphChange>,
+    mut connectors: Query<&mut Messages>,
+    bubbles: Query<Entity, With<MessageMarker>>,
+) {
+    if change_reader.read().count() == 0 {
+        return;
+    }
+    for entity in bubbles.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+    for mut messages in connectors.iter_mut() {
+        messages.msg_inflight.clear();
+        messages.msg_delivered.clear();
+    }
 }
