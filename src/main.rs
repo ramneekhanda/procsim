@@ -68,6 +68,7 @@ fn setup_app(app: &mut App) {
     .add_plugins(DefaultPickingPlugins)
     .add_plugins(PanCamPlugin)
     .add_plugins(systems::radial_blur::RadialBlurPlugin)
+    .add_plugins(systems::background_grid::BackgroundGridPlugin)
     .add_systems(
         Startup,
         (setup_camera, systems::background_grid::setup_grid),
