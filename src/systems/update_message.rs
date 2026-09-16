@@ -17,6 +17,18 @@ const BUBBLE_CORNER_RADIUS: f32 = 8.0;
 const BUBBLE_ICON_SIZE: f32 = 20.0;
 const BUBBLE_ICON_TEXT_GAP: f32 = 4.0;
 
+/// The travelling message itself: a small dot walking the connector path.
+/// The speech bubble (built below) floats above it at a fixed offset, with a
+/// pointer aimed back down at the dot, comic-panel style.
+const DOT_RADIUS: f32 = 5.0; // 10px-wide dot
+/// Gap between the dot's edge and the pointer's apex.
+const BUBBLE_GAP: f32 = 10.0;
+const BUBBLE_POINTER_WIDTH: f32 = 10.0;
+const BUBBLE_POINTER_HEIGHT: f32 = 10.0;
+/// How far the pointer's fill triangle pushes up into the bubble body, to
+/// mask the seam between the two shapes - same trick `explain_bubble` uses.
+const BUBBLE_POINTER_OVERLAP: f32 = 2.0;
+
 /// Animates each in-flight message's bubble along its connector's cached
 /// walk points (`NodeConnector::walk_cache`).
 ///
@@ -52,6 +64,14 @@ pub fn update_message_path(
     let stroke_color = msg_theme
         .and_then(|t| t.stroke)
         .unwrap_or(gd.graph_defn.graph_attrs.text_color);
+    // The dot's own fill: falls back to the graph's connector accent rather
+    // than text_color, so a graph with no message_theme still gets a
+    // travelling dot that reads as a distinct "message" marker instead of
+    // blending into node/label text that happens to share the default
+    // text color.
+    let dot_color = msg_theme
+        .and_then(|t| t.stroke)
+        .unwrap_or(gd.graph_defn.graph_attrs.connection_color);
     let stroke_width = msg_theme.map(|t| t.stroke_width).unwrap_or(1.5);
     let text_color = msg_theme
         .and_then(|t| t.text_color)
@@ -111,6 +131,13 @@ pub fn update_message_path(
 
             let mut loc = ((v_points.len() as f32 * mesg.timer.elapsed().as_millis() as f32)
                 / mesg.timer.duration().as_millis() as f32) as usize;
+            // The retain check above tolerates elapsed running up to 10ms past
+            // duration before retiring a message, so `loc` can land past the
+            // last valid index here. Clamp before the reversed-direction
+            // subtraction below - otherwise an overshot `loc` underflows
+            // `usize` instead of just being caught by the bounds check that
+            // already exists for the forward-direction case.
+            loc = loc.min(v_points.len());
 
             let reversed = mesg.node_from == nc.id2;
             if reversed {
@@ -213,13 +240,92 @@ pub fn update_message_path(
                 }
             };
 
+            // Dot sits at the parent's own origin (the actual walked
+            // position); the bubble floats above it at a fixed offset, with
+            // a pointer triangle aimed back down at the dot.
+            let apex_y = DOT_RADIUS + BUBBLE_GAP;
+            let bubble_bottom_y = apex_y + BUBBLE_POINTER_HEIGHT;
+            let bubble_center_y = bubble_bottom_y + half.y;
+
+            let dot_child = commands
+                .spawn((
+                    ShapeBundle {
+                        path: GeometryBuilder::build_as(&shapes::Circle {
+                            radius: DOT_RADIUS,
+                            center: Vec2::ZERO,
+                        }),
+                        spatial: SpatialBundle::from_transform(Transform::from_xyz(
+                            0.0, 0.0, 0.5,
+                        )),
+                        ..default()
+                    },
+                    Fill::color(dot_color),
+                    Stroke::new(bg_color, 1.5),
+                ))
+                .id();
+
             let bubble_child = commands
                 .spawn((
                     ShapeBundle {
                         path,
+                        spatial: SpatialBundle::from_transform(Transform::from_xyz(
+                            0.0,
+                            bubble_center_y,
+                            1.0,
+                        )),
                         ..default()
                     },
                     Fill::color(bg_color),
+                    Stroke::new(stroke_color, stroke_width),
+                ))
+                .id();
+
+            // Fill triangle overlapping into the bubble body masks the seam;
+            // a separate open (unclosed) stroke polyline draws only the two
+            // visible legs, so the pointer reads as part of the bubble's own
+            // outline rather than a stitched-on shape.
+            let pointer_fill_child = commands
+                .spawn((
+                    ShapeBundle {
+                        path: GeometryBuilder::build_as(&shapes::Polygon {
+                            points: vec![
+                                Vec2::new(
+                                    -BUBBLE_POINTER_WIDTH / 2.0,
+                                    bubble_bottom_y + BUBBLE_POINTER_OVERLAP,
+                                ),
+                                Vec2::new(0.0, apex_y),
+                                Vec2::new(
+                                    BUBBLE_POINTER_WIDTH / 2.0,
+                                    bubble_bottom_y + BUBBLE_POINTER_OVERLAP,
+                                ),
+                            ],
+                            closed: true,
+                        }),
+                        spatial: SpatialBundle::from_transform(Transform::from_xyz(
+                            0.0, 0.0, 1.1,
+                        )),
+                        ..default()
+                    },
+                    Fill::color(bg_color),
+                ))
+                .id();
+
+            let pointer_stroke_child = commands
+                .spawn((
+                    ShapeBundle {
+                        path: GeometryBuilder::build_as(&shapes::Polygon {
+                            points: vec![
+                                Vec2::new(-BUBBLE_POINTER_WIDTH / 2.0, bubble_bottom_y),
+                                Vec2::new(0.0, apex_y),
+                                Vec2::new(BUBBLE_POINTER_WIDTH / 2.0, bubble_bottom_y),
+                            ],
+                            closed: false,
+                        }),
+                        spatial: SpatialBundle::from_transform(Transform::from_xyz(
+                            0.0, 0.0, 1.2,
+                        )),
+                        ..default()
+                    },
                     Stroke::new(stroke_color, stroke_width),
                 ))
                 .id();
@@ -230,7 +336,11 @@ pub fn update_message_path(
                 commands.entity(parent).with_children(|p| {
                     p.spawn(SpriteBundle {
                         texture: icon.clone(),
-                        transform: Transform::from_translation(Vec3::new(icon_x, 0.0, 1.0)),
+                        transform: Transform::from_translation(Vec3::new(
+                            icon_x,
+                            bubble_center_y,
+                            1.3,
+                        )),
                         sprite: Sprite {
                             custom_size: Vec2::new(icon_size, icon_size).into(),
                             ..Default::default()
@@ -247,14 +357,22 @@ pub fn update_message_path(
                 .spawn(Text2dBundle {
                     text: Text::from_section(mesg.str.clone(), text_style.clone())
                         .with_justify(JustifyText::Center),
-                    transform: Transform::from_translation(Vec3::new(text_x, 0.0, 1.0)),
+                    transform: Transform::from_translation(Vec3::new(
+                        text_x,
+                        bubble_center_y,
+                        1.3,
+                    )),
                     ..default()
                 })
                 .id();
 
-            commands
-                .entity(parent)
-                .push_children(&[bubble_child, text_child]);
+            commands.entity(parent).push_children(&[
+                dot_child,
+                bubble_child,
+                pointer_fill_child,
+                pointer_stroke_child,
+                text_child,
+            ]);
         }
     }
     prof.message_path_ms += __prof_t0.elapsed().as_secs_f64() * 1000.0; // TEMPORARY
