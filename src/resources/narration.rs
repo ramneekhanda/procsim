@@ -18,6 +18,16 @@ pub struct ExplainEntry {
 pub struct PendingExplain {
     pub seen: HashSet<String>,
     pub queue: VecDeque<ExplainEntry>,
+    /// Name of the node the currently-shown bubble (if any) is anchored to -
+    /// set by `explain_bubble::show_next_explain` when it spawns one, cleared
+    /// by `dismiss_explain_bubble`. Lets `node_system::create_nodes` notice
+    /// when a script despawns the very node its own bubble is anchored to
+    /// (e.g. `explain(...)` followed by `despawn(node_name)` in the same
+    /// handler) and unpause the sim itself - the despawn takes the bubble
+    /// entity down with it (it's a child of the node), so there's no
+    /// `dismiss_explain_bubble` click left to do that unpause otherwise, and
+    /// the sim would stay frozen forever with nothing visible to dismiss.
+    pub showing: Option<String>,
 }
 
 impl PendingExplain {
@@ -27,5 +37,6 @@ impl PendingExplain {
     pub fn reset(&mut self) {
         self.seen.clear();
         self.queue.clear();
+        self.showing = None;
     }
 }

@@ -52,7 +52,11 @@ pub fn create_nodes(
         let g_attrs: &GraphAttrs = &g.graph_defn.graph_attrs;
         let layout = crate::systems::layout::compute_graph_layout(&g.graph_defn);
         for node in g.graph_defn.node_instances.iter() {
-            let pos = layout.node_positions.get(&node.name).copied().unwrap_or(Vec2::ZERO);
+            let pos = layout
+                .node_positions
+                .get(&node.name)
+                .copied()
+                .unwrap_or(Vec2::ZERO);
             let locked = !layout.draggable;
             spawn_node(z, node, &mut commands, &ca, g_attrs, pos, locked);
             z += 1.;
@@ -81,6 +85,23 @@ pub fn create_nodes(
         if node_props.node_name.as_deref() == Some(removed.name.as_str()) {
             *node_props = crate::resources::ui_state::NodePropertiesPopup::default();
         }
+        // Same idea for a narration bubble: it's a child of its anchor node,
+        // so despawning that node (e.g. `explain(...)` followed by
+        // `despawn(node_name)` in the same handler) takes the bubble down
+        // with it - with no Continue click left to fire, `sim_time` would
+        // otherwise stay paused forever with nothing visible to dismiss it.
+        if pending_explain.showing.as_deref() == Some(removed.name.as_str()) {
+            pending_explain.showing = None;
+            sim_time.unpause();
+        }
+        // A still-queued (not yet shown) entry anchored to this node would
+        // otherwise sit there until popped - `show_next_explain` already
+        // defends that case by dropping it instead of pausing on a node
+        // that's gone, but pruning it now keeps the queue accurate rather
+        // than relying on that defense to paper over a stale entry.
+        pending_explain
+            .queue
+            .retain(|e| e.node_name != removed.name);
     }
 
     if added_reader.is_empty() {
@@ -97,8 +118,10 @@ pub fn create_nodes(
     // Steering the new node away from these actual on-screen positions -
     // instead of blindly trusting the recomputed one - is what keeps it
     // from landing on top of a node that isn't going to move to make room.
-    let mut existing_positions: Vec<Vec2> =
-        query.iter().map(|(_, _, t)| t.translation.truncate()).collect();
+    let mut existing_positions: Vec<Vec2> = query
+        .iter()
+        .map(|(_, _, t)| t.translation.truncate())
+        .collect();
     let mut z = existing_positions.len() as f32;
     let layout = crate::systems::layout::compute_graph_layout(&g.graph_defn);
     for added in added_reader.read() {
@@ -108,8 +131,13 @@ pub fn create_nodes(
             .iter()
             .find(|n| n.name == added.name)
         {
-            let desired = layout.node_positions.get(&node.name).copied().unwrap_or(Vec2::ZERO);
-            let pos = resolve_spawn_position(desired, &existing_positions, existing_positions.len());
+            let desired = layout
+                .node_positions
+                .get(&node.name)
+                .copied()
+                .unwrap_or(Vec2::ZERO);
+            let pos =
+                resolve_spawn_position(desired, &existing_positions, existing_positions.len());
             // Also steer any further nodes added this same frame away from
             // this one, not just from what was already on screen.
             existing_positions.push(pos);
@@ -133,7 +161,11 @@ fn resolve_spawn_position(desired: Vec2, existing_positions: &[Vec2], node_count
     const GOLDEN_ANGLE: f32 = 2.399963; // radians; ~137.5 degrees
     const MAX_ATTEMPTS: u32 = 24;
 
-    let collides = |p: Vec2| existing_positions.iter().any(|&e| e.distance(p) < MIN_SEPARATION);
+    let collides = |p: Vec2| {
+        existing_positions
+            .iter()
+            .any(|&e| e.distance(p) < MIN_SEPARATION)
+    };
     if !collides(desired) {
         return desired;
     }
@@ -259,7 +291,10 @@ pub fn on_click(
     mut commands: Commands,
     mut q_selected: Query<(Entity, &SelectedNodeMarker)>,
     mut q: Query<(Entity, &mut Transform, &mut Children, &NodeMarker)>,
-    text_query: Query<(&Transform, &TextLayoutInfo, Option<&NodeOverlayShape>), Without<NodeMarker>>,
+    text_query: Query<
+        (&Transform, &TextLayoutInfo, Option<&NodeOverlayShape>),
+        Without<NodeMarker>,
+    >,
     real_time: Res<Time<Real>>,
     mut last_click: ResMut<LastNodeClick>,
     mut node_props: ResMut<NodePropertiesPopup>,
@@ -295,9 +330,12 @@ pub fn on_click(
                 // anchored just above wherever the node actually is (it may
                 // have drifted since spawn - drag, pulse, pan/zoom all move
                 // it in screen space independent of world position).
-                let screen_pos = query_camera.get_single().ok().and_then(|(cam, cam_transform)| {
-                    cam.world_to_viewport(cam_transform, transform.translation)
-                });
+                let screen_pos = query_camera
+                    .get_single()
+                    .ok()
+                    .and_then(|(cam, cam_transform)| {
+                        cam.world_to_viewport(cam_transform, transform.translation)
+                    });
                 node_props.node_name = Some(node.node_name.clone());
                 node_props.anchor_screen_pos = screen_pos;
             }
@@ -386,7 +424,10 @@ pub fn on_click(
                 // all (a template that resolved to zero shapes, say) - fall
                 // back to a small fixed box rather than a degenerate
                 // zero-size highlight.
-                (None, None) => (Vec2::splat(-ICON_WIDTH / 2.0), Vec2::splat(ICON_WIDTH / 2.0)),
+                (None, None) => (
+                    Vec2::splat(-ICON_WIDTH / 2.0),
+                    Vec2::splat(ICON_WIDTH / 2.0),
+                ),
             };
             let padding = Vec2::splat(BOUNDING_BOX_PADDING);
             let min = min - padding;
@@ -544,7 +585,11 @@ fn spawn_node(
             transform: Transform::from_translation(Vec3::new(0., 0., 100.)),
             sprite: Sprite {
                 custom_size: Vec2::new(ICON_WIDTH, ICON_HEIGHT).into(),
-                color: if has_template { Color::NONE } else { Color::WHITE },
+                color: if has_template {
+                    Color::NONE
+                } else {
+                    Color::WHITE
+                },
                 ..Default::default()
             },
             ..default()

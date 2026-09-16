@@ -106,6 +106,7 @@ pub fn show_next_explain(
     };
 
     sim_time.pause();
+    pending.showing = Some(entry.node_name.clone());
 
     let theme = gd.graph_defn.graph_attrs.explain_theme.as_ref();
     let body_color = theme.and_then(|t| t.bg).unwrap_or(BODY_COLOR);
@@ -114,11 +115,17 @@ pub fn show_next_explain(
     let text_color = theme.and_then(|t| t.text_color).unwrap_or(TEXT_COLOR);
     let accent_color = theme.and_then(|t| t.accent).unwrap_or(ACCENT_COLOR);
     let button_color = accent_color;
-    let button_text_color = theme.and_then(|t| t.button_text_color).unwrap_or(BUTTON_TEXT_COLOR);
+    let button_text_color = theme
+        .and_then(|t| t.button_text_color)
+        .unwrap_or(BUTTON_TEXT_COLOR);
     let shadow_color = theme.and_then(|t| t.shadow_color).unwrap_or(SHADOW_COLOR);
-    let backdrop_color = theme.and_then(|t| t.backdrop_color).unwrap_or(BACKDROP_COLOR);
+    let backdrop_color = theme
+        .and_then(|t| t.backdrop_color)
+        .unwrap_or(BACKDROP_COLOR);
     let font_size = theme.map(|t| t.font_size).unwrap_or(13.5);
-    let shape_kind = theme.map(|t| t.shape).unwrap_or(MessageBubbleShape::Rounded);
+    let shape_kind = theme
+        .map(|t| t.shape)
+        .unwrap_or(MessageBubbleShape::Rounded);
 
     let mut font: Handle<Font> = Default::default();
     if let Some(ResourceType::FontHandle(f)) = ca.resource_map.get("default_font") {
@@ -382,9 +389,15 @@ pub fn show_next_explain(
         }
     };
 
-    for (i, cmd) in [shadow_pointer, shadow_body, body, pointer_fill, pointer_stroke]
-        .iter()
-        .enumerate()
+    for (i, cmd) in [
+        shadow_pointer,
+        shadow_body,
+        body,
+        pointer_fill,
+        pointer_stroke,
+    ]
+    .iter()
+    .enumerate()
     {
         let child = spawn_shape(&mut commands, cmd, i as f32 * 0.01, &font, &ca, "")
             .insert(RenderLayers::layer(1))
@@ -505,11 +518,12 @@ pub fn dismiss_explain_bubble(
     mut commands: Commands,
     bubble: Query<Entity, With<ExplainBubble>>,
     mut sim_time: ResMut<Time<Virtual>>,
-    pending: Res<PendingExplain>,
+    mut pending: ResMut<PendingExplain>,
 ) {
     for entity in bubble.iter() {
         commands.entity(entity).despawn_recursive();
     }
+    pending.showing = None;
     if pending.queue.is_empty() {
         sim_time.unpause();
     }
