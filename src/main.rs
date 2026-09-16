@@ -76,10 +76,7 @@ fn setup_app(app: &mut App) {
     // there's no browser/Monaco editor in a native `cargo run` to ever call
     // `compile_code()`, so without this a native window shows an empty grid forever.
     #[cfg(not(target_arch = "wasm32"))]
-    app.add_systems(
-        Startup,
-        systems::ingest_code::load_native_demo_on_startup,
-    );
+    app.add_systems(Startup, systems::ingest_code::load_native_demo_on_startup);
     // Native-only "Examples" picker window - see native_examples.rs's doc comment.
     #[cfg(not(target_arch = "wasm32"))]
     app.add_systems(
@@ -117,9 +114,19 @@ fn setup_app(app: &mut App) {
     .add_systems(
         Update,
         (
-            systems::ingest_code::ingest_codechange.run_if(resource_equals(LoadingState {
-                state: LoadingStateOpt::Ready,
-            })),
+            // Deliberately NOT gated on LoadingState::Ready (unlike everything
+            // else in this block) - this is the system that detects an edit and
+            // kicks off a new load in the first place. Gating it to Ready meant
+            // an edit made while a previous graph was still mid-load (asset
+            // fetches in flight) was silently ignored until that load finished -
+            // easy to hit by editing/reloading in quick succession. Running it
+            // every frame is safe: re-setting LoadingState to Loading while
+            // already Loading is a no-op in effect, and replacing graph_defn
+            // mid-load correctly means the newest edit wins rather than being
+            // dropped - the old graph's in-flight asset handles just become
+            // irrelevant leftovers, already handled by load_assets pruning
+            // CommonAssets.resource_map down to what the new graph needs.
+            systems::ingest_code::ingest_codechange,
             ui::graph_properties_viewer.run_if(resource_equals(LoadingState {
                 state: LoadingStateOpt::Ready,
             })),
