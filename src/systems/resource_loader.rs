@@ -5,14 +5,18 @@ use crate::resources::common_assets::{CommonAssets, LoadingState, LoadingStateOp
 use crate::resources::graph_def::GraphChange;
 use crate::resources::graph_def::GraphDefinitionRes;
 
-// Needs the explicit `https://` scheme (not just `//host/path`) to be routed
-// through `bevy_web_asset`'s registered `https` AssetSource on both platforms -
-// a protocol-relative path only "worked" in the browser because Bevy's wasm
-// asset fetcher hands any unmatched path straight to `fetch()`, which browsers
-// resolve as protocol-relative; native's filesystem-based default asset reader
-// has no such fallback and just reports the literal path not found.
-const DEFAULT_FONT_URL: &str =
-    "https://raw.githubusercontent.com/ramneekhanda/procsim_assets/main/fonts/ComicNeue-Regular.ttf";
+// Bundled locally under assets/fonts/ rather than fetched from
+// raw.githubusercontent.com at runtime - same reasoning as
+// "default_system_icon" below: some proxies block that host even when the
+// rest of GitHub is reachable, and this is the app-wide default font every
+// graph that doesn't set its own `graph_attrs.font` falls back to. A plain
+// relative path here resolves the same way on both platforms: natively
+// against the crate-root `assets/` dir (Bevy's default filesystem asset
+// root), and in the browser against `web/static/assets` - a checked-in
+// symlink to that same directory, so SvelteKit's dev server and its
+// adapter-static production build both serve it at the page's own origin
+// without a separate copy step.
+const DEFAULT_FONT_URL: &str = "fonts/ComicNeue-Regular.ttf";
 
 fn load_default_fonts_and_icons(ca: &mut ResMut<CommonAssets>, asset_server: &Res<AssetServer>) {
     ca.resource_map.insert(
@@ -21,7 +25,12 @@ fn load_default_fonts_and_icons(ca: &mut ResMut<CommonAssets>, asset_server: &Re
     );
     ca.resource_map.insert(
       "default_system_icon".to_string(),
-      ResourceType::ImageHandle( asset_server.load("https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/General/Servers.png"))
+      // Bundled locally under assets/icons/ (see NOTICE.md there) rather than
+      // fetched from raw.githubusercontent.com at runtime - some proxies
+      // block that host even when the rest of GitHub is reachable, which
+      // broke this unconditional default (every node without its own icon)
+      // for anyone behind one.
+      ResourceType::ImageHandle( asset_server.load("icons/Servers.png"))
     );
 }
 

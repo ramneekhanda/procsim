@@ -4,11 +4,11 @@ imports:
 graph_defn:
   icons:
     - id: aws_sqs
-      url: "https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/ApplicationIntegration/SimpleQueueService.png"
+      url: "icons/aws/SimpleQueueService.png"
     - id: aws_sns
-      url: "https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/ApplicationIntegration/SimpleNotificationService.png"
+      url: "icons/aws/SimpleNotificationService.png"
     - id: aws_eventbridge
-      url: "https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/ApplicationIntegration/EventBridge.png"
+      url: "icons/aws/EventBridge.png"
 
   node_types:
     - id: sqs_queue

@@ -4,11 +4,11 @@ imports:
 graph_defn:
   icons:
     - id: aws_dynamodb
-      url: "https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/DynamoDB.png"
+      url: "icons/aws/DynamoDB.png"
     - id: aws_s3
-      url: "https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Storage/SimpleStorageService.png"
+      url: "icons/aws/SimpleStorageService.png"
     - id: aws_rds
-      url: "https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/Aurora.png"
+      url: "icons/aws/Aurora.png"
 
   node_types:
     - id: dynamodb

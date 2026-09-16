@@ -4,11 +4,11 @@ imports:
 graph_defn:
   icons:
     - id: aws_api_gw
-      url: "https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/NetworkingContentDelivery/APIGateway.png"
+      url: "icons/aws/APIGateway.png"
     - id: aws_alb
-      url: "https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/NetworkingContentDelivery/ElasticLoadBalancingApplicationLoadBalancer.png"
+      url: "icons/aws/ElasticLoadBalancingApplicationLoadBalancer.png"
     - id: aws_cloudfront
-      url: "https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/NetworkingContentDelivery/CloudFront.png"
+      url: "icons/aws/CloudFront.png"
 
   node_types:
     - id: api_gateway

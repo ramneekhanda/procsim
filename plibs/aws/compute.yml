@@ -4,11 +4,11 @@ imports:
 graph_defn:
   icons:
     - id: aws_lambda
-      url: "https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Compute/Lambda.png"
+      url: "icons/aws/Lambda.png"
     - id: aws_ec2
-      url: "https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Compute/EC2.png"
+      url: "icons/aws/EC2.png"
     - id: aws_ecs
-      url: "https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/ElasticContainerService.png"
+      url: "icons/aws/ElasticContainerService.png"
 
   node_types:
     - id: lambda_func
