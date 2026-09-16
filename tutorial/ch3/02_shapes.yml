@@ -1,0 +1,42 @@
+fns:
+  - &showcase_fn |
+    // `draw()` works from `on_init` too (the parse-time engine records it into a
+    // draw_store the same way the live tick-loop engine does - see
+    // `instantiate_node`/`init_scope` in graphv2.rs); `log`/`send`/etc are still
+    // harmless no-ops there. `on_timer` redraws the same thing periodically as a
+    // simple refresh - not strictly needed for this static showcase, but a cheap
+    // way to double-check draw() keeps working every tick, not just once at load.
+    fn draw_showcase() {
+      // Offset clear of the default icon + name label every node still gets
+      // underneath a draw() overlay (only attrs.template suppresses those).
+      let CARD_Y = 90;
+      draw([
+        #{ shape: "rect", w: 140, h: 80, radius: 10, y: CARD_Y, fill: "#ffffff", stroke: "#e2e8f0", stroke_width: 2 },
+        #{ shape: "circle", r: 16, x: -40, y: CARD_Y + 10, fill: "#ecfdf5", stroke: "#10b981", stroke_width: 2 },
+        #{ shape: "rect", w: 32, h: 32, radius: 4, x: 0, y: CARD_Y + 10, fill: "#eff6ff", stroke: "#3b82f6", stroke_width: 2 },
+        #{ shape: "polygon", points: [[40, CARD_Y + 26], [54, CARD_Y - 6], [26, CARD_Y - 6]], fill: "#fef3c7", stroke: "#f59e0b", stroke_width: 2 },
+        #{ shape: "line", x1: -55, y1: CARD_Y - 16, x2: 55, y2: CARD_Y - 16, stroke: "#cbd5e1", stroke_width: 1 },
+        #{ shape: "text", text: "Shapes Showcase", y: CARD_Y - 26, color: "#334155", size: 11 }
+      ]);
+    }
+    fn on_init() {
+      draw_showcase();
+    }
+    fn on_timer() {
+      draw_showcase();
+    }
+
+graph_defn:
+  layout:
+    type: hierarchical
+    direction: lr
+  graph_attrs:
+    title: "Shape Primitives"
+  node_types:
+    - id: showcase
+      fn: *showcase_fn
+      attrs: { ticks: 4 }
+  graph:
+    - name: shapes_demo
+      node_type: showcase
+      links: []

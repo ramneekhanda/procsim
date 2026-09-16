@@ -1,0 +1,32 @@
+graph_defn:
+  theme: "themes:capsule"
+  layout:
+    type: hierarchical
+    direction: lr
+    rank_sep: 220
+    node_sep: 110
+  graph_attrs:
+    title: "Minimal Capsule Theme"
+  node_types:
+    - id: entrypoint
+      attrs:
+        ticks: 4
+        template_ref: minimal_pill
+        template_params:
+          status: "entry"
+    - id: microservice
+      attrs:
+        ticks: 3600
+        template_ref: minimal_pill
+        template_params:
+          status: "running"
+  graph:
+    - name: web_client
+      node_type: entrypoint
+      links: [order_svc, invoice_svc]
+    - name: order_svc
+      node_type: microservice
+      links: []
+    - name: invoice_svc
+      node_type: microservice
+      links: []

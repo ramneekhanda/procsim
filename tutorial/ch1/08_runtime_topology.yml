@@ -1,0 +1,41 @@
+graph_defn:
+  graph_attrs:
+    title: "Runtime Topology Changes"
+  node_types:
+    - id: coordinator
+      attrs:
+        ticks: 2
+      fn: |
+        fn on_init() {
+          state.count = 0;
+        }
+        fn on_timer() {
+          if state.count >= 3 {
+            return;
+          }
+          let name = "worker_" + state.count;
+          spawn_node(name, "worker", []);
+          link(name);
+          log("spawned " + name);
+          state.count += 1;
+        }
+    - id: worker
+      attrs:
+        ticks: 3
+      fn: |
+        fn on_init() {
+          state.age = 0;
+          log(node_name + " created");
+        }
+        fn on_timer() {
+          state.age += 1;
+          log(node_name + " age " + state.age);
+          if state.age >= 3 {
+            log(node_name + " despawning");
+            despawn(node_name);
+          }
+        }
+  graph:
+    - name: coordinator
+      node_type: coordinator
+      links: []

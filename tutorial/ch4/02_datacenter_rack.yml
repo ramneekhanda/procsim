@@ -1,0 +1,36 @@
+graph_defn:
+  theme: "themes:datacenter"
+  layout:
+    type: hierarchical
+    direction: tb
+    rank_sep: 180
+    node_sep: 140
+  graph_attrs:
+    title: "Datacenter Rack Units Theme"
+  node_types:
+    - id: server
+      attrs:
+        ticks: 4
+        template_ref: rack_blade
+        template_params:
+          ip_addr: "10.0.1.11"
+          led_pwr: "#22c55e"
+          led_act: "#facc15"
+    - id: switch
+      attrs:
+        ticks: 3600
+        template_ref: rack_blade
+        template_params:
+          ip_addr: "10.0.1.1"
+          led_pwr: "#22c55e"
+          led_act: "#38bdf8"
+  graph:
+    - name: top_of_rack_switch
+      node_type: switch
+      links: [blade_01, blade_02]
+    - name: blade_01
+      node_type: server
+      links: []
+    - name: blade_02
+      node_type: server
+      links: []

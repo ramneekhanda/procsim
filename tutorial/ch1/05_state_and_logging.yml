@@ -1,16 +1,16 @@
 fns:
   - &counter_fn |
       fn on_init() {
-        globals.count = 0;
-        globals.failures = 0;
+        state.count = 0;
+        state.failures = 0;
       }
       fn on_timer() {
-        globals.count += 1;
+        state.count += 1;
         if random_chance(30) {
-          globals.failures += 1;
-          log("tick " + globals.count + " - simulated failure (" + globals.failures + " so far)");
+          state.failures += 1;
+          log("tick " + state.count + " - simulated failure (" + state.failures + " so far)");
         } else {
-          log("tick " + globals.count + " - ok");
+          log("tick " + state.count + " - ok");
         }
       }
 

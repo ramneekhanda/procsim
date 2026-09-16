@@ -1,0 +1,71 @@
+fns:
+  - &producer_fn |
+    fn on_init() {
+      state.seq = 0;
+    }
+    fn on_timer() {
+      state.seq += 1;
+      send("gateway", #{ id: state.seq, payload: "event" });
+    }
+
+  - &gateway_fn |
+    fn on_msg(msg) {
+      if msg.id % 2 == 0 {
+        send("worker_a", msg);
+      } else {
+        send("worker_b", msg);
+      }
+    }
+
+  - &worker_fn |
+    fn on_msg(msg) {
+      send("sink", #{ id: msg.id, processed_by: node_name });
+    }
+
+  - &sink_fn |
+    fn on_msg(msg) {
+      log(`Received ${msg.id} processed by ${msg.processed_by}`);
+    }
+
+layout:
+  type: hierarchical
+  direction: lr
+  rank_sep: 220
+  node_sep: 90
+
+graph_defn:
+  graph_attrs:
+    title: 4-Stage Hierarchical Pipeline
+
+  node_types:
+    - id: producer
+      fn: *producer_fn
+      attrs:
+        ticks: 4
+    - id: gateway
+      fn: *gateway_fn
+    - id: worker
+      fn: *worker_fn
+    - id: sink
+      fn: *sink_fn
+
+  graph:
+    - name: client
+      node_type: producer
+      links: [gateway]
+
+    - name: gateway
+      node_type: gateway
+      links: [worker_a, worker_b]
+
+    - name: worker_a
+      node_type: worker
+      links: [sink]
+
+    - name: worker_b
+      node_type: worker
+      links: [sink]
+
+    - name: sink
+      node_type: sink
+      links: []

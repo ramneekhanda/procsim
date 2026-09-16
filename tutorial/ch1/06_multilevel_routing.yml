@@ -1,0 +1,159 @@
+fns:
+  - &client_fn |
+    fn on_init() {
+      state.req_id = 0;
+      state.authed = false;
+      // Client -> gateway -> auth_svc -> gateway -> client is four 3s message
+      // hops (~12s round trip) but this client ticks every 4s - without this
+      // guard it would fire off a fresh, redundant /auth request on every
+      // tick while the first one is still in flight.
+      state.auth_pending = false;
+      log("Client initialized");
+    }
+    fn on_timer() {
+      // Only ever ask for /data once /auth has actually granted a token -
+      // the request itself carries that token, so data_svc can verify it
+      // rather than trusting the path name alone.
+      if state.authed {
+        state.req_id += 1;
+        log("Client sending /data request #" + state.req_id);
+        send("gateway", #{ type: "REQ", path: "/data", req_id: state.req_id, reply_to: "client", token: state.token, display: "/data #" + state.req_id });
+      } else if !state.auth_pending {
+        state.auth_pending = true;
+        state.req_id += 1;
+        log("Client sending /auth request #" + state.req_id);
+        send("gateway", #{ type: "REQ", path: "/auth", req_id: state.req_id, reply_to: "client", display: "/auth #" + state.req_id });
+      }
+    }
+    fn on_msg(msg) {
+      if msg.type == "RESP" {
+        log("Client received response: " + msg.path + " status=" + msg.status);
+        if msg.path == "/auth" && msg.status == 200 {
+          state.authed = true;
+          state.auth_pending = false;
+          state.token = msg.token;
+          log("Client authenticated - token=" + state.token);
+        }
+      }
+    }
+
+  - &rogue_client_fn |
+    // Never authenticates - goes straight for /data every tick, to show
+    // data_svc's token check actually rejecting something. A well-behaved
+    // client that always auths first would never exercise that path at all.
+    fn on_init() {
+      state.req_id = 0;
+    }
+    fn on_timer() {
+      state.req_id += 1;
+      log("Rogue client sending /data request #" + state.req_id + " (no token)");
+      send("gateway", #{ type: "REQ", path: "/data", req_id: state.req_id, reply_to: "rogue_client", display: "/data #" + state.req_id + " (no token)" });
+    }
+    fn on_msg(msg) {
+      if msg.type == "RESP" {
+        log("Rogue client received response: " + msg.path + " status=" + msg.status);
+      }
+    }
+
+  - &gateway_fn |
+    fn on_msg(msg) {
+      // The gateway only ever routes by path - it never inspects or
+      // enforces auth itself. Access control is each backend service's
+      // own job (data_svc below), the same separation of concerns a real
+      // API gateway/reverse proxy has: routing is not authorization.
+      if msg.type == "REQ" {
+        let dest = if msg.path == "/auth" { "auth_svc" } else { "data_svc" };
+        log("Gateway routing " + msg.path + " #" + msg.req_id + " -> " + dest);
+        send(dest, msg);
+      } else if msg.type == "RESP" {
+        log("Gateway relaying response #" + msg.req_id + " back to " + msg.reply_to);
+        send(msg.reply_to, msg);
+      }
+    }
+
+  - &auth_fn |
+    fn on_msg(msg) {
+      if msg.type == "REQ" {
+        let token = "tok_" + msg.req_id;
+        log("Auth service issuing " + token + " for #" + msg.req_id);
+        send(msg.from, #{
+          type: "RESP",
+          path: msg.path,
+          req_id: msg.req_id,
+          reply_to: msg.reply_to,
+          status: 200,
+          token: token,
+          display: "/auth 200 OK"
+        });
+      }
+    }
+
+  - &data_fn |
+    fn on_msg(msg) {
+      if msg.type == "REQ" {
+        // Requires a token issued by auth_svc - a client that skips
+        // straight to /data without ever authenticating gets rejected.
+        if !msg.contains("token") {
+          log("Data service REJECTED #" + msg.req_id + " - no token");
+          send(msg.from, #{
+            type: "RESP",
+            path: msg.path,
+            req_id: msg.req_id,
+            reply_to: msg.reply_to,
+            status: 401,
+            display: "/data 401 Unauthorized"
+          });
+        } else {
+          log("Data service handling #" + msg.req_id + " (token=" + msg.token + ")");
+          send(msg.from, #{
+            type: "RESP",
+            path: msg.path,
+            req_id: msg.req_id,
+            reply_to: msg.reply_to,
+            status: 200,
+            display: "/data 200 OK"
+          });
+        }
+      }
+    }
+
+graph_defn:
+  layout:
+    type: hierarchical
+    direction: lr
+    rank_sep: 220
+    node_sep: 110
+  graph_attrs:
+    title: "Multilevel Routing & Reverse Paths"
+  node_types:
+    - id: client
+      fn: *client_fn
+      attrs: { ticks: 4 }
+    - id: rogue_client
+      fn: *rogue_client_fn
+      attrs: { ticks: 5 }
+    - id: gateway
+      fn: *gateway_fn
+      attrs: { ticks: 3600 }
+    - id: auth
+      fn: *auth_fn
+      attrs: { ticks: 3600 }
+    - id: data
+      fn: *data_fn
+      attrs: { ticks: 3600 }
+  graph:
+    - name: client
+      node_type: client
+      links: [gateway]
+    - name: rogue_client
+      node_type: rogue_client
+      links: [gateway]
+    - name: gateway
+      node_type: gateway
+      links: [auth_svc, data_svc]
+    - name: auth_svc
+      node_type: auth
+      links: []
+    - name: data_svc
+      node_type: data
+      links: []

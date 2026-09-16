@@ -1,0 +1,36 @@
+imports:
+  - from: "plibs:aws/compute"
+  - from: "plibs:aws/database"
+
+fns:
+  - &client_fn |
+    fn on_init() {
+      state.seq = 0;
+    }
+    fn on_timer() {
+      state.seq += 1;
+      send("lambda_exec", #{ action: "process_job", id: state.seq });
+    }
+
+graph_defn:
+  layout:
+    type: hierarchical
+    direction: lr
+    rank_sep: 240
+    node_sep: 120
+  graph_attrs:
+    title: "Intro to plibs - AWS Integration"
+  node_types:
+    - id: client
+      fn: *client_fn
+      attrs: { ticks: 4 }
+  graph:
+    - name: client
+      node_type: client
+      links: [lambda_exec]
+    - name: lambda_exec
+      node_type: lambda_func
+      links: [dynamo_store]
+    - name: dynamo_store
+      node_type: dynamodb
+      links: []

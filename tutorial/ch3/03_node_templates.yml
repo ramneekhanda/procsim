@@ -1,0 +1,94 @@
+graph_defn:
+  layout:
+    type: hierarchical
+    direction: lr
+    rank_sep: 220
+    node_sep: 110
+  graph_attrs:
+    title: "Reusable Node Templates"
+  node_templates:
+    - id: compute_unit
+      template:
+        - shape: rect
+          w: 130
+          h: 55
+          radius: 8
+          bg: "#ffffff"
+          border: "#6366f1"
+          border_width: 2
+        - shape: text
+          text: "COMPUTE"
+          y: 10
+          color: "#4f46e5"
+          font_size: 10
+          bold: true
+        - shape: text
+          text: "{{status_text}}"
+          y: -8
+          color: "{{status_color}}"
+          font_size: 9
+    - id: storage_unit
+      template:
+        - shape: rect
+          w: 130
+          h: 55
+          radius: 8
+          bg: "#ffffff"
+          border: "#059669"
+          border_width: 2
+        - shape: text
+          text: "STORAGE"
+          y: 10
+          color: "#047857"
+          font_size: 10
+          bold: true
+  node_types:
+    - id: worker
+      attrs:
+        template_ref: compute_unit
+        ticks: 4
+        template_params:
+          status_text: "IDLE"
+          status_color: "#94a3b8"
+      fn: |
+        fn on_timer() {
+          state.busy = !(state.busy ?? false);
+          if state.busy {
+            update_node_params(#{ status_text: "BUSY", status_color: "#dc2626" });
+          } else {
+            update_node_params(#{ status_text: "IDLE", status_color: "#94a3b8" });
+          }
+        }
+    - id: db
+      attrs:
+        template_ref: storage_unit
+        ticks: 3600
+    - id: spawner
+      attrs:
+        ticks: 2
+      fn: |
+        fn on_timer() {
+          if state.spawned ?? false { return; }
+          state.spawned = true;
+          spawn_node("worker_3", "worker", [], "fn on_init() { update_node_params(#{ status_text: \"SPAWNED\", status_color: \"#7c3aed\" }); }");
+        }
+  graph:
+    - name: worker_1
+      node_type: worker
+      links: [db_primary]
+    - name: worker_2
+      node_type: worker
+      links: [db_primary]
+    - name: worker_override
+      node_type: worker
+      links: [db_primary]
+      fn: |
+        fn on_init() {
+          update_node_params(#{ status_text: "OVERRIDDEN", status_color: "#7c3aed" });
+        }
+    - name: db_primary
+      node_type: db
+      links: []
+    - name: spawner_node
+      node_type: spawner
+      links: []

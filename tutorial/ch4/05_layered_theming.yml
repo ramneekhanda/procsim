@@ -1,0 +1,40 @@
+imports:
+  - from: "themes:cloud"
+
+graph_defn:
+  layout:
+    type: hierarchical
+    direction: lr
+    rank_sep: 220
+    node_sep: 110
+  graph_attrs:
+    title: "Layered & Composed Themes"
+    connection_color: "#6366f1"
+  node_types:
+    - id: source
+      attrs:
+        ticks: 4
+        template_ref: node
+        template_params:
+          role_tag: "Producer"
+          status_text: "ACTIVE"
+          status_bg: "#dcfce7"
+          status_color: "#16a34a"
+          accent_color: "#6366f1"
+    - id: destination
+      attrs:
+        ticks: 3600
+        template_ref: node
+        template_params:
+          role_tag: "Consumer"
+          status_text: "READY"
+          status_bg: "#e0e7ff"
+          status_color: "#4f46e5"
+          accent_color: "#6366f1"
+  graph:
+    - name: source_node
+      node_type: source
+      links: [dest_node]
+    - name: dest_node
+      node_type: destination
+      links: []

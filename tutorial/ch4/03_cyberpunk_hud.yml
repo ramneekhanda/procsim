@@ -1,0 +1,56 @@
+graph_defn:
+  theme: "themes:cyberpunk"
+  layout:
+    type: hierarchical
+    direction: lr
+    rank_sep: 220
+    node_sep: 110
+  graph_attrs:
+    title: "Cyberpunk Neon HUD Theme"
+  node_types:
+    - id: node_emitter
+      attrs:
+        ticks: 4
+        template_ref: cyber_hud
+        template_params:
+          neon_border: "#00f5ff"
+          neon_accent: "#ff00e5"
+          telemetry: "TX: 2.4k/s"
+          status_code: "EMIT"
+          badge_bg: "#1a0d24"
+          badge_color: "#ff00e5"
+    - id: node_relay
+      attrs:
+        ticks: 3600
+        template_ref: cyber_hud
+        template_params:
+          neon_border: "#00f5ff"
+          neon_accent: "#00f5ff"
+          telemetry: "RELAY"
+          status_code: "RELAY"
+          badge_bg: "#071a24"
+          badge_color: "#00f5ff"
+    - id: node_sink
+      attrs:
+        ticks: 3600
+        template_ref: cyber_hud
+        template_params:
+          neon_border: "#39ff88"
+          neon_accent: "#39ff88"
+          telemetry: "STORE"
+          status_code: "SINK"
+          badge_bg: "#07240f"
+          badge_color: "#39ff88"
+  graph:
+    - name: neural_core
+      node_type: node_emitter
+      links: [relay_alpha, relay_beta]
+    - name: relay_alpha
+      node_type: node_relay
+      links: [datastore_main]
+    - name: relay_beta
+      node_type: node_relay
+      links: [datastore_main]
+    - name: datastore_main
+      node_type: node_sink
+      links: []

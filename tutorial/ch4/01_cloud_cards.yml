@@ -1,0 +1,53 @@
+graph_defn:
+  theme: "themes:cloud"
+  layout:
+    type: hierarchical
+    direction: lr
+    rank_sep: 220
+    node_sep: 110
+  graph_attrs:
+    title: "Cloud Architecture Theme"
+  node_types:
+    - id: gateway
+      attrs:
+        ticks: 4
+        template_ref: cloud_card
+        template_params:
+          role: "API Gateway"
+          status_text: "ACTIVE"
+          status_bg: "#dcfce7"
+          status_color: "#16a34a"
+          accent_color: "#3b82f6"
+    - id: worker
+      attrs:
+        ticks: 3600
+        template_ref: cloud_card
+        template_params:
+          role: "Compute Service"
+          status_text: "HEALTHY"
+          status_bg: "#dbeafe"
+          status_color: "#2563eb"
+          accent_color: "#6366f1"
+    - id: database
+      attrs:
+        ticks: 3600
+        template_ref: cloud_card
+        template_params:
+          role: "Database"
+          status_text: "ONLINE"
+          status_bg: "#fef9c3"
+          status_color: "#a16207"
+          accent_color: "#f59e0b"
+  graph:
+    - name: api_gateway
+      node_type: gateway
+      links: [order_service, user_service]
+    - name: order_service
+      node_type: worker
+      links: [main_db]
+    - name: user_service
+      node_type: worker
+      links: [main_db]
+    - name: main_db
+      node_type: database
+      links: []

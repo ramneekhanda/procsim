@@ -3,17 +3,17 @@ fns:
       fn on_init() {}
       fn on_timer() {
         log("ping sending");
-        send("pong", #{ display: "ping" });
+        send("pong", #{ type: "PING", display: "PING" });
       }
       fn on_msg(msg) {
-        log("ping got: " + msg.display);
+        log("ping got: " + msg.type);
       }
 
   - &pong_fn |
       fn on_init() {}
       fn on_msg(msg) {
-        log("pong got: " + msg.display);
-        send("ping", #{ display: "pong" });
+        log("pong got: " + msg.type);
+        send("ping", #{ type: "PONG", display: "PONG" });
       }
 
 graph_defn:

@@ -1,0 +1,59 @@
+fns:
+  - &ping_fn |
+    fn on_init() {
+      state.count = 0;
+    }
+    fn on_timer() {
+      state.count += 1;
+      send("server", #{ seq: state.count });
+    }
+
+  - &server_fn |
+    fn on_msg(msg) {
+      send("db", msg);
+      send("monitor", msg);
+    }
+
+  - &monitor_fn |
+    fn on_msg(msg) {
+      log(`[TELEMETRY] Monitored event ${msg.seq}`);
+    }
+
+layout:
+  type: hierarchical
+  direction: lr
+  rank_sep: 220
+  node_sep: 100
+
+graph_defn:
+  graph_attrs:
+    title: Fine-Tuned Node Positioning
+
+  node_types:
+    - id: client
+      fn: *ping_fn
+      attrs:
+        ticks: 4
+    - id: server
+      fn: *server_fn
+    - id: db
+    - id: monitor
+      fn: *monitor_fn
+
+  graph:
+    - name: client
+      node_type: client
+      links: [server]
+
+    - name: server
+      node_type: server
+      links: [db, monitor]
+
+    - name: db
+      node_type: db
+      links: []
+
+    - name: monitor
+      node_type: monitor
+      offset: [0, -70]
+      links: []

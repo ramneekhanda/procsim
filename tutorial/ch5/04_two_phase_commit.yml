@@ -1,0 +1,112 @@
+fns:
+  - &coord_fn |
+    fn on_init() {
+      state.tx_id = 0;
+      state.votes = [];
+      update_ui("IDLE", "#64748b");
+    }
+    fn on_timer() {
+      state.tx_id += 1;
+      state.votes = [];
+      log("Coordinator starting 2PC for TX #" + state.tx_id);
+      update_ui("PHASE 1: PREPARING", "#f59e0b");
+      explain(
+        "2pc_phase1",
+        "**Phase 1 (Prepare)**: Coordinator broadcasts `PREPARE` to all participant databases."
+      );
+      // Broadcast to every linked cohort - driven by the graph's own
+      // topology (`links`), not a hardcoded peer list, so adding a third
+      // cohort in graph_defn.graph is all it takes to widen the quorum.
+      for peer in links {
+        send(peer, #{ type: "PREPARE", tx_id: state.tx_id });
+      }
+    }
+    fn on_msg(msg) {
+      if msg.type == "VOTE" {
+        state.votes.push(msg.vote);
+        if state.votes.len() == links.len() {
+          let all_yes = true;
+          for v in state.votes {
+            if v != "YES" { all_yes = false; }
+          }
+          if all_yes {
+            log("Coordinator received unanimous YES -> GLOBAL_COMMIT for TX #" + state.tx_id);
+            update_ui("PHASE 2: COMMITTED", "#10b981");
+            explain(
+              "2pc_phase2",
+              "**Phase 2 (Commit)**: All cohorts voted YES. Coordinator issues `GLOBAL_COMMIT`."
+            );
+            for peer in links {
+              send(peer, #{ type: "GLOBAL_COMMIT", tx_id: state.tx_id });
+            }
+          }
+        }
+      }
+    }
+    fn update_ui(status, color) {
+      // Offset clear of the default icon + name label every node still gets
+      // underneath a draw() overlay (only attrs.template suppresses those).
+      let CARD_Y = 80;
+      draw([
+        #{ shape: "rect", w: 150, h: 60, radius: 8, y: CARD_Y, fill: "#ffffff", stroke: color, stroke_width: 2 },
+        #{ shape: "text", text: "COORDINATOR", y: CARD_Y + 12, color: "#1e293b", size: 11 },
+        #{ shape: "text", text: status, y: CARD_Y - 10, color: color, size: 9 }
+      ]);
+    }
+
+  - &cohort_fn |
+    fn on_init() {
+      state.status = "READY";
+      update_ui(node_name, "READY", "#64748b");
+    }
+    fn on_msg(msg) {
+      if msg.type == "PREPARE" {
+        log(node_name + " received PREPARE for TX #" + msg.tx_id + " -> voting YES");
+        update_ui(node_name, "VOTED YES", "#f59e0b");
+        send(msg.from, #{ type: "VOTE", tx_id: msg.tx_id, vote: "YES" });
+      } else if msg.type == "GLOBAL_COMMIT" {
+        log(node_name + " COMMITTED TX #" + msg.tx_id);
+        update_ui(node_name, "COMMITTED", "#10b981");
+      }
+    }
+    fn update_ui(name, status, color) {
+      let CARD_Y = 80;
+      draw([
+        #{ shape: "rect", w: 130, h: 55, radius: 8, y: CARD_Y, fill: "#ffffff", stroke: color, stroke_width: 2 },
+        #{ shape: "text", text: name, y: CARD_Y + 10, color: "#1e293b", size: 10 },
+        #{ shape: "text", text: status, y: CARD_Y - 10, color: color, size: 9 }
+      ]);
+    }
+
+graph_defn:
+  layout:
+    type: hierarchical
+    direction: lr
+    rank_sep: 300
+    node_sep: 170
+  graph_attrs:
+    title: "Two-Phase Commit Protocol"
+    connector_style: curved
+  groups:
+    - id: cohort_tier
+      title: "Participant Databases"
+      direction: tb
+      sep: 170
+      nodes: [db_cohort_1, db_cohort_2]
+  node_types:
+    - id: coordinator
+      fn: *coord_fn
+      attrs: { ticks: 5 }
+    - id: cohort
+      fn: *cohort_fn
+      attrs: { ticks: 3600 }
+  graph:
+    - name: coordinator
+      node_type: coordinator
+      links: [db_cohort_1, db_cohort_2]
+    - name: db_cohort_1
+      node_type: cohort
+      links: []
+    - name: db_cohort_2
+      node_type: cohort
+      links: []

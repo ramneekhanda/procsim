@@ -1,0 +1,69 @@
+fns:
+  - &ring_node_fn |
+    fn on_init() {
+      state.has_token = false;
+      state.cycles = 0;
+
+      // Node 1 starts the token circulation.
+      if node_name == "node_1" {
+        state.has_token = true;
+        update_ui(node_name, "INITIAL TOKEN", "#10b981");
+      } else {
+        update_ui(node_name, "IDLE", "#94a3b8");
+      }
+    }
+
+    fn on_timer() {
+      if state.has_token {
+        state.cycles += 1;
+        log(node_name + " passing token (cycle " + state.cycles + ")");
+        state.has_token = false;
+        update_ui(node_name, "IDLE", "#94a3b8");
+        let next_node = links[0];
+        send(next_node, #{ type: "TOKEN", seq: state.cycles });
+      }
+    }
+
+    fn on_msg(msg) {
+      if msg.type == "TOKEN" {
+        state.has_token = true;
+        state.cycles = msg.seq;
+        log(node_name + " ACQUIRED TOKEN (cycle " + msg.seq + ")");
+        update_ui(node_name, "CRITICAL SECTION", "#6366f1");
+      }
+    }
+
+    fn update_ui(name, status, color) {
+      // Offset clear of the default icon + name label every node still gets
+      // underneath a draw() overlay (only attrs.template suppresses those).
+      let CARD_Y = 80;
+      draw([
+        #{ shape: "rect", w: 130, h: 55, radius: 8, y: CARD_Y, fill: "#ffffff", stroke: color, stroke_width: 2 },
+        #{ shape: "text", text: name, y: CARD_Y + 10, color: "#1e293b", size: 11 },
+        #{ shape: "text", text: status, y: CARD_Y - 10, color: color, size: 10 }
+      ]);
+    }
+
+graph_defn:
+  layout:
+    type: circular
+  graph_attrs:
+    title: "Token Ring Mutual Exclusion"
+    connector_style: curved
+  node_types:
+    - id: ring_peer
+      fn: *ring_node_fn
+      attrs: { ticks: 4 }
+  graph:
+    - name: node_1
+      node_type: ring_peer
+      links: [node_2]
+    - name: node_2
+      node_type: ring_peer
+      links: [node_3]
+    - name: node_3
+      node_type: ring_peer
+      links: [node_4]
+    - name: node_4
+      node_type: ring_peer
+      links: [node_1]

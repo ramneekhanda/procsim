@@ -1,0 +1,41 @@
+fns:
+  - &meter_fn |
+    fn on_init() {
+      state.load = 25;
+      update_visuals(state.load);
+    }
+    fn on_timer() {
+      state.load = (state.load + 25) % 100;
+      update_visuals(state.load);
+    }
+    fn update_visuals(pct) {
+      let bar_w = pct * 1.0;
+      // Shapes are node-local, so a card at y:0 would sit directly on top of
+      // the default 64x64 icon + name label every node still gets underneath
+      // (only attrs.template suppresses those - a script's own draw() is
+      // always an addition, never a replacement). Offsetting the whole card
+      // up by CARD_Y clears that footprint instead of overlapping it.
+      let CARD_Y = 80;
+      draw([
+        #{ shape: "rect", w: 140, h: 60, radius: 8, y: CARD_Y, fill: "#ffffff", stroke: "#6366f1", stroke_width: 2 },
+        #{ shape: "text", text: "LOAD METER", y: CARD_Y + 16, color: "#475569", size: 11 },
+        #{ shape: "rect", w: 100, h: 10, radius: 5, y: CARD_Y - 4, fill: "#e2e8f0" },
+        #{ shape: "rect", w: bar_w, h: 10, radius: 5, x: (bar_w - 100.0) / 2.0, y: CARD_Y - 4, fill: "#6366f1" },
+        #{ shape: "text", text: pct + "%", y: CARD_Y - 20, color: "#1e293b", size: 10 }
+      ]);
+    }
+
+graph_defn:
+  layout:
+    type: hierarchical
+    direction: lr
+  graph_attrs:
+    title: "draw() Basics & Dynamic Overlays"
+  node_types:
+    - id: meter
+      fn: *meter_fn
+      attrs: { ticks: 4 }
+  graph:
+    - name: server_1
+      node_type: meter
+      links: []

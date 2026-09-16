@@ -1,0 +1,83 @@
+imports:
+  - from: "plibs:aws/compute"
+  - from: "plibs:aws/database"
+  - from: "plibs:aws/messaging"
+
+fns:
+  - &dns_fn |
+    fn on_init() {
+      state.req = 0;
+    }
+    fn on_timer() {
+      state.req += 1;
+      log("DNS resolving request #" + state.req);
+      send("alb_ingress", #{ id: state.req, path: "/api/order" });
+    }
+
+  - &alb_fn |
+    fn on_init() {
+      state.idx = 0;
+    }
+    fn on_msg(msg) {
+      let targets = ["ecs_task_1", "ecs_task_2"];
+      let t = targets[state.idx % targets.len()];
+      state.idx += 1;
+      log("ALB forwarding Req #" + msg.id + " -> " + t);
+      send(t, msg);
+    }
+
+  - &ecs_fn |
+    fn on_msg(msg) {
+      log(node_name + " processing Req #" + msg.id + " -> saving to Dynamo & notifying SQS");
+      send("orders_db", #{ op: "INSERT", id: msg.id });
+      send("events_queue", #{ event: "ORDER_CREATED", id: msg.id });
+    }
+
+graph_defn:
+  layout:
+    type: hierarchical
+    direction: lr
+    rank_sep: 300
+    node_sep: 200
+  graph_attrs:
+    title: "AWS Multi-Tier Cloud Architecture"
+  groups:
+    - id: compute_tier
+      title: "ECS Fargate Cluster"
+      direction: tb
+      sep: 110
+      nodes: [ecs_task_1, ecs_task_2]
+    - id: storage_tier
+      title: "Persistence & Messaging"
+      direction: tb
+      sep: 110
+      nodes: [orders_db, events_queue]
+  node_types:
+    - id: dns
+      fn: *dns_fn
+      attrs: { ticks: 4 }
+    - id: alb
+      fn: *alb_fn
+      attrs: { ticks: 3600 }
+    - id: ecs_service
+      fn: *ecs_fn
+      attrs: { ticks: 3600 }
+  graph:
+    - name: route53_dns
+      node_type: dns
+      links: [alb_ingress]
+    - name: alb_ingress
+      node_type: alb
+      links: [ecs_task_1, ecs_task_2]
+    - name: ecs_task_1
+      node_type: ecs_service
+      links: [orders_db, events_queue]
+    - name: ecs_task_2
+      node_type: ecs_service
+      links: [orders_db, events_queue]
+    - name: orders_db
+      node_type: dynamodb
+      links: []
+    - name: events_queue
+      node_type: sqs_queue
+      links: []

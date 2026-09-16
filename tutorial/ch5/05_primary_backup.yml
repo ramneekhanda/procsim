@@ -1,0 +1,134 @@
+fns:
+  - &client_fn |
+    fn on_init() {
+      state.tx = 0;
+    }
+    fn on_timer() {
+      state.tx += 1;
+      log("Client initiating Write TX #" + state.tx);
+      // No reply_to - the primary already gets our name for free via
+      // msg.from (the engine stamps it), so it can remember where to send
+      // the eventual WRITE_OK itself (see primary_fn.on_msg below).
+      send("primary_db", #{
+        type: "WRITE",
+        tx: state.tx,
+        key: "user_bal",
+        val: 100 + state.tx
+      });
+    }
+    fn on_msg(msg) {
+      if msg.type == "WRITE_OK" {
+        log("Client received WRITE_OK for TX #" + msg.tx);
+      }
+    }
+
+  - &primary_fn |
+    fn on_init() {
+      state.store = #{};
+      state.pending_tx = #{};
+      update_ui("PRIMARY (READY)", "#10b981");
+    }
+    fn on_msg(msg) {
+      if msg.type == "WRITE" {
+        state.store[msg.key] = msg.val;
+        state.pending_tx[msg.tx.to_string()] = #{
+          reply_to: msg.from,
+          acks: 0
+        };
+        log("Primary accepted TX #" + msg.tx + " -> replicating to backups");
+        update_ui("REPLICATING #" + msg.tx, "#f59e0b");
+        // links already is the replica set (graph_defn.graph declares
+        // links: [replica_1, replica_2]) - fan out off that directly
+        // instead of a second, hand-maintained copy that could drift from it.
+        for peer in links {
+          send(peer, #{ type: "REPLICATE", tx: msg.tx, key: msg.key, val: msg.val });
+        }
+      } else if msg.type == "ACK" {
+        let key = msg.tx.to_string();
+        if state.pending_tx.contains(key) {
+          state.pending_tx[key].acks += 1;
+          if state.pending_tx[key].acks == links.len() {
+            let reply_to = state.pending_tx[key].reply_to;
+            log("Primary achieved Quorum for TX #" + msg.tx + " -> confirming to client");
+            update_ui("COMMITTED #" + msg.tx, "#10b981");
+            send(reply_to, #{ type: "WRITE_OK", tx: msg.tx });
+            // Done with this transaction's bookkeeping - drop it rather
+            // than letting pending_tx grow without bound as TXs commit.
+            state.pending_tx.remove(key);
+          }
+        }
+      }
+    }
+    fn update_ui(status, color) {
+      // Offset clear of the default icon + name label every node still gets
+      // underneath a draw() overlay (only attrs.template suppresses those).
+      let CARD_Y = 80;
+      draw([
+        #{ shape: "rect", w: 140, h: 55, radius: 8, y: CARD_Y, fill: "#ffffff", stroke: color, stroke_width: 2 },
+        #{ shape: "text", text: "PRIMARY DB", y: CARD_Y + 10, color: "#1e293b", size: 11 },
+        #{ shape: "text", text: status, y: CARD_Y - 10, color: color, size: 9 }
+      ]);
+    }
+
+  - &replica_fn |
+    fn on_init() {
+      state.store = #{};
+      state.replicated_count = 0;
+      update_ui(node_name, state.replicated_count);
+    }
+    fn on_msg(msg) {
+      if msg.type == "REPLICATE" {
+        state.store[msg.key] = msg.val;
+        state.replicated_count += 1;
+        log(node_name + " synced TX #" + msg.tx);
+        update_ui(node_name, state.replicated_count);
+        send(msg.from, #{ type: "ACK", tx: msg.tx });
+      }
+    }
+    fn update_ui(name, replicated_count) {
+      let CARD_Y = 80;
+      draw([
+        #{ shape: "rect", w: 130, h: 50, radius: 8, y: CARD_Y, fill: "#ffffff", stroke: "#6366f1", stroke_width: 2 },
+        #{ shape: "text", text: name, y: CARD_Y + 8, color: "#3730a3", size: 10 },
+        #{ shape: "text", text: "Syncs: " + replicated_count, y: CARD_Y - 8, color: "#64748b", size: 9 }
+      ]);
+    }
+
+graph_defn:
+  layout:
+    type: hierarchical
+    direction: lr
+    rank_sep: 300
+    node_sep: 170
+  graph_attrs:
+    title: "Primary-Backup Replication"
+    connector_style: curved
+  groups:
+    - id: backup_tier
+      title: "Standby Replicas"
+      direction: tb
+      sep: 170
+      nodes: [replica_1, replica_2]
+  node_types:
+    - id: client
+      fn: *client_fn
+      attrs: { ticks: 4 }
+    - id: primary
+      fn: *primary_fn
+      attrs: { ticks: 3600 }
+    - id: replica
+      fn: *replica_fn
+      attrs: { ticks: 3600 }
+  graph:
+    - name: client
+      node_type: client
+      links: [primary_db]
+    - name: primary_db
+      node_type: primary
+      links: [replica_1, replica_2]
+    - name: replica_1
+      node_type: replica
+      links: []
+    - name: replica_2
+      node_type: replica
+      links: []

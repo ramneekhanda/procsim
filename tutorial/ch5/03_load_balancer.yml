@@ -1,0 +1,128 @@
+fns:
+  - &client_fn |
+    fn on_init() {
+      state.req_id = 0;
+    }
+    fn on_timer() {
+      state.req_id += 1;
+      log("Client sending Request #" + state.req_id);
+      // No reply_to here - the client shouldn't need to know or care how its
+      // request gets routed back. The engine already stamps `from` on every
+      // message the load balancer receives, so the LB can derive the reply
+      // path itself (see lb_fn.on_msg below).
+      send("load_balancer", #{
+        type: "REQ",
+        id: state.req_id
+      });
+    }
+    fn on_msg(msg) {
+      if msg.type == "RESP" {
+        log("Client received response for Req #" + msg.id + " from " + msg.worker);
+      }
+    }
+
+  - &lb_fn |
+    fn on_init() {
+      state.idx = 0;
+      state.total_routed = 0;
+      update_ui(state.total_routed);
+    }
+    fn on_msg(msg) {
+      if msg.type == "REQ" {
+        // links already is the worker pool (graph_defn.graph declares
+        // links: [worker_1, worker_2, worker_3]) - route off that directly
+        // instead of a second, hand-maintained copy that could drift from it.
+        let target = links[state.idx % links.len()];
+        state.idx += 1;
+        state.total_routed += 1;
+        log("LB routing Req #" + msg.id + " -> " + target);
+        update_ui(state.total_routed);
+        // msg.from is the client's name, filled in by the engine when the
+        // client's own send() landed here - stamp it as reply_to so the
+        // worker (which only ever talks to us, never to the client
+        // directly) knows where the response ultimately needs to go.
+        msg.reply_to = msg.from;
+        send(target, msg);
+      } else if msg.type == "RESP" {
+        send(msg.reply_to, msg);
+      }
+    }
+    fn update_ui(total_routed) {
+      // Offset clear of the default icon + name label every node still gets
+      // underneath a draw() overlay (only attrs.template suppresses those).
+      let CARD_Y = 80;
+      draw([
+        #{ shape: "rect", w: 140, h: 55, radius: 8, y: CARD_Y, fill: "#ffffff", stroke: "#6366f1", stroke_width: 2 },
+        #{ shape: "text", text: "LOAD BALANCER", y: CARD_Y + 10, color: "#4338ca", size: 10 },
+        #{ shape: "text", text: "Total: " + total_routed + " reqs", y: CARD_Y - 10, color: "#64748b", size: 10 }
+      ]);
+    }
+
+  - &worker_fn |
+    fn on_init() {
+      state.jobs_done = 0;
+      update_ui(node_name, state.jobs_done);
+    }
+    fn on_msg(msg) {
+      if msg.type == "REQ" {
+        state.jobs_done += 1;
+        log(node_name + " processed Req #" + msg.id);
+        update_ui(node_name, state.jobs_done);
+        send(msg.from, #{
+          type: "RESP",
+          id: msg.id,
+          reply_to: msg.reply_to,
+          worker: node_name
+        });
+      }
+    }
+    fn update_ui(name, jobs_done) {
+      let CARD_Y = 80;
+      draw([
+        #{ shape: "rect", w: 130, h: 50, radius: 8, y: CARD_Y, fill: "#ffffff", stroke: "#10b981", stroke_width: 2 },
+        #{ shape: "text", text: name, y: CARD_Y + 8, color: "#047857", size: 10 },
+        #{ shape: "text", text: "Done: " + jobs_done, y: CARD_Y - 8, color: "#64748b", size: 10 }
+      ]);
+    }
+
+graph_defn:
+  layout:
+    type: hierarchical
+    direction: lr
+    rank_sep: 300
+    node_sep: 170
+  graph_attrs:
+    title: "Load Balancer with Round-Robin"
+    connector_style: curved
+  groups:
+    - id: backend_tier
+      title: "Worker Pool"
+      direction: tb
+      sep: 170
+      nodes: [worker_1, worker_2, worker_3]
+  node_types:
+    - id: client
+      fn: *client_fn
+      attrs: { ticks: 4 }
+    - id: load_balancer
+      fn: *lb_fn
+      attrs: { ticks: 3600 }
+    - id: worker
+      fn: *worker_fn
+      attrs: { ticks: 3600 }
+  graph:
+    - name: client
+      node_type: client
+      links: [load_balancer]
+    - name: load_balancer
+      node_type: load_balancer
+      links: [worker_1, worker_2, worker_3]
+    - name: worker_1
+      node_type: worker
+      links: []
+    - name: worker_2
+      node_type: worker
+      links: []
+    - name: worker_3
+      node_type: worker
+      links: []

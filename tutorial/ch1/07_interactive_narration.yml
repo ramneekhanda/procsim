@@ -1,0 +1,51 @@
+fns:
+  - &producer_fn |
+    fn on_init() {
+      state.seq = 0;
+      explain(
+        "welcome",
+        "**Interactive Narration**: Simulations can pause and display animated narration bubbles to explain protocol milestones."
+      );
+    }
+    fn on_timer() {
+      state.seq += 1;
+      if state.seq == 1 {
+        explain(
+          "first_msg",
+          "**Producer**: Generating its first message to the processor downstream."
+        );
+      }
+      send("processor", #{ seq: state.seq, payload: "item_" + state.seq });
+    }
+
+  - &processor_fn |
+    fn on_msg(msg) {
+      log("Processor handled seq=" + msg.seq);
+      explain(
+        "processed",
+        "**Processor**: Successfully received and processed the packet!"
+      );
+    }
+
+graph_defn:
+  layout:
+    type: hierarchical
+    direction: lr
+    rank_sep: 260
+    node_sep: 120
+  graph_attrs:
+    title: "Interactive Narration Demo"
+  node_types:
+    - id: producer
+      fn: *producer_fn
+      attrs: { ticks: 4 }
+    - id: processor
+      fn: *processor_fn
+      attrs: { ticks: 3600 }
+  graph:
+    - name: producer
+      node_type: producer
+      links: [processor]
+    - name: processor
+      node_type: processor
+      links: []

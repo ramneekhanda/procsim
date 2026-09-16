@@ -11,6 +11,10 @@ send(to: &str, msg: dictionary);
 fields are special, read by the canvas itself rather than your script:
 
 - **`display`** - a short string shown on the message's icon while it travels.
+  Cosmetic only - it's never a substitute for real data. Put whatever a receiving
+  node actually needs to branch on or process in its own key(s) (`type`, `id`,
+  `payload`, ...); don't make a receiver parse `msg.display` to recover a value,
+  even when the display text happens to look like the data.
 - **`icon`** - an id from the graph's `icons:` registry (chapter 4), for a custom
   message icon instead of the default.
 
@@ -31,18 +35,18 @@ graph_defn:
     - id: ping
       fn: |
         fn on_timer() {
-          send("pong", #{ display: "ping" });
+          send("pong", #{ type: "PING", display: "PING" });
         }
         fn on_msg(msg) {
-          log("ping got: " + msg.display);
+          log("ping got: " + msg.type);
         }
       attrs:
         ticks: 4
     - id: pong
       fn: |
         fn on_msg(msg) {
-          log("pong got: " + msg.display);
-          send("ping", #{ display: "pong" });
+          log("pong got: " + msg.type);
+          send("ping", #{ type: "PONG", display: "PONG" });
         }
 ```
 
