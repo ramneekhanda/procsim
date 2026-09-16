@@ -39,11 +39,14 @@ pub fn emit_log_event(node: &str, message: &str) {
     let json = serde_json::to_string(&serde_json::json!({
         "node": node,
         "message": message,
-    })).unwrap_or_else(|_| format!("{{\"node\":\"{}\",\"message\":\"{}\"}}", node, message));
+    }))
+    .unwrap_or_else(|_| format!("{{\"node\":\"{}\",\"message\":\"{}\"}}", node, message));
 
     let custom_event_init = web_sys::CustomEventInit::new();
     custom_event_init.set_detail(&wasm_bindgen::JsValue::from_str(&json));
-    let Ok(event) = web_sys::CustomEvent::new_with_event_init_dict("dsa-log-event", &custom_event_init) else {
+    let Ok(event) =
+        web_sys::CustomEvent::new_with_event_init_dict("dsa-log-event", &custom_event_init)
+    else {
         c_log!("error creating custom event");
         return;
     };

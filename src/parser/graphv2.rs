@@ -1591,7 +1591,10 @@ pub fn create_rhai_engine(
                 rand::thread_rng().gen_range(min..max)
             }
         })
-        .register_fn("spawn_node", |_name: String, _node_type: String, _links: rhai::Array| {})
+        .register_fn(
+            "spawn_node",
+            |_name: String, _node_type: String, _links: rhai::Array| {},
+        )
         .register_fn(
             "spawn_node",
             |_name: String, _node_type: String, _links: rhai::Array, _fn_override: String| {},
@@ -1654,7 +1657,12 @@ pub fn parse_graph2_with_sources(
                 }
             }
             if node_type.attrs.template.is_none() && node_type.attrs.template_ref.is_none() {
-                if m_data.graph_defn.node_templates.iter().any(|t| t.id == "default") {
+                if m_data
+                    .graph_defn
+                    .node_templates
+                    .iter()
+                    .any(|t| t.id == "default")
+                {
                     node_type.attrs.template_ref = Some("default".to_string());
                 }
             }
@@ -1889,7 +1897,10 @@ pub fn init_scope(
     scope.rewind(init_size);
 
     if let Some(map) = update_params_store.write().unwrap().take() {
-        let updates = map.into_iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+        let updates = map
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
         if let Err(msg) = apply_template_param_updates(node, updates) {
             log_dsa_event!("WARN: {}", msg);
         }
@@ -1940,7 +1951,11 @@ graph_defn:
         .to_string();
 
         let parsed = parse_graph2(&yaml).expect("Should parse valid YAML with message_theme");
-        let theme = parsed.graph_defn.graph_attrs.message_theme.expect("message_theme should exist");
+        let theme = parsed
+            .graph_defn
+            .graph_attrs
+            .message_theme
+            .expect("message_theme should exist");
         assert_eq!(theme.shape, MessageBubbleShape::Pill);
         assert_eq!(theme.stroke_width, 2.0);
         assert_eq!(theme.font_size, 14.0);
@@ -1965,7 +1980,10 @@ graph_defn:
 "##
         .to_string();
         let parsed = parse_graph2(&unset).expect("Should parse YAML with no connector_style");
-        assert_eq!(parsed.graph_defn.graph_attrs.connector_style, ConnectorStyle::Step);
+        assert_eq!(
+            parsed.graph_defn.graph_attrs.connector_style,
+            ConnectorStyle::Step
+        );
 
         for (tag, expected) in [
             ("curved", ConnectorStyle::Curved),
@@ -2179,9 +2197,15 @@ graph:
         let parsed_map = parse_graph2(&yaml_map).expect("Should parse map syntax for groups");
         assert_eq!(parsed_map.graph_defn.groups.len(), 2);
         assert_eq!(parsed_map.graph_defn.groups[0].id, "frontend");
-        assert_eq!(parsed_map.graph_defn.groups[0].title.as_deref(), Some("Edge Tier"));
         assert_eq!(
-            parsed_map.graph_defn.groups[0].layout.as_ref().and_then(|l| l.direction),
+            parsed_map.graph_defn.groups[0].title.as_deref(),
+            Some("Edge Tier")
+        );
+        assert_eq!(
+            parsed_map.graph_defn.groups[0]
+                .layout
+                .as_ref()
+                .and_then(|l| l.direction),
             Some(LayoutDirection::Tb)
         );
 
@@ -2202,7 +2226,10 @@ graph:
         assert_eq!(parsed_seq.graph_defn.groups.len(), 1);
         assert_eq!(parsed_seq.graph_defn.groups[0].id, "g1");
         assert_eq!(
-            parsed_seq.graph_defn.groups[0].layout.as_ref().and_then(|l| l.direction),
+            parsed_seq.graph_defn.groups[0]
+                .layout
+                .as_ref()
+                .and_then(|l| l.direction),
             Some(LayoutDirection::Rl)
         );
     }
@@ -2272,7 +2299,10 @@ graph_defn:
 
         let parsed = parse_graph2(&yaml).expect("Should parse graph");
         let w1 = &parsed.graph_defn.node_instances[0];
-        assert_eq!(w1.template_overrides.get("status_text").map(String::as_str), Some("BOOTING"));
+        assert_eq!(
+            w1.template_overrides.get("status_text").map(String::as_str),
+            Some("BOOTING")
+        );
         assert_eq!(w1.overlay.len(), 1);
         match &w1.overlay[0] {
             crate::parser::draw::DrawCmd::Text { text, .. } => assert_eq!(text, "BOOTING"),
@@ -2398,7 +2428,13 @@ graph_defn:
         let parsed = parse_graph2(&yaml).expect("Should parse graph with state counter");
         let mut c1 = parsed.graph_defn.node_instances.into_iter().next().unwrap();
         assert_eq!(
-            c1.state.read_lock::<rhai::Map>().unwrap().get("count").unwrap().as_int().unwrap(),
+            c1.state
+                .read_lock::<rhai::Map>()
+                .unwrap()
+                .get("count")
+                .unwrap()
+                .as_int()
+                .unwrap(),
             0,
             "on_init should have set count to 0"
         );
@@ -2430,5 +2466,3 @@ graph_defn:
         }
     }
 }
-
-

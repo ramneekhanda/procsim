@@ -40,8 +40,12 @@ pub fn execute_rhai_engine(
     // would otherwise invalidate those live borrows.
     // The 4th element is an optional per-instance `fn` override - see
     // `spawn_node`'s 4-arg overload and `NodeConnection::func`'s doc comment.
-    let local_spawn_store =
-        Arc::new(RwLock::new(Vec::<(String, String, Vec<String>, Option<String>)>::new()));
+    let local_spawn_store = Arc::new(RwLock::new(Vec::<(
+        String,
+        String,
+        Vec<String>,
+        Option<String>,
+    )>::new()));
     let local_despawn_store = Arc::new(RwLock::new(Vec::<String>::new()));
     let mut pending_spawns: Vec<(String, String, String, Vec<String>, Option<String>)> = Vec::new();
     let mut pending_despawns: Vec<(String, String)> = Vec::new();
@@ -130,8 +134,13 @@ pub fn execute_rhai_engine(
                 node.overlay_dirty = true;
             }
             if let Some(map) = update_params_store.write().unwrap().take() {
-                let updates = map.into_iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
-                if let Err(msg) = crate::parser::graphv2::apply_template_param_updates(node, updates) {
+                let updates = map
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect();
+                if let Err(msg) =
+                    crate::parser::graphv2::apply_template_param_updates(node, updates)
+                {
                     crate::log_dsa_event!("WARN: {}", msg);
                 }
             }
@@ -230,8 +239,13 @@ pub fn execute_rhai_engine(
                         node.overlay_dirty = true;
                     }
                     if let Some(map) = update_params_store.write().unwrap().take() {
-                        let updates = map.into_iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
-                        if let Err(msg) = crate::parser::graphv2::apply_template_param_updates(node, updates) {
+                        let updates = map
+                            .into_iter()
+                            .map(|(k, v)| (k.to_string(), v.to_string()))
+                            .collect();
+                        if let Err(msg) =
+                            crate::parser::graphv2::apply_template_param_updates(node, updates)
+                        {
                             crate::log_dsa_event!("WARN: {}", msg);
                         }
                     }
@@ -261,7 +275,14 @@ pub fn execute_rhai_engine(
     for name in apply_despawns(gd, pending_despawns) {
         node_removed_writer.send(NodeRemoved { name });
     }
-    for name in apply_spawns(gd, &engine, pending_spawns, &draw_store, &local_log_store, &update_params_store) {
+    for name in apply_spawns(
+        gd,
+        &engine,
+        pending_spawns,
+        &draw_store,
+        &local_log_store,
+        &update_params_store,
+    ) {
         node_added_writer.send(NodeAdded { name });
     }
     for (node_name, key, text) in pending_explain_frame {
@@ -291,13 +312,11 @@ fn drain_topology_ops(
     pending_despawns: &mut Vec<(String, String)>,
     pending_explain_frame: &mut Vec<(String, String, String)>,
 ) {
-    local_spawn_store
-        .write()
-        .unwrap()
-        .drain(..)
-        .for_each(|(name, node_type, links, func_override)| {
+    local_spawn_store.write().unwrap().drain(..).for_each(
+        |(name, node_type, links, func_override)| {
             pending_spawns.push((node.name.clone(), name, node_type, links, func_override));
-        });
+        },
+    );
     local_despawn_store
         .write()
         .unwrap()
@@ -489,7 +508,9 @@ fn send_messages(
             (display, icon)
         } else if msg.is_string() {
             (
-                msg.clone().into_string().unwrap_or_else(|_| format!("{}", msg)),
+                msg.clone()
+                    .into_string()
+                    .unwrap_or_else(|_| format!("{}", msg)),
                 None,
             )
         } else {
@@ -624,36 +645,39 @@ fn initialize_engine(
         .register_fn("unlink", move |peer: String| {
             lk_rm.write().unwrap().push((false, peer));
         });
-        let up = update_params_store.clone();
-        engine
-            // Update just the calling node's `{{param}}` -> value bindings and
-            // re-render its overlay from its own `attrs.template` shapes -
-            // unlike `draw()`, this doesn't require restating the whole shape
-            // list, only what changed. No-op (with a log warning - see
-            // `apply_template_param_updates`) on a node with no
-            // `template_ref`/`template` at all, or an empty `#{...}`.
-            .register_fn("update_node_params", move |p: rhai::Map| {
-                *up.write().unwrap() = Some(p);
-            });
-        let ex1 = explain_store.clone();
-        let ex2 = explain_store.clone();
-        let ex3 = explain_store.clone();
-        let ex4 = explain_store.clone();
-        engine
-            .register_fn("explain", move |key: String, text: String| {
-                ex1.write().unwrap().push((key, text));
-            })
-            .register_fn("explain", move |key: String, text: String, _opts: Dynamic| {
+    let up = update_params_store.clone();
+    engine
+        // Update just the calling node's `{{param}}` -> value bindings and
+        // re-render its overlay from its own `attrs.template` shapes -
+        // unlike `draw()`, this doesn't require restating the whole shape
+        // list, only what changed. No-op (with a log warning - see
+        // `apply_template_param_updates`) on a node with no
+        // `template_ref`/`template` at all, or an empty `#{...}`.
+        .register_fn("update_node_params", move |p: rhai::Map| {
+            *up.write().unwrap() = Some(p);
+        });
+    let ex1 = explain_store.clone();
+    let ex2 = explain_store.clone();
+    let ex3 = explain_store.clone();
+    let ex4 = explain_store.clone();
+    engine
+        .register_fn("explain", move |key: String, text: String| {
+            ex1.write().unwrap().push((key, text));
+        })
+        .register_fn(
+            "explain",
+            move |key: String, text: String, _opts: Dynamic| {
                 ex2.write().unwrap().push((key, text));
-            })
-            .register_fn("explain", move |text: String| {
-                let key = text.clone();
-                ex3.write().unwrap().push((key, text));
-            })
-            .register_fn("explain", move |text: String, _opts: Dynamic| {
-                let key = text.clone();
-                ex4.write().unwrap().push((key, text));
-            });
+            },
+        )
+        .register_fn("explain", move |text: String| {
+            let key = text.clone();
+            ex3.write().unwrap().push((key, text));
+        })
+        .register_fn("explain", move |text: String, _opts: Dynamic| {
+            let key = text.clone();
+            ex4.write().unwrap().push((key, text));
+        });
 
     engine
 }

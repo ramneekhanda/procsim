@@ -43,7 +43,8 @@ pub fn update_tick_progress(
                     let mut pb = PathBuilder::new();
                     if sweep_deg > 0.5 {
                         let start_rad = start_angle.to_radians();
-                        let start_pt = *center + Vec2::new(r * start_rad.cos(), r * start_rad.sin());
+                        let start_pt =
+                            *center + Vec2::new(r * start_rad.cos(), r * start_rad.sin());
                         let sweep_sign = if *clockwise { -1.0 } else { 1.0 };
                         let sweep_angle = sweep_sign * sweep_deg.to_radians();
                         pb.move_to(start_pt);
@@ -63,7 +64,8 @@ pub fn update_tick_progress(
                     let mut pb = PathBuilder::new();
                     if sweep_deg > 0.5 {
                         let start_rad = start_angle.to_radians();
-                        let start_pt = *center + Vec2::new(r * start_rad.cos(), r * start_rad.sin());
+                        let start_pt =
+                            *center + Vec2::new(r * start_rad.cos(), r * start_rad.sin());
                         let sweep_sign = if *clockwise { -1.0 } else { 1.0 };
                         let sweep_angle = sweep_sign * sweep_deg.to_radians();
                         pb.move_to(*center);

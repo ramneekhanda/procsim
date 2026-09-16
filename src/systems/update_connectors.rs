@@ -120,7 +120,9 @@ fn node_half_extents(node: &crate::parser::graphv2::Node) -> Vec2 {
                     grow(p.x, p.y, 0.0, 0.0);
                 }
             }
-            DrawCmd::Text { x, y, text, size, .. } => {
+            DrawCmd::Text {
+                x, y, text, size, ..
+            } => {
                 // Rough monospace-ish estimate - exact glyph metrics aren't
                 // available here, and this only needs to be in the right
                 // ballpark to keep a connector from cutting through a label.
@@ -202,8 +204,16 @@ fn line_through_rounded_corners(path_builder: &mut PathBuilder, points: &[Vec2],
         let next = points[i + 1];
         let in_len = (corner - cursor).length();
         let out_len = (next - corner).length();
-        let in_dir = if in_len > 0.0 { (corner - cursor) / in_len } else { Vec2::ZERO };
-        let out_dir = if out_len > 0.0 { (next - corner) / out_len } else { Vec2::ZERO };
+        let in_dir = if in_len > 0.0 {
+            (corner - cursor) / in_len
+        } else {
+            Vec2::ZERO
+        };
+        let out_dir = if out_len > 0.0 {
+            (next - corner) / out_len
+        } else {
+            Vec2::ZERO
+        };
         let r = radius.min(in_len * 0.5).min(out_len * 0.5);
 
         let before = corner - in_dir * r;
@@ -246,7 +256,13 @@ fn line_through_rounded_corners(path_builder: &mut PathBuilder, points: &[Vec2],
 /// quadratic bezier through the corner point, not just the thin,
 /// stroke-width-scaled rounding `LineJoin::Round` alone would give a sharp
 /// corner).
-fn build_connector_path(a: Vec2, a_half: Vec2, b: Vec2, b_half: Vec2, style: ConnectorStyle) -> Path {
+fn build_connector_path(
+    a: Vec2,
+    a_half: Vec2,
+    b: Vec2,
+    b_half: Vec2,
+    style: ConnectorStyle,
+) -> Path {
     let delta = b - a;
     let dist = delta.length();
     let mut path_builder = PathBuilder::new();
@@ -362,129 +378,135 @@ pub fn update_connectors(
 ) {
     let __prof_t0 = web_time::Instant::now(); // TEMPORARY
     (|| {
-    if g.graph_defn.node_instances.is_empty() {
-        for (entity, _, _) in query_conn.iter_mut() {
-            commands.entity(entity).despawn_recursive();
-        }
-        return;
-    }
-
-    let mut all_node_loc = HashMap::<String, Vec3>::new();
-    for (node, transform) in query_all.iter() {
-        let mut pos: Vec3 = transform.translation;
-        pos.z = 50.;
-        all_node_loc.insert(node.node_name.clone(), pos);
-    }
-
-    // Each node's actual on-canvas footprint (see `node_half_extents`), keyed
-    // by name so both the new-connector and retrace loops below can look up
-    // either endpoint's real shape instead of assuming a fixed icon size.
-    let extents: HashMap<&str, Vec2> = g
-        .graph_defn
-        .node_instances
-        .iter()
-        .map(|n| (n.name.as_str(), node_half_extents(n)))
-        .collect();
-
-    // edges that should exist right now, keyed so A-B and B-A collapse to one entry.
-    // Keys/values borrow from `node_instances`/`query_conn` rather than cloning -
-    // this diff runs unconditionally every frame (it has to: `link()`/`unlink()`
-    // mutate a node's `links` directly with no event firing, so there's no cheap
-    // "topology changed" signal to gate it behind), and on a graph with a few
-    // hundred edges the old `(String, String)`-keyed version was allocating on the
-    // order of a few thousand `String`s per frame just to build and throw away two
-    // `HashMap`s - a real, measurable cost distinct from (and larger than) the
-    // path-retrace cost fixed above.
-    let mut desired: HashMap<(&str, &str), (&str, &str)> = HashMap::new();
-    for node in g.graph_defn.node_instances.iter() {
-        for peer in node.links.iter() {
-            if &node.name == peer {
-                c_log!("Ignoring loopback: {}-{}", node.name, peer);
-                continue;
+        if g.graph_defn.node_instances.is_empty() {
+            for (entity, _, _) in query_conn.iter_mut() {
+                commands.entity(entity).despawn_recursive();
             }
-            if !all_node_loc.contains_key(&node.name) || !all_node_loc.contains_key(peer) {
-                // one (or both) endpoints haven't been spawned as an entity yet -
-                // pick this edge up on a later frame once they have been.
-                continue;
-            }
-            let key = edge_key(&node.name, peer);
-            desired
-                .entry(key)
-                .or_insert_with(|| (node.name.as_str(), peer.as_str()));
+            return;
         }
-    }
 
-    let mut existing: HashMap<(&str, &str), Entity> = HashMap::new();
-    for (entity, _, conn) in query_conn.iter() {
-        existing.insert(edge_key(&conn.id1, &conn.id2), entity);
-    }
-
-    // drop connectors for edges that are no longer declared by either side
-    for (key, entity) in existing.iter() {
-        if !desired.contains_key(key) {
-            commands.entity(*entity).despawn_recursive();
+        let mut all_node_loc = HashMap::<String, Vec3>::new();
+        for (node, transform) in query_all.iter() {
+            let mut pos: Vec3 = transform.translation;
+            pos.z = 50.;
+            all_node_loc.insert(node.node_name.clone(), pos);
         }
-    }
 
-    // add connectors for newly-declared edges
-    for (key, &(a, b)) in desired.iter() {
-        if existing.contains_key(key) {
-            continue;
-        }
-        let a_loc = all_node_loc.get(a).unwrap();
-        let b_loc = all_node_loc.get(b).unwrap();
-        let a_half = extents.get(a).copied().unwrap_or(DEFAULT_HALF_EXTENTS);
-        let b_half = extents.get(b).copied().unwrap_or(DEFAULT_HALF_EXTENTS);
-        let _ = generate_line(
-            a_loc,
-            a_half,
-            b_loc,
-            b_half,
-            &g.graph_defn.graph_attrs,
-            a,
-            b,
-            &mut commands,
-        );
-    }
-
-    // keep every surviving connector's path glued to its
-    // endpoints as nodes move - but only the connectors actually touching a
-    // node that moved *this frame*, not every connector in the graph.
-    // Dragging, spawning, and layout recomputation all touch `Transform` on
-    // whichever nodes are affected, so on a graph with many nodes
-    // `query_changed` is non-empty often enough that retracing (bezier
-    // rebuild + lyon re-tessellation) *every* connector on *every* frame
-    // regardless of whether its own endpoints moved was a real, measurable
-    // bottleneck at a few hundred nodes (a several-hundred-node stress-test
-    // graph).
-    if !query_changed.is_empty() {
-        let moved: HashSet<&str> = query_changed
+        // Each node's actual on-canvas footprint (see `node_half_extents`), keyed
+        // by name so both the new-connector and retrace loops below can look up
+        // either endpoint's real shape instead of assuming a fixed icon size.
+        let extents: HashMap<&str, Vec2> = g
+            .graph_defn
+            .node_instances
             .iter()
-            .map(|(m, _)| m.node_name.as_str())
+            .map(|n| (n.name.as_str(), node_half_extents(n)))
             .collect();
-        for (_, mut path, mut conn) in query_conn.iter_mut() {
-            if !moved.contains(conn.id1.as_str()) && !moved.contains(conn.id2.as_str()) {
-                continue;
+
+        // edges that should exist right now, keyed so A-B and B-A collapse to one entry.
+        // Keys/values borrow from `node_instances`/`query_conn` rather than cloning -
+        // this diff runs unconditionally every frame (it has to: `link()`/`unlink()`
+        // mutate a node's `links` directly with no event firing, so there's no cheap
+        // "topology changed" signal to gate it behind), and on a graph with a few
+        // hundred edges the old `(String, String)`-keyed version was allocating on the
+        // order of a few thousand `String`s per frame just to build and throw away two
+        // `HashMap`s - a real, measurable cost distinct from (and larger than) the
+        // path-retrace cost fixed above.
+        let mut desired: HashMap<(&str, &str), (&str, &str)> = HashMap::new();
+        for node in g.graph_defn.node_instances.iter() {
+            for peer in node.links.iter() {
+                if &node.name == peer {
+                    c_log!("Ignoring loopback: {}-{}", node.name, peer);
+                    continue;
+                }
+                if !all_node_loc.contains_key(&node.name) || !all_node_loc.contains_key(peer) {
+                    // one (or both) endpoints haven't been spawned as an entity yet -
+                    // pick this edge up on a later frame once they have been.
+                    continue;
+                }
+                let key = edge_key(&node.name, peer);
+                desired
+                    .entry(key)
+                    .or_insert_with(|| (node.name.as_str(), peer.as_str()));
             }
-            let node1_loc = all_node_loc.get(&conn.id1);
-            let node2_loc = all_node_loc.get(&conn.id2);
-            if node1_loc.is_none() || node2_loc.is_none() {
-                c_log!("Node not found for connector: {}-{}", conn.id1, conn.id2);
-                continue;
-            }
-            let a_half = extents.get(conn.id1.as_str()).copied().unwrap_or(DEFAULT_HALF_EXTENTS);
-            let b_half = extents.get(conn.id2.as_str()).copied().unwrap_or(DEFAULT_HALF_EXTENTS);
-            *path = build_connector_path(
-                node1_loc.unwrap().truncate(),
-                a_half,
-                node2_loc.unwrap().truncate(),
-                b_half,
-                g.graph_defn.graph_attrs.connector_style,
-            );
-            conn.path = path.0.clone();
-            conn.walk_cache = walk_path(&conn.path);
         }
-    }
+
+        let mut existing: HashMap<(&str, &str), Entity> = HashMap::new();
+        for (entity, _, conn) in query_conn.iter() {
+            existing.insert(edge_key(&conn.id1, &conn.id2), entity);
+        }
+
+        // drop connectors for edges that are no longer declared by either side
+        for (key, entity) in existing.iter() {
+            if !desired.contains_key(key) {
+                commands.entity(*entity).despawn_recursive();
+            }
+        }
+
+        // add connectors for newly-declared edges
+        for (key, &(a, b)) in desired.iter() {
+            if existing.contains_key(key) {
+                continue;
+            }
+            let a_loc = all_node_loc.get(a).unwrap();
+            let b_loc = all_node_loc.get(b).unwrap();
+            let a_half = extents.get(a).copied().unwrap_or(DEFAULT_HALF_EXTENTS);
+            let b_half = extents.get(b).copied().unwrap_or(DEFAULT_HALF_EXTENTS);
+            let _ = generate_line(
+                a_loc,
+                a_half,
+                b_loc,
+                b_half,
+                &g.graph_defn.graph_attrs,
+                a,
+                b,
+                &mut commands,
+            );
+        }
+
+        // keep every surviving connector's path glued to its
+        // endpoints as nodes move - but only the connectors actually touching a
+        // node that moved *this frame*, not every connector in the graph.
+        // Dragging, spawning, and layout recomputation all touch `Transform` on
+        // whichever nodes are affected, so on a graph with many nodes
+        // `query_changed` is non-empty often enough that retracing (bezier
+        // rebuild + lyon re-tessellation) *every* connector on *every* frame
+        // regardless of whether its own endpoints moved was a real, measurable
+        // bottleneck at a few hundred nodes (a several-hundred-node stress-test
+        // graph).
+        if !query_changed.is_empty() {
+            let moved: HashSet<&str> = query_changed
+                .iter()
+                .map(|(m, _)| m.node_name.as_str())
+                .collect();
+            for (_, mut path, mut conn) in query_conn.iter_mut() {
+                if !moved.contains(conn.id1.as_str()) && !moved.contains(conn.id2.as_str()) {
+                    continue;
+                }
+                let node1_loc = all_node_loc.get(&conn.id1);
+                let node2_loc = all_node_loc.get(&conn.id2);
+                if node1_loc.is_none() || node2_loc.is_none() {
+                    c_log!("Node not found for connector: {}-{}", conn.id1, conn.id2);
+                    continue;
+                }
+                let a_half = extents
+                    .get(conn.id1.as_str())
+                    .copied()
+                    .unwrap_or(DEFAULT_HALF_EXTENTS);
+                let b_half = extents
+                    .get(conn.id2.as_str())
+                    .copied()
+                    .unwrap_or(DEFAULT_HALF_EXTENTS);
+                *path = build_connector_path(
+                    node1_loc.unwrap().truncate(),
+                    a_half,
+                    node2_loc.unwrap().truncate(),
+                    b_half,
+                    g.graph_defn.graph_attrs.connector_style,
+                );
+                conn.path = path.0.clone();
+                conn.walk_cache = walk_path(&conn.path);
+            }
+        }
     })(); // TEMPORARY
     prof.update_connectors_ms += __prof_t0.elapsed().as_secs_f64() * 1000.0; // TEMPORARY
 }
@@ -499,7 +521,13 @@ fn generate_line(
     id2: &str,
     commands: &mut Commands,
 ) -> Entity {
-    let path = build_connector_path(a.truncate(), a_half, b.truncate(), b_half, ga.connector_style);
+    let path = build_connector_path(
+        a.truncate(),
+        a_half,
+        b.truncate(),
+        b_half,
+        ga.connector_style,
+    );
     let walking_path = path.0.clone();
     let walk_cache = walk_path(&walking_path);
     let cc = ga.connection_color;
@@ -637,7 +665,11 @@ mod tests {
             w: 160.0,
             h: 50.0,
             radius: 8.0,
-            paint: Paint { fill: None, stroke: None, stroke_width: 0.0 },
+            paint: Paint {
+                fill: None,
+                stroke: None,
+                stroke_width: 0.0,
+            },
         }]);
         let half = node_half_extents(&node);
         assert!((half.x - 80.0).abs() < 0.001);

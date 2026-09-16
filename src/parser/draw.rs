@@ -185,7 +185,10 @@ fn paint_of(map: &rhai::Map) -> Paint {
     let opacity = num_aliases(map, &["opacity"], 1.0);
     Paint {
         fill: with_opacity(color_of_aliases(map, &["fill", "bg", "color"]), opacity),
-        stroke: with_opacity(color_of_aliases(map, &["stroke", "border", "border_color"]), opacity),
+        stroke: with_opacity(
+            color_of_aliases(map, &["stroke", "border", "border_color"]),
+            opacity,
+        ),
         stroke_width: num_aliases(map, &["stroke_width", "border_width", "width"], 1.0).max(0.0),
     }
 }
@@ -284,12 +287,18 @@ pub fn parse_draw_cmd(value: &Dynamic) -> Option<DrawCmd> {
                     r: num(&map, "r", 16.0).max(1.0),
                     thickness: num(&map, "thickness", 3.0).max(0.5),
                     start_angle: num(&map, "start_angle", 90.0),
-                    clockwise: map.get("clockwise").and_then(|v| v.clone().try_cast::<bool>()).unwrap_or(true),
+                    clockwise: map
+                        .get("clockwise")
+                        .and_then(|v| v.clone().try_cast::<bool>())
+                        .unwrap_or(true),
                 },
                 "pie" => DrawProgressStyle::Pie {
                     r: num(&map, "r", 16.0).max(1.0),
                     start_angle: num(&map, "start_angle", 90.0),
-                    clockwise: map.get("clockwise").and_then(|v| v.clone().try_cast::<bool>()).unwrap_or(true),
+                    clockwise: map
+                        .get("clockwise")
+                        .and_then(|v| v.clone().try_cast::<bool>())
+                        .unwrap_or(true),
                 },
                 "segmented" => DrawProgressStyle::Segmented {
                     w: num(&map, "w", 32.0).max(1.0),
@@ -348,10 +357,9 @@ pub fn bounds(cmd: &DrawCmd) -> (Vec2, Vec2) {
                 Vec2::new(x - w / 2.0, y - h / 2.0),
                 Vec2::new(x + w / 2.0, y + h / 2.0),
             ),
-            DrawProgressStyle::Ring { r, .. } | DrawProgressStyle::Pie { r, .. } => (
-                Vec2::new(x - r, y - r),
-                Vec2::new(x + r, y + r),
-            ),
+            DrawProgressStyle::Ring { r, .. } | DrawProgressStyle::Pie { r, .. } => {
+                (Vec2::new(x - r, y - r), Vec2::new(x + r, y + r))
+            }
         },
         DrawCmd::Circle { x, y, r, .. } => (Vec2::new(x - r, y - r), Vec2::new(x + r, y + r)),
         DrawCmd::Line { x1, y1, x2, y2, .. } => (

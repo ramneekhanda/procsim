@@ -58,67 +58,67 @@ pub fn render_node_overlays(
 ) {
     let __prof_t0 = web_time::Instant::now(); // TEMPORARY
     (|| {
-    let dirty: Vec<String> = gd
-        .graph_defn
-        .node_instances
-        .iter()
-        .filter(|n| n.overlay_dirty)
-        .map(|n| n.name.clone())
-        .collect();
-    if dirty.is_empty() {
-        return;
-    }
-
-    let mut font: Handle<Font> = Default::default();
-    if let Some(ResourceType::FontHandle(f)) = ca.resource_map.get("default_font") {
-        font = f.clone();
-    }
-
-    // Only the names this pass actually rendered get their `overlay_dirty`
-    // cleared below - a node whose entity hasn't been spawned yet this
-    // frame (e.g. a template-seeded overlay - see `graphv2::instantiate_node`
-    // - racing `node_system::create_nodes` on the very same frame a graph
-    // loads) would otherwise have its flag cleared here having never been
-    // drawn at all, silently dropping the overlay for good. Left dirty, it
-    // simply tries again next frame once the entity exists.
-    let mut rendered = Vec::with_capacity(dirty.len());
-
-    for name in &dirty {
-        for (entity, marker) in existing.iter() {
-            if &marker.node_name == name {
-                commands.entity(entity).despawn_recursive();
-            }
-        }
-
-        let Some((node_entity, _)) = nodes.iter().find(|(_, m)| &m.node_name == name) else {
-            continue;
-        };
-        let Some(node) = gd
+        let dirty: Vec<String> = gd
             .graph_defn
             .node_instances
             .iter()
-            .find(|n| &n.name == name)
-        else {
-            continue;
-        };
-
-        for (i, cmd) in node.overlay.iter().enumerate() {
-            let z = OVERLAY_Z + i as f32 * 0.01;
-            let child = spawn_shape(&mut commands, cmd, z, &font, &ca, name)
-                .insert(NodeOverlayShape {
-                    node_name: name.clone(),
-                })
-                .id();
-            commands.entity(node_entity).add_child(child);
+            .filter(|n| n.overlay_dirty)
+            .map(|n| n.name.clone())
+            .collect();
+        if dirty.is_empty() {
+            return;
         }
-        rendered.push(name.clone());
-    }
 
-    for node in gd.graph_defn.node_instances.iter_mut() {
-        if rendered.contains(&node.name) {
-            node.overlay_dirty = false;
+        let mut font: Handle<Font> = Default::default();
+        if let Some(ResourceType::FontHandle(f)) = ca.resource_map.get("default_font") {
+            font = f.clone();
         }
-    }
+
+        // Only the names this pass actually rendered get their `overlay_dirty`
+        // cleared below - a node whose entity hasn't been spawned yet this
+        // frame (e.g. a template-seeded overlay - see `graphv2::instantiate_node`
+        // - racing `node_system::create_nodes` on the very same frame a graph
+        // loads) would otherwise have its flag cleared here having never been
+        // drawn at all, silently dropping the overlay for good. Left dirty, it
+        // simply tries again next frame once the entity exists.
+        let mut rendered = Vec::with_capacity(dirty.len());
+
+        for name in &dirty {
+            for (entity, marker) in existing.iter() {
+                if &marker.node_name == name {
+                    commands.entity(entity).despawn_recursive();
+                }
+            }
+
+            let Some((node_entity, _)) = nodes.iter().find(|(_, m)| &m.node_name == name) else {
+                continue;
+            };
+            let Some(node) = gd
+                .graph_defn
+                .node_instances
+                .iter()
+                .find(|n| &n.name == name)
+            else {
+                continue;
+            };
+
+            for (i, cmd) in node.overlay.iter().enumerate() {
+                let z = OVERLAY_Z + i as f32 * 0.01;
+                let child = spawn_shape(&mut commands, cmd, z, &font, &ca, name)
+                    .insert(NodeOverlayShape {
+                        node_name: name.clone(),
+                    })
+                    .id();
+                commands.entity(node_entity).add_child(child);
+            }
+            rendered.push(name.clone());
+        }
+
+        for node in gd.graph_defn.node_instances.iter_mut() {
+            if rendered.contains(&node.name) {
+                node.overlay_dirty = false;
+            }
+        }
     })(); // TEMPORARY
     prof.overlays_ms += __prof_t0.elapsed().as_secs_f64() * 1000.0; // TEMPORARY
 }
@@ -318,7 +318,9 @@ pub(crate) fn spawn_shape<'a>(
                             .spawn((
                                 ShapeBundle {
                                     path: GeometryBuilder::build_as(&shape),
-                                    spatial: SpatialBundle::from_transform(Transform::from_xyz(*x, *y, 0.0)),
+                                    spatial: SpatialBundle::from_transform(Transform::from_xyz(
+                                        *x, *y, 0.0,
+                                    )),
                                     ..default()
                                 },
                                 Fill::color(track_c),
@@ -396,7 +398,9 @@ pub(crate) fn spawn_shape<'a>(
                         .spawn((
                             ShapeBundle {
                                 path: GeometryBuilder::build_as(&track_shape),
-                                spatial: SpatialBundle::from_transform(Transform::from_xyz(*x, *y, 0.0)),
+                                spatial: SpatialBundle::from_transform(Transform::from_xyz(
+                                    *x, *y, 0.0,
+                                )),
                                 ..default()
                             },
                             Stroke::new(track_c, *thickness),
@@ -405,7 +409,8 @@ pub(crate) fn spawn_shape<'a>(
 
                     let mut pb = PathBuilder::new();
                     let start_rad = start_angle.to_radians();
-                    let start_pt = Vec2::new(*x, *y) + Vec2::new(r * start_rad.cos(), r * start_rad.sin());
+                    let start_pt =
+                        Vec2::new(*x, *y) + Vec2::new(r * start_rad.cos(), r * start_rad.sin());
                     let sweep_sign = if *clockwise { -1.0 } else { 1.0 };
                     let sweep_angle = sweep_sign * 360.0_f32.to_radians();
                     pb.move_to(start_pt);
@@ -415,7 +420,9 @@ pub(crate) fn spawn_shape<'a>(
                         .spawn((
                             ShapeBundle {
                                 path: pb.build(),
-                                spatial: SpatialBundle::from_transform(Transform::from_xyz(0.0, 0.0, 0.01)),
+                                spatial: SpatialBundle::from_transform(Transform::from_xyz(
+                                    0.0, 0.0, 0.01,
+                                )),
                                 ..default()
                             },
                             Stroke::new(fill_c, *thickness),
@@ -446,7 +453,9 @@ pub(crate) fn spawn_shape<'a>(
                         .spawn((
                             ShapeBundle {
                                 path: GeometryBuilder::build_as(&track_shape),
-                                spatial: SpatialBundle::from_transform(Transform::from_xyz(*x, *y, 0.0)),
+                                spatial: SpatialBundle::from_transform(Transform::from_xyz(
+                                    *x, *y, 0.0,
+                                )),
                                 ..default()
                             },
                             Fill::color(track_c),
@@ -455,7 +464,8 @@ pub(crate) fn spawn_shape<'a>(
 
                     let mut pb = PathBuilder::new();
                     let start_rad = start_angle.to_radians();
-                    let start_pt = Vec2::new(*x, *y) + Vec2::new(r * start_rad.cos(), r * start_rad.sin());
+                    let start_pt =
+                        Vec2::new(*x, *y) + Vec2::new(r * start_rad.cos(), r * start_rad.sin());
                     let sweep_sign = if *clockwise { -1.0 } else { 1.0 };
                     let sweep_angle = sweep_sign * 360.0_f32.to_radians();
                     pb.move_to(Vec2::new(*x, *y));
@@ -467,7 +477,9 @@ pub(crate) fn spawn_shape<'a>(
                         .spawn((
                             ShapeBundle {
                                 path: pb.build(),
-                                spatial: SpatialBundle::from_transform(Transform::from_xyz(0.0, 0.0, 0.01)),
+                                spatial: SpatialBundle::from_transform(Transform::from_xyz(
+                                    0.0, 0.0, 0.01,
+                                )),
                                 ..default()
                             },
                             Fill::color(fill_c),
@@ -524,7 +536,9 @@ pub(crate) fn spawn_shape<'a>(
                 }
             }
 
-            let mut parent = commands.spawn(SpatialBundle::from_transform(Transform::from_xyz(0.0, 0.0, z)));
+            let mut parent = commands.spawn(SpatialBundle::from_transform(Transform::from_xyz(
+                0.0, 0.0, z,
+            )));
             parent.push_children(&children_ids);
             parent
         }

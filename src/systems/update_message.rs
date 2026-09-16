@@ -190,18 +190,16 @@ pub fn update_message_path(
             let half = Vec2::new(bubble_width / 2.0, bubble_height / 2.0);
 
             let path = match shape_kind {
-                MessageBubbleShape::Rounded => {
-                    GeometryBuilder::build_as(&shapes::RoundedPolygon {
-                        points: vec![
-                            Vec2::new(-half.x, -half.y),
-                            Vec2::new(half.x, -half.y),
-                            Vec2::new(half.x, half.y),
-                            Vec2::new(-half.x, half.y),
-                        ],
-                        radius: BUBBLE_CORNER_RADIUS,
-                        ..shapes::RoundedPolygon::default()
-                    })
-                }
+                MessageBubbleShape::Rounded => GeometryBuilder::build_as(&shapes::RoundedPolygon {
+                    points: vec![
+                        Vec2::new(-half.x, -half.y),
+                        Vec2::new(half.x, -half.y),
+                        Vec2::new(half.x, half.y),
+                        Vec2::new(-half.x, half.y),
+                    ],
+                    radius: BUBBLE_CORNER_RADIUS,
+                    ..shapes::RoundedPolygon::default()
+                }),
                 MessageBubbleShape::Pill => GeometryBuilder::build_as(&shapes::RoundedPolygon {
                     points: vec![
                         Vec2::new(-half.x, -half.y),
@@ -254,9 +252,7 @@ pub fn update_message_path(
                             radius: DOT_RADIUS,
                             center: Vec2::ZERO,
                         }),
-                        spatial: SpatialBundle::from_transform(Transform::from_xyz(
-                            0.0, 0.0, 0.5,
-                        )),
+                        spatial: SpatialBundle::from_transform(Transform::from_xyz(0.0, 0.0, 0.5)),
                         ..default()
                     },
                     Fill::color(dot_color),
@@ -301,9 +297,7 @@ pub fn update_message_path(
                             ],
                             closed: true,
                         }),
-                        spatial: SpatialBundle::from_transform(Transform::from_xyz(
-                            0.0, 0.0, 1.1,
-                        )),
+                        spatial: SpatialBundle::from_transform(Transform::from_xyz(0.0, 0.0, 1.1)),
                         ..default()
                     },
                     Fill::color(bg_color),
@@ -321,9 +315,7 @@ pub fn update_message_path(
                             ],
                             closed: false,
                         }),
-                        spatial: SpatialBundle::from_transform(Transform::from_xyz(
-                            0.0, 0.0, 1.2,
-                        )),
+                        spatial: SpatialBundle::from_transform(Transform::from_xyz(0.0, 0.0, 1.2)),
                         ..default()
                     },
                     Stroke::new(stroke_color, stroke_width),
@@ -357,11 +349,7 @@ pub fn update_message_path(
                 .spawn(Text2dBundle {
                     text: Text::from_section(mesg.str.clone(), text_style.clone())
                         .with_justify(JustifyText::Center),
-                    transform: Transform::from_translation(Vec3::new(
-                        text_x,
-                        bubble_center_y,
-                        1.3,
-                    )),
+                    transform: Transform::from_translation(Vec3::new(text_x, bubble_center_y, 1.3)),
                     ..default()
                 })
                 .id();

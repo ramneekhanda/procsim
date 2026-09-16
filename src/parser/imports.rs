@@ -106,7 +106,8 @@ pub const PRESET_THEME_SYNTHWAVE: &str = include_str!("../../plibs/themes/synthw
 pub const PRESET_THEME_NORDIC: &str = include_str!("../../plibs/themes/nordic.yml");
 pub const PRESET_THEME_DRACULA: &str = include_str!("../../plibs/themes/dracula.yml");
 pub const PRESET_THEME_MATRIX: &str = include_str!("../../plibs/themes/matrix.yml");
-pub const PRESET_THEME_SOLARIZED_LIGHT: &str = include_str!("../../plibs/themes/solarized_light.yml");
+pub const PRESET_THEME_SOLARIZED_LIGHT: &str =
+    include_str!("../../plibs/themes/solarized_light.yml");
 
 pub const PRESET_AWS_COMPUTE: &str = include_str!("../../plibs/aws/compute.yml");
 pub const PRESET_AWS_NETWORKING: &str = include_str!("../../plibs/aws/networking.yml");
@@ -198,9 +199,7 @@ pub fn get_builtin_preset(name: &str) -> Option<&'static str> {
         | "plibs/themes/solarized_light.yml" => Some(PRESET_THEME_SOLARIZED_LIGHT),
 
         // AWS library: plibs:aws/<module>
-        "plibs:aws/compute" | "aws:compute" | "plibs/aws/compute.yml" => {
-            Some(PRESET_AWS_COMPUTE)
-        }
+        "plibs:aws/compute" | "aws:compute" | "plibs/aws/compute.yml" => Some(PRESET_AWS_COMPUTE),
         "plibs:aws/networking" | "aws:networking" | "plibs/aws/networking.yml" => {
             Some(PRESET_AWS_NETWORKING)
         }
@@ -248,11 +247,7 @@ pub fn scan_import_urls(raw_yaml: &str) -> Vec<String> {
 
     // Also attempt parsing as File to catch full structured imports
     if let Ok(file) = serde_yaml::from_str::<File>(raw_yaml) {
-        for imp in file
-            .imports
-            .iter()
-            .chain(file.graph_defn.imports.iter())
-        {
+        for imp in file.imports.iter().chain(file.graph_defn.imports.iter()) {
             if imp.from.starts_with("http://") || imp.from.starts_with("https://") {
                 if !urls.contains(&imp.from) {
                     urls.push(imp.from.clone());
@@ -371,7 +366,9 @@ fn resolve_file_recursive(
 ) -> Result<File, serde_yaml::Error> {
     use serde::de::Error as SerdeError;
     if depth > 8 {
-        return Err(serde_yaml::Error::custom("Cyclic or too deeply nested imports"));
+        return Err(serde_yaml::Error::custom(
+            "Cyclic or too deeply nested imports",
+        ));
     }
 
     let mut file: File = serde_yaml::from_str(raw_yaml)?;
@@ -459,14 +456,24 @@ graph_defn:
     - id: client
       attrs:
         ticks: 2
-"#.to_string();
+"#
+        .to_string();
 
         let file = parse_graph2(&yaml).expect("Should parse with cyberpunk theme");
         assert_eq!(
-            file.graph_defn.graph_attrs.message_theme.as_ref().unwrap().shape,
+            file.graph_defn
+                .graph_attrs
+                .message_theme
+                .as_ref()
+                .unwrap()
+                .shape,
             MessageBubbleShape::Chamfered
         );
-        assert!(file.graph_defn.node_templates.iter().any(|t| t.id == "cyber_hud"));
+        assert!(file
+            .graph_defn
+            .node_templates
+            .iter()
+            .any(|t| t.id == "cyber_hud"));
         assert_eq!(file.graph_defn.node_instances.len(), 1);
     }
 
@@ -546,12 +553,21 @@ graph_defn:
     - id: server
       attrs:
         ticks: 1
-"#.to_string();
+"#
+        .to_string();
 
         let file = parse_graph2(&yaml).expect("Should parse with stdlib load balancer");
         assert_eq!(file.graph_defn.node_instances.len(), 2);
-        assert!(file.graph_defn.node_types.iter().any(|t| t.id == "round_robin_lb"));
-        assert!(file.graph_defn.node_types.iter().any(|t| t.id == "weighted_lb"));
+        assert!(file
+            .graph_defn
+            .node_types
+            .iter()
+            .any(|t| t.id == "round_robin_lb"));
+        assert!(file
+            .graph_defn
+            .node_types
+            .iter()
+            .any(|t| t.id == "weighted_lb"));
     }
 
     #[test]
@@ -566,11 +582,16 @@ graph_defn:
     - name: lb
       node_type: my_lb
       links: []
-"#.to_string();
+"#
+        .to_string();
 
         let file = parse_graph2(&yaml).expect("Should parse with aliased selective import");
         assert!(file.graph_defn.node_types.iter().any(|t| t.id == "my_lb"));
-        assert!(!file.graph_defn.node_types.iter().any(|t| t.id == "weighted_lb"));
+        assert!(!file
+            .graph_defn
+            .node_types
+            .iter()
+            .any(|t| t.id == "weighted_lb"));
         assert_eq!(file.graph_defn.node_instances[0].node_data.id, "my_lb");
     }
 
@@ -584,10 +605,14 @@ graph_defn:
     - name: worker
       node_type: remote_worker
       links: []
-"#.to_string();
+"#
+        .to_string();
 
         let urls = scan_import_urls(&yaml);
-        assert_eq!(urls, vec!["https://example.com/custom_nodes.yml".to_string()]);
+        assert_eq!(
+            urls,
+            vec!["https://example.com/custom_nodes.yml".to_string()]
+        );
 
         let remote_content = r#"
 graph_defn:
@@ -599,11 +624,18 @@ graph_defn:
         fn on_init() { log("Remote worker ready"); }
 "#;
         let mut sources = HashMap::new();
-        sources.insert("https://example.com/custom_nodes.yml".to_string(), remote_content.to_string());
+        sources.insert(
+            "https://example.com/custom_nodes.yml".to_string(),
+            remote_content.to_string(),
+        );
 
-        let file = parse_graph2_with_sources(&yaml, &sources).expect("Should parse with remote sources");
+        let file =
+            parse_graph2_with_sources(&yaml, &sources).expect("Should parse with remote sources");
         assert_eq!(file.graph_defn.node_instances.len(), 1);
-        assert_eq!(file.graph_defn.node_instances[0].node_data.id, "remote_worker");
+        assert_eq!(
+            file.graph_defn.node_instances[0].node_data.id,
+            "remote_worker"
+        );
     }
 
     #[test]
@@ -619,13 +651,28 @@ graph_defn:
         ticks: 99
 imports:
   - from: "stdlib:load_balancer"
-"#.to_string();
+"#
+        .to_string();
 
         let file = parse_graph2(&yaml).expect("Should parse with override");
-        assert_eq!(file.graph_defn.graph_attrs.title, "My Custom Cyberpunk Graph");
-        let lb_type = file.graph_defn.node_types.iter().find(|t| t.id == "round_robin_lb").unwrap();
-        assert_eq!(lb_type.attrs.ticks, crate::parser::graphv2::Ticks::Fixed(99));
-        assert!(lb_type.func.is_some(), "Should inherit func from stdlib:load_balancer");
+        assert_eq!(
+            file.graph_defn.graph_attrs.title,
+            "My Custom Cyberpunk Graph"
+        );
+        let lb_type = file
+            .graph_defn
+            .node_types
+            .iter()
+            .find(|t| t.id == "round_robin_lb")
+            .unwrap();
+        assert_eq!(
+            lb_type.attrs.ticks,
+            crate::parser::graphv2::Ticks::Fixed(99)
+        );
+        assert!(
+            lb_type.func.is_some(),
+            "Should inherit func from stdlib:load_balancer"
+        );
     }
 
     #[test]
@@ -661,7 +708,8 @@ imports:
 
         for preset in presets {
             let yaml = format!("imports:\n  - from: \"{}\"\n", preset);
-            let file = parse_graph2(&yaml).unwrap_or_else(|e| panic!("Preset '{}' failed to parse: {}", preset, e));
+            let file = parse_graph2(&yaml)
+                .unwrap_or_else(|e| panic!("Preset '{}' failed to parse: {}", preset, e));
             let _ = file;
         }
     }
@@ -669,29 +717,73 @@ imports:
     #[test]
     fn test_all_builtin_themes_have_explain_theme() {
         let themes = [
-            ("plibs:themes/cyberpunk", crate::parser::graphv2::MessageBubbleShape::Chamfered),
-            ("plibs:themes/cloud", crate::parser::graphv2::MessageBubbleShape::Rounded),
-            ("plibs:themes/datacenter", crate::parser::graphv2::MessageBubbleShape::Box),
-            ("plibs:themes/minimal", crate::parser::graphv2::MessageBubbleShape::Pill),
-            ("plibs:themes/synthwave", crate::parser::graphv2::MessageBubbleShape::Chamfered),
-            ("plibs:themes/nordic", crate::parser::graphv2::MessageBubbleShape::Rounded),
-            ("plibs:themes/dracula", crate::parser::graphv2::MessageBubbleShape::Rounded),
-            ("plibs:themes/matrix", crate::parser::graphv2::MessageBubbleShape::Box),
-            ("plibs:themes/solarized_light", crate::parser::graphv2::MessageBubbleShape::Pill),
+            (
+                "plibs:themes/cyberpunk",
+                crate::parser::graphv2::MessageBubbleShape::Chamfered,
+            ),
+            (
+                "plibs:themes/cloud",
+                crate::parser::graphv2::MessageBubbleShape::Rounded,
+            ),
+            (
+                "plibs:themes/datacenter",
+                crate::parser::graphv2::MessageBubbleShape::Box,
+            ),
+            (
+                "plibs:themes/minimal",
+                crate::parser::graphv2::MessageBubbleShape::Pill,
+            ),
+            (
+                "plibs:themes/synthwave",
+                crate::parser::graphv2::MessageBubbleShape::Chamfered,
+            ),
+            (
+                "plibs:themes/nordic",
+                crate::parser::graphv2::MessageBubbleShape::Rounded,
+            ),
+            (
+                "plibs:themes/dracula",
+                crate::parser::graphv2::MessageBubbleShape::Rounded,
+            ),
+            (
+                "plibs:themes/matrix",
+                crate::parser::graphv2::MessageBubbleShape::Box,
+            ),
+            (
+                "plibs:themes/solarized_light",
+                crate::parser::graphv2::MessageBubbleShape::Pill,
+            ),
         ];
 
         for (theme_name, expected_shape) in themes {
             let yaml = format!("imports:\n  - from: \"{}\"\n", theme_name);
-            let file = parse_graph2(&yaml).unwrap_or_else(|e| panic!("Theme '{}' failed to parse: {}", theme_name, e));
+            let file = parse_graph2(&yaml)
+                .unwrap_or_else(|e| panic!("Theme '{}' failed to parse: {}", theme_name, e));
             let explain_theme = file
                 .graph_defn
                 .graph_attrs
                 .explain_theme
                 .unwrap_or_else(|| panic!("Theme '{}' missing explain_theme", theme_name));
-            assert_eq!(explain_theme.shape, expected_shape, "Theme '{}' had unexpected explain_theme shape", theme_name);
-            assert!(explain_theme.bg.is_some(), "Theme '{}' missing bg", theme_name);
-            assert!(explain_theme.border.is_some(), "Theme '{}' missing border", theme_name);
-            assert!(explain_theme.accent.is_some(), "Theme '{}' missing accent", theme_name);
+            assert_eq!(
+                explain_theme.shape, expected_shape,
+                "Theme '{}' had unexpected explain_theme shape",
+                theme_name
+            );
+            assert!(
+                explain_theme.bg.is_some(),
+                "Theme '{}' missing bg",
+                theme_name
+            );
+            assert!(
+                explain_theme.border.is_some(),
+                "Theme '{}' missing border",
+                theme_name
+            );
+            assert!(
+                explain_theme.accent.is_some(),
+                "Theme '{}' missing accent",
+                theme_name
+            );
         }
     }
 
@@ -723,10 +815,16 @@ imports:
                 theme_name
             );
             let file = parse_graph2(&yaml).unwrap_or_else(|e| {
-                panic!("Theme '{}' failed to compile with template_ref: node: {}", theme_name, e)
+                panic!(
+                    "Theme '{}' failed to compile with template_ref: node: {}",
+                    theme_name, e
+                )
             });
             assert!(
-                file.graph_defn.node_templates.iter().any(|t| t.id == "node"),
+                file.graph_defn
+                    .node_templates
+                    .iter()
+                    .any(|t| t.id == "node"),
                 "Theme '{}' did not register a 'node' template",
                 theme_name
             );
@@ -761,19 +859,44 @@ graph_defn:
         assert!(file.graph_defn.icons.iter().any(|i| i.id == "aws_alb"));
         assert!(file.graph_defn.icons.iter().any(|i| i.id == "aws_dynamodb"));
         assert!(file.graph_defn.icons.iter().any(|i| i.id == "aws_sqs"));
-        assert!(file.graph_defn.node_templates.iter().any(|t| t.id == "cloud_card"));
-        let lambda_node = file.graph_defn.node_types.iter().find(|t| t.id == "lambda_func").unwrap();
-        assert_eq!(lambda_node.attrs.template_ref, Some("cloud_card".to_string()));
+        assert!(file
+            .graph_defn
+            .node_templates
+            .iter()
+            .any(|t| t.id == "cloud_card"));
+        let lambda_node = file
+            .graph_defn
+            .node_types
+            .iter()
+            .find(|t| t.id == "lambda_func")
+            .unwrap();
+        assert_eq!(
+            lambda_node.attrs.template_ref,
+            Some("cloud_card".to_string())
+        );
         assert!(lambda_node.attrs.template_params.is_some());
         let params = lambda_node.attrs.template_params.as_ref().unwrap();
         assert_eq!(params.get("role").map(|s| s.as_str()), Some("AWS Lambda"));
         assert_eq!(params.get("icon").map(|s| s.as_str()), Some("aws_lambda"));
 
-        let dynamo_node = file.graph_defn.node_types.iter().find(|t| t.id == "dynamodb").unwrap();
-        assert_eq!(dynamo_node.attrs.template_ref, Some("cloud_card".to_string()));
+        let dynamo_node = file
+            .graph_defn
+            .node_types
+            .iter()
+            .find(|t| t.id == "dynamodb")
+            .unwrap();
+        assert_eq!(
+            dynamo_node.attrs.template_ref,
+            Some("cloud_card".to_string())
+        );
         let dynamo_params = dynamo_node.attrs.template_params.as_ref().unwrap();
-        assert_eq!(dynamo_params.get("role").map(|s| s.as_str()), Some("Amazon DynamoDB"));
-        assert_eq!(dynamo_params.get("icon").map(|s| s.as_str()), Some("aws_dynamodb"));
+        assert_eq!(
+            dynamo_params.get("role").map(|s| s.as_str()),
+            Some("Amazon DynamoDB")
+        );
+        assert_eq!(
+            dynamo_params.get("icon").map(|s| s.as_str()),
+            Some("aws_dynamodb")
+        );
     }
 }
-

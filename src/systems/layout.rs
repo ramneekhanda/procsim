@@ -1,5 +1,5 @@
-use std::collections::{HashMap, HashSet, VecDeque};
 use bevy::prelude::*;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::parser::graphv2::{
     GraphDefinition, GroupDef, LayoutConfig, LayoutDirection, LayoutType, NodeConnection,
@@ -161,8 +161,11 @@ fn compute_hierarchical_layout(
     let global_dir = layout_config.direction;
 
     // Node lookup map
-    let node_map: HashMap<String, &NodeConnection> =
-        graph_defn.graph.iter().map(|n| (n.name.clone(), n)).collect();
+    let node_map: HashMap<String, &NodeConnection> = graph_defn
+        .graph
+        .iter()
+        .map(|n| (n.name.clone(), n))
+        .collect();
 
     // 1. Group membership resolution
     let mut node_to_group: HashMap<String, String> = HashMap::new();
@@ -201,7 +204,10 @@ fn compute_hierarchical_layout(
 
         // Sort group members by explicit order if given
         members.sort_by_key(|n_name| {
-            node_map.get(n_name).and_then(|n| n.order).unwrap_or(usize::MAX)
+            node_map
+                .get(n_name)
+                .and_then(|n| n.order)
+                .unwrap_or(usize::MAX)
         });
 
         // Determine group internal layout direction (defaults to opposite of global direction)
@@ -439,7 +445,8 @@ fn compute_hierarchical_layout(
                     let step = if !is_g1 && !is_g2 {
                         node_spacing
                     } else {
-                        (macro_elements[layer[i]].size.y + macro_elements[layer[i + 1]].size.y) / 2.0
+                        (macro_elements[layer[i]].size.y + macro_elements[layer[i + 1]].size.y)
+                            / 2.0
                             + (group_spacing - 140.0).max(30.0)
                     };
                     steps.push(step);
@@ -487,7 +494,8 @@ fn compute_hierarchical_layout(
                     let step = if !is_g1 && !is_g2 {
                         node_spacing
                     } else {
-                        (macro_elements[layer[i]].size.x + macro_elements[layer[i + 1]].size.x) / 2.0
+                        (macro_elements[layer[i]].size.x + macro_elements[layer[i + 1]].size.x)
+                            / 2.0
                             + (group_spacing - 140.0).max(30.0)
                     };
                     steps.push(step);
@@ -511,7 +519,11 @@ fn compute_hierarchical_layout(
     for (m_idx, m) in macro_elements.iter().enumerate() {
         let m_center = macro_centers.get(&m_idx).copied().unwrap_or(Vec2::ZERO);
         for n_name in &m.member_nodes {
-            let rel_pos = m.internal_positions.get(n_name).copied().unwrap_or(Vec2::ZERO);
+            let rel_pos = m
+                .internal_positions
+                .get(n_name)
+                .copied()
+                .unwrap_or(Vec2::ZERO);
             let mut final_pos = m_center + rel_pos;
 
             if let Some(n_conn) = node_map.get(n_name) {
@@ -600,7 +612,9 @@ fn compute_hierarchical_layout(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::graphv2::{GroupLayoutConfig, LayoutConfig, LayoutDirection, NodeConnection};
+    use crate::parser::graphv2::{
+        GroupLayoutConfig, LayoutConfig, LayoutDirection, NodeConnection,
+    };
 
     #[test]
     fn test_hierarchical_lr_pipeline() {
@@ -651,19 +665,17 @@ mod tests {
             direction: LayoutDirection::Lr,
             ..default()
         });
-        gd.groups = vec![
-            GroupDef {
-                id: "compute".to_string(),
-                title: Some("Compute Tier".to_string()),
-                layout: Some(GroupLayoutConfig {
-                    direction: Some(LayoutDirection::Tb),
-                    sep: Some(120.0),
-                    ..default()
-                }),
-                nodes: vec!["worker_1".to_string(), "worker_2".to_string()],
+        gd.groups = vec![GroupDef {
+            id: "compute".to_string(),
+            title: Some("Compute Tier".to_string()),
+            layout: Some(GroupLayoutConfig {
+                direction: Some(LayoutDirection::Tb),
+                sep: Some(120.0),
                 ..default()
-            },
-        ];
+            }),
+            nodes: vec!["worker_1".to_string(), "worker_2".to_string()],
+            ..default()
+        }];
         gd.graph = vec![
             NodeConnection {
                 name: "gateway".to_string(),
@@ -715,15 +727,13 @@ mod tests {
     #[test]
     fn test_explicit_pos_override() {
         let mut gd = GraphDefinition::default();
-        gd.graph = vec![
-            NodeConnection {
-                name: "n1".to_string(),
-                node_type: "type1".to_string(),
-                pos: Some([100.0, 200.0]),
-                links: vec![],
-                ..default()
-            },
-        ];
+        gd.graph = vec![NodeConnection {
+            name: "n1".to_string(),
+            node_type: "type1".to_string(),
+            pos: Some([100.0, 200.0]),
+            links: vec![],
+            ..default()
+        }];
 
         let layout = compute_graph_layout(&gd);
         let pos = layout.node_positions.get("n1").unwrap();
