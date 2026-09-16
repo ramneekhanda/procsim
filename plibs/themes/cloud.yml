@@ -19,31 +19,54 @@ graph_defn:
       text_color: "#0f172a"
       accent: "#2563eb"
       button_text_color: "#ffffff"
-      shadow_color: "rgba(15, 23, 42, 0.15)"
-      backdrop_color: "rgba(15, 23, 42, 0.45)"
+      shadow_color: "rgba(0, 0, 0, 0.12)"
+      backdrop_color: "rgba(15, 23, 42, 0.35)"
   node_templates:
     - id: cloud_card
       shapes:
+        # Soft drop shadow behind the card body - the flat 1.5px border alone
+        # read as a paper cutout with no depth; a low-opacity offset copy of
+        # the card's own silhouette is the cheapest way to give it real lift.
+        - shape: roundedrect
+          x: 3.0
+          y: -4.0
+          w: 124.0
+          h: 72.0
+          radius: 10.0
+          fill: "#0f172a1f"
         - shape: roundedrect
           x: 0.0
           y: 0.0
           w: 124.0
           h: 72.0
-          radius: 8.0
+          radius: 10.0
           fill: "#ffffff"
-          stroke: "#cbd5e1"
-          stroke_width: 1.5
-        - shape: rect
+          stroke: "#e2e8f0"
+          stroke_width: 1.2
+        # Accent bar - rounded (not a sharp rect) so its corners don't poke
+        # past the card's own rounded silhouette at the top edge.
+        - shape: roundedrect
           x: 0.0
           y: 32.0
           w: 124.0
           h: 8.0
+          radius: 6.0
           fill: "{{accent_color}}"
+        # Tinted ring behind the icon - a bare black-line glyph on white read
+        # as disconnected from the card's accent color; the ring ties it in
+        # regardless of which accent color this instance uses.
+        - shape: circle
+          x: -42.0
+          y: 12.0
+          r: 15.0
+          fill: "#f8fafc"
+          stroke: "{{accent_color}}"
+          stroke_width: 1.5
         - shape: icon
           x: -42.0
           y: 12.0
-          w: 22.0
-          h: 22.0
+          w: 20.0
+          h: 20.0
           icon: "{{icon}}"
         - shape: text
           x: 10.0
@@ -62,10 +85,18 @@ graph_defn:
           y: -20.0
           w: 108.0
           h: 14.0
-          radius: 4.0
+          radius: 7.0
           fill: "{{status_bg}}"
+        # Leading status dot, console-indicator style - text alone in a flat
+        # pill under-used the badge's height; paired with the dot it reads
+        # like a status chip instead of a plain label.
+        - shape: circle
+          x: -40.0
+          y: -20.0
+          r: 3.0
+          fill: "{{status_color}}"
         - shape: text
-          x: 0.0
+          x: 6.0
           y: -20.0
           text: "{{status_text}}"
           size: 7.5
@@ -74,32 +105,47 @@ graph_defn:
           style: bar
           x: 0.0
           y: -34.0
-          w: 124.0
-          h: 4.0
-          track_color: "#f1f5f9"
+          w: 108.0
+          h: 3.0
+          track_color: "#eef2f7"
           fill_color: "{{accent_color}}"
     - id: node
       shapes:
+        - shape: roundedrect
+          x: 3.0
+          y: -3.0
+          w: 120.0
+          h: 56.0
+          radius: 12.0
+          fill: "#0f172a1f"
         - shape: roundedrect
           x: 0.0
           y: 0.0
           w: 120.0
           h: 56.0
-          radius: 10.0
+          radius: 12.0
           fill: "#ffffff"
-          stroke: "#cbd5e1"
-          stroke_width: 1.5
-        - shape: rect
+          stroke: "#e2e8f0"
+          stroke_width: 1.2
+        - shape: roundedrect
           x: 0.0
           y: 24.0
           w: 120.0
           h: 7.0
+          radius: 5.0
           fill: "{{accent_color}}"
+        - shape: circle
+          x: -40.0
+          y: 2.0
+          r: 13.0
+          fill: "#f8fafc"
+          stroke: "{{accent_color}}"
+          stroke_width: 1.5
         - shape: icon
           x: -40.0
           y: 2.0
-          w: 20.0
-          h: 20.0
+          w: 18.0
+          h: 18.0
           icon: "{{icon}}"
         - shape: text
           x: 8.0
@@ -120,8 +166,13 @@ graph_defn:
           h: 13.0
           radius: 6.5
           fill: "{{status_bg}}"
+        - shape: circle
+          x: -37.0
+          y: -20.0
+          r: 2.75
+          fill: "{{status_color}}"
         - shape: text
-          x: 0.0
+          x: 5.0
           y: -20.0
           text: "{{status_text}}"
           size: 7.0
