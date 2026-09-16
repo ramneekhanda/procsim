@@ -105,6 +105,35 @@ fn node_param_editor(ui: &mut egui::Ui, node: &mut Node) {
     });
 }
 
+/// Read-only, live-updating view of a node's persistent `state` (the
+/// `Dynamic` a script reads/writes via `state.x = ...` across ticks/messages
+/// - see `systems::rhai_engine`'s state round-trip doc comment). Unlike
+/// `node_param_editor`'s typed fields, `state` has no schema - it's whatever
+/// shape the script's own handlers gave it - so this just renders Rhai's own
+/// `Display` formatting for it (the same `format!("{}", ...)` rendering
+/// already used for a message's default display text in
+/// `rhai_engine::send_messages`, e.g. `#{"count": 3, "has_token": true}`)
+/// rather than trying to build a typed editor for an untyped value.
+fn node_state_viewer(ui: &mut egui::Ui, node: &Node) {
+    ui.separator();
+    ui.label(egui::RichText::new("State").strong());
+    let mut text = if node.state.is_unit() {
+        "(no state)".to_string()
+    } else {
+        format!("{}", node.state)
+    };
+    egui::ScrollArea::vertical()
+        .max_height(160.0)
+        .show(ui, |ui| {
+            ui.add(
+                egui::TextEdit::multiline(&mut text)
+                    .desired_width(f32::INFINITY)
+                    .font(egui::TextStyle::Monospace)
+                    .interactive(false),
+            );
+        });
+}
+
 /// Simulation-wide settings (speed, colors) - deliberately *not* the node
 /// param editor (see `node_properties_popup`), so this window stays a fixed,
 /// small size regardless of which/how many nodes exist. Hidden until
@@ -255,6 +284,7 @@ pub fn node_properties_popup(
     let response = window.show(contexts.ctx_mut(), |ui| {
         if let Some(node) = get_node_with_name_mut(&node_name, &mut graph_defn) {
             node_param_editor(ui, node);
+            node_state_viewer(ui, node);
         } else {
             ui.label("This node no longer exists.");
         }
