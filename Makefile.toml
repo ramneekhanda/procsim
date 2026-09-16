@@ -25,11 +25,22 @@ args = ["build"]
 
 [tasks.build-wasm]
 private = true
-script = '''${CARGO_BUILD}'''
+# `eval` (not a bare `${CARGO_BUILD}`) is required: the shell expands
+# `${CARGO_BUILD}` textually and then word-splits the *result* into a flat
+# argv without ever re-parsing it as shell source - so `VAR="$(cmd)" cmd`
+# prefix syntax and `$(...)` command substitution inside CARGO_BUILD's value
+# silently never take effect (the shell tries to exec the literal first
+# word, e.g. `RUSTC="$(rustup`, and fails with "not found"). `eval` forces a
+# second parse pass over the expanded text, which is what actually makes the
+# `RUSTC=... cargo build` invocation work as shell syntax. Same issue and
+# fix applies to WASM_BUILD below.
+script_runner = "@shell"
+script = '''eval "${CARGO_BUILD}"'''
 
 [tasks.wasm-bindgen]
 private = true
-script = '''${WASM_BUILD}'''
+script_runner = "@shell"
+script = '''eval "${WASM_BUILD}"'''
 dependencies = ["build-wasm"]
 
 [tasks.ensure-dirs]
