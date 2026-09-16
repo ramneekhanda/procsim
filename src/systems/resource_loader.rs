@@ -24,13 +24,13 @@ fn load_default_fonts_and_icons(ca: &mut ResMut<CommonAssets>, asset_server: &Re
         ResourceType::FontHandle(asset_server.load(DEFAULT_FONT_URL)),
     );
     ca.resource_map.insert(
-      "default_system_icon".to_string(),
-      // Bundled locally under assets/icons/ (see NOTICE.md there) rather than
-      // fetched from raw.githubusercontent.com at runtime - some proxies
-      // block that host even when the rest of GitHub is reachable, which
-      // broke this unconditional default (every node without its own icon)
-      // for anyone behind one.
-      ResourceType::ImageHandle( asset_server.load("icons/Servers.png"))
+        "default_system_icon".to_string(),
+        // Bundled locally under assets/icons/ (see NOTICE.md there) rather than
+        // fetched from raw.githubusercontent.com at runtime - some proxies
+        // block that host even when the rest of GitHub is reachable, which
+        // broke this unconditional default (every node without its own icon)
+        // for anyone behind one.
+        ResourceType::ImageHandle(asset_server.load("icons/Servers.png")),
     );
 }
 
@@ -39,7 +39,10 @@ fn load_resources_from_file(
     asset_server: &Res<AssetServer>,
     g: &Res<GraphDefinitionRes>,
 ) {
-    c_log!("load_resources_from_file: found {} icons", g.graph_defn.icons.len());
+    c_log!(
+        "load_resources_from_file: found {} icons",
+        g.graph_defn.icons.len()
+    );
     for icon in &g.graph_defn.icons {
         c_log!("  inserting icon '{}' -> '{}'", icon.id, icon.url);
         ca.resource_map.insert(
@@ -57,10 +60,14 @@ fn load_resources_from_file(
     // gate re-triggering - on every single graph reload).
     let wanted_font = g.graph_defn.graph_attrs.font.clone();
     if wanted_font != ca.theme_font_url {
-        let url = wanted_font.clone().unwrap_or_else(|| DEFAULT_FONT_URL.to_string());
+        let url = wanted_font
+            .clone()
+            .unwrap_or_else(|| DEFAULT_FONT_URL.to_string());
         c_log!("theme font changed -> '{}'", url);
-        ca.resource_map
-            .insert("default_font".to_string(), ResourceType::FontHandle(asset_server.load(url)));
+        ca.resource_map.insert(
+            "default_font".to_string(),
+            ResourceType::FontHandle(asset_server.load(url)),
+        );
         ca.theme_font_url = wanted_font;
     }
 }
@@ -79,6 +86,28 @@ pub fn load_assets(
             load_default_fonts_and_icons(&mut ca, &asset_server);
         }
         load_resources_from_file(&mut ca, &asset_server, &g);
+
+        // Drop anything this graph doesn't need and isn't one of the two
+        // app-wide defaults. Without this, a resource left over from a
+        // previously-loaded graph (any earlier tutorial lesson/example this
+        // session) that never resolves to Loaded or Failed - a stalled
+        // fetch, browser connection throttling, anything - permanently
+        // wedges the `still_loading` check below for every graph loaded
+        // afterward, since it used to scan the *entire* accumulated map
+        // rather than just what's actually needed right now. That's why
+        // this bug got more likely the more reloads happened in a
+        // session: more accumulated entries, more chances one gets stuck,
+        // and once `LoadingState` is wedged at `Loading`, `GraphChange`
+        // never fires again - nodes despawned by the last edit never get
+        // respawned.
+        let needed: std::collections::HashSet<&str> = g
+            .graph_defn
+            .icons
+            .iter()
+            .map(|icon| icon.id.as_str())
+            .chain(["default_font", "default_system_icon"])
+            .collect();
+        ca.resource_map.retain(|id, _| needed.contains(id.as_str()));
     }
 
     use bevy::asset::LoadState;
