@@ -37,8 +37,8 @@ graph_defn:
   layout:
     type: hierarchical
     direction: lr
-    rank_sep: 220
-    node_sep: 110
+    rank_sep: 300
+    node_sep: 200
   graph_attrs:
     title: "AWS Multi-Tier Cloud Architecture"
   groups:

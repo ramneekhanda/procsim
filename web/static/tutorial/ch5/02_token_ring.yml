@@ -49,6 +49,7 @@ graph_defn:
     type: circular
   graph_attrs:
     title: "Token Ring Mutual Exclusion"
+    connector_style: curved
   node_types:
     - id: ring_peer
       fn: *ring_node_fn

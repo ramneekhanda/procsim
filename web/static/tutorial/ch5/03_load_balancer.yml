@@ -6,10 +6,13 @@ fns:
     fn on_timer() {
       state.req_id += 1;
       log("Client sending Request #" + state.req_id);
+      // No reply_to here - the client shouldn't need to know or care how its
+      // request gets routed back. The engine already stamps `from` on every
+      // message the load balancer receives, so the LB can derive the reply
+      // path itself (see lb_fn.on_msg below).
       send("load_balancer", #{
         type: "REQ",
-        id: state.req_id,
-        reply_to: "client"
+        id: state.req_id
       });
     }
     fn on_msg(msg) {
@@ -26,12 +29,19 @@ fns:
     }
     fn on_msg(msg) {
       if msg.type == "REQ" {
-        let workers = ["worker_1", "worker_2", "worker_3"];
-        let target = workers[state.idx % workers.len()];
+        // links already is the worker pool (graph_defn.graph declares
+        // links: [worker_1, worker_2, worker_3]) - route off that directly
+        // instead of a second, hand-maintained copy that could drift from it.
+        let target = links[state.idx % links.len()];
         state.idx += 1;
         state.total_routed += 1;
         log("LB routing Req #" + msg.id + " -> " + target);
         update_ui(state.total_routed);
+        // msg.from is the client's name, filled in by the engine when the
+        // client's own send() landed here - stamp it as reply_to so the
+        // worker (which only ever talks to us, never to the client
+        // directly) knows where the response ultimately needs to go.
+        msg.reply_to = msg.from;
         send(target, msg);
       } else if msg.type == "RESP" {
         send(msg.reply_to, msg);
@@ -79,15 +89,16 @@ graph_defn:
   layout:
     type: hierarchical
     direction: lr
-    rank_sep: 240
-    node_sep: 110
+    rank_sep: 300
+    node_sep: 170
   graph_attrs:
     title: "Load Balancer with Round-Robin"
+    connector_style: curved
   groups:
     - id: backend_tier
       title: "Worker Pool"
       direction: tb
-      sep: 110
+      sep: 170
       nodes: [worker_1, worker_2, worker_3]
   node_types:
     - id: client

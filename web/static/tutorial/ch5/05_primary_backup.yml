@@ -6,12 +6,14 @@ fns:
     fn on_timer() {
       state.tx += 1;
       log("Client initiating Write TX #" + state.tx);
+      // No reply_to - the primary already gets our name for free via
+      // msg.from (the engine stamps it), so it can remember where to send
+      // the eventual WRITE_OK itself (see primary_fn.on_msg below).
       send("primary_db", #{
         type: "WRITE",
         tx: state.tx,
         key: "user_bal",
-        val: 100 + state.tx,
-        reply_to: "client"
+        val: 100 + state.tx
       });
     }
     fn on_msg(msg) {
@@ -30,22 +32,29 @@ fns:
       if msg.type == "WRITE" {
         state.store[msg.key] = msg.val;
         state.pending_tx[msg.tx.to_string()] = #{
-          reply_to: msg.reply_to,
+          reply_to: msg.from,
           acks: 0
         };
         log("Primary accepted TX #" + msg.tx + " -> replicating to backups");
         update_ui("REPLICATING #" + msg.tx, "#f59e0b");
-        send("replica_1", #{ type: "REPLICATE", tx: msg.tx, key: msg.key, val: msg.val });
-        send("replica_2", #{ type: "REPLICATE", tx: msg.tx, key: msg.key, val: msg.val });
+        // links already is the replica set (graph_defn.graph declares
+        // links: [replica_1, replica_2]) - fan out off that directly
+        // instead of a second, hand-maintained copy that could drift from it.
+        for peer in links {
+          send(peer, #{ type: "REPLICATE", tx: msg.tx, key: msg.key, val: msg.val });
+        }
       } else if msg.type == "ACK" {
         let key = msg.tx.to_string();
         if state.pending_tx.contains(key) {
           state.pending_tx[key].acks += 1;
-          if state.pending_tx[key].acks == 2 {
+          if state.pending_tx[key].acks == links.len() {
             let reply_to = state.pending_tx[key].reply_to;
             log("Primary achieved Quorum for TX #" + msg.tx + " -> confirming to client");
             update_ui("COMMITTED #" + msg.tx, "#10b981");
             send(reply_to, #{ type: "WRITE_OK", tx: msg.tx });
+            // Done with this transaction's bookkeeping - drop it rather
+            // than letting pending_tx grow without bound as TXs commit.
+            state.pending_tx.remove(key);
           }
         }
       }
@@ -89,15 +98,16 @@ graph_defn:
   layout:
     type: hierarchical
     direction: lr
-    rank_sep: 240
-    node_sep: 110
+    rank_sep: 300
+    node_sep: 170
   graph_attrs:
     title: "Primary-Backup Replication"
+    connector_style: curved
   groups:
     - id: backup_tier
       title: "Standby Replicas"
       direction: tb
-      sep: 110
+      sep: 170
       nodes: [replica_1, replica_2]
   node_types:
     - id: client

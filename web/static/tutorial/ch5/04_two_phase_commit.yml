@@ -14,13 +14,17 @@ fns:
         "2pc_phase1",
         "**Phase 1 (Prepare)**: Coordinator broadcasts `PREPARE` to all participant databases."
       );
-      send("db_cohort_1", #{ type: "PREPARE", tx_id: state.tx_id });
-      send("db_cohort_2", #{ type: "PREPARE", tx_id: state.tx_id });
+      // Broadcast to every linked cohort - driven by the graph's own
+      // topology (`links`), not a hardcoded peer list, so adding a third
+      // cohort in graph_defn.graph is all it takes to widen the quorum.
+      for peer in links {
+        send(peer, #{ type: "PREPARE", tx_id: state.tx_id });
+      }
     }
     fn on_msg(msg) {
       if msg.type == "VOTE" {
         state.votes.push(msg.vote);
-        if state.votes.len() == 2 {
+        if state.votes.len() == links.len() {
           let all_yes = true;
           for v in state.votes {
             if v != "YES" { all_yes = false; }
@@ -32,8 +36,9 @@ fns:
               "2pc_phase2",
               "**Phase 2 (Commit)**: All cohorts voted YES. Coordinator issues `GLOBAL_COMMIT`."
             );
-            send("db_cohort_1", #{ type: "GLOBAL_COMMIT", tx_id: state.tx_id });
-            send("db_cohort_2", #{ type: "GLOBAL_COMMIT", tx_id: state.tx_id });
+            for peer in links {
+              send(peer, #{ type: "GLOBAL_COMMIT", tx_id: state.tx_id });
+            }
           }
         }
       }
@@ -77,15 +82,16 @@ graph_defn:
   layout:
     type: hierarchical
     direction: lr
-    rank_sep: 260
-    node_sep: 120
+    rank_sep: 300
+    node_sep: 170
   graph_attrs:
     title: "Two-Phase Commit Protocol"
+    connector_style: curved
   groups:
     - id: cohort_tier
       title: "Participant Databases"
       direction: tb
-      sep: 120
+      sep: 170
       nodes: [db_cohort_1, db_cohort_2]
   node_types:
     - id: coordinator
