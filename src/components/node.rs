@@ -18,7 +18,6 @@ impl Default for NodeMarker {
 #[derive(Component, Debug)]
 pub struct SelectedNodeMarker {
     pub node_name: String,
-    pub node_type: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]

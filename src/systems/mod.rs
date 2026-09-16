@@ -11,7 +11,6 @@ pub mod layout;
 pub mod native_examples;
 pub mod node_overlay;
 pub mod node_progress;
-pub mod node_pulse;
 pub mod node_system;
 pub mod profiling;
 pub mod radial_blur;

@@ -422,7 +422,6 @@ pub fn on_click(
                     Stroke::new(Color::BLACK, 2.0),
                     SelectedNodeMarker {
                         node_name: node.node_name.clone(),
-                        node_type: node.node_type.clone(),
                     },
                 ))
                 .id();

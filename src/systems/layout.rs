@@ -31,8 +31,6 @@ struct MacroElement {
     member_nodes: Vec<String>,
     internal_positions: HashMap<String, Vec2>, // Relative to macro center (0, 0)
     size: Vec2,
-    rank: usize,
-    order: usize,
 }
 
 /// Computes the complete deterministic layout for the given graph definition.
@@ -257,16 +255,9 @@ fn compute_hierarchical_layout(
 
         let g_size = (max_pos - min_pos) + node_footprint + Vec2::splat(padding * 2.0);
 
-        let explicit_rank = members
-            .iter()
-            .filter_map(|m| node_map.get(m).and_then(|n| n.rank))
-            .min();
-
-        let explicit_order = members
-            .iter()
-            .filter_map(|m| node_map.get(m).and_then(|n| n.order))
-            .min()
-            .unwrap_or(0);
+        // Explicit rank/order overrides are resolved from `node_map` directly
+        // where they're actually used (the topological ranking pass and its
+        // override step below), not cached on the macro element here.
 
         macro_elements.push(MacroElement {
             id: g.id.clone(),
@@ -274,8 +265,6 @@ fn compute_hierarchical_layout(
             member_nodes: members,
             internal_positions,
             size: g_size,
-            rank: explicit_rank.unwrap_or(0),
-            order: explicit_order,
         });
     }
 
@@ -294,8 +283,6 @@ fn compute_hierarchical_layout(
             member_nodes: vec![node.name.clone()],
             internal_positions,
             size: Vec2::new(180.0, 120.0),
-            rank: node.rank.unwrap_or(0),
-            order: node.order.unwrap_or(0),
         });
     }
 

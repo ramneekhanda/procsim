@@ -1,7 +1,6 @@
 mod components;
 mod parser;
 mod resources;
-mod stdlib;
 mod systems;
 mod ui;
 mod wasm;
@@ -16,7 +15,7 @@ use bevy_web_asset::WebAssetPlugin;
 use components::camera::BubbleCamera;
 use parser::graphv2::GraphDefinition;
 use resources::common_assets::{CommonAssets, LoadingState, LoadingStateOpt};
-use resources::graph_def::{GraphChange, GraphDefinitionRes, NodeAdded, NodeRemoved, NodeTicked};
+use resources::graph_def::{GraphChange, GraphDefinitionRes, NodeAdded, NodeRemoved};
 use resources::narration::PendingExplain;
 use std::collections::HashMap;
 #[cfg(target_arch = "wasm32")]
@@ -60,7 +59,6 @@ fn setup_app(app: &mut App) {
     // TEMPORARY - see systems::profiling's doc comment.
     .insert_resource(systems::profiling::ProfilingStats::default())
     .add_event::<GraphChange>()
-    .add_event::<NodeTicked>()
     .add_event::<NodeAdded>()
     .add_event::<NodeRemoved>()
     .add_plugins(ShapePlugin)

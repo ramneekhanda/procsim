@@ -7,7 +7,7 @@ use crate::parser::graphv2::{
     instantiate_node, resolve_ticks_secs, GraphDefinition, Node, NodeConnection, NodeParams,
     ParamType, Ticks,
 };
-use crate::resources::graph_def::{GraphDefinitionRes, NodeAdded, NodeRemoved, NodeTicked};
+use crate::resources::graph_def::{GraphDefinitionRes, NodeAdded, NodeRemoved};
 use crate::resources::narration::{ExplainEntry, PendingExplain};
 use bevy::prelude::*;
 use rand::Rng;
@@ -21,7 +21,6 @@ pub fn execute_rhai_engine(
     mut graph_defn: ResMut<GraphDefinitionRes>,
     time: Res<Time>,
     mut query_conn: Query<(&mut Messages, &mut NodeConnector)>,
-    mut ticked_writer: EventWriter<NodeTicked>,
     mut node_added_writer: EventWriter<NodeAdded>,
     mut node_removed_writer: EventWriter<NodeRemoved>,
     mut pending_explain: ResMut<PendingExplain>,
@@ -86,9 +85,6 @@ pub fn execute_rhai_engine(
         if !node.timer.finished() {
             continue;
         }
-        ticked_writer.send(NodeTicked {
-            name: node.name.clone(),
-        });
         if let Ticks::Range { jitter: true, .. } = &node.node_data.attrs.ticks {
             node.timer
                 .set_duration(Duration::from_secs(resolve_ticks_secs(

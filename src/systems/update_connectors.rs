@@ -449,14 +449,14 @@ pub fn update_connectors(
 
     // keep every surviving connector's path glued to its
     // endpoints as nodes move - but only the connectors actually touching a
-    // node that moved *this frame*, not every connector in the graph. A
-    // node's tick pulse (`node_pulse.rs`) animates `Transform.scale` for
-    // 300ms on whichever node just ticked, so on a graph with many nodes on
-    // short/staggered tick intervals `query_changed` is non-empty on
-    // essentially every frame - retracing (bezier rebuild + lyon
-    // re-tessellation) *every* connector on *every* frame regardless of
-    // whether its own endpoints moved was a real, measurable bottleneck at a
-    // few hundred nodes (a several-hundred-node stress-test graph).
+    // node that moved *this frame*, not every connector in the graph.
+    // Dragging, spawning, and layout recomputation all touch `Transform` on
+    // whichever nodes are affected, so on a graph with many nodes
+    // `query_changed` is non-empty often enough that retracing (bezier
+    // rebuild + lyon re-tessellation) *every* connector on *every* frame
+    // regardless of whether its own endpoints moved was a real, measurable
+    // bottleneck at a few hundred nodes (a several-hundred-node stress-test
+    // graph).
     if !query_changed.is_empty() {
         let moved: HashSet<&str> = query_changed
             .iter()
