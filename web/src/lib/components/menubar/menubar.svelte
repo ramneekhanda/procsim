@@ -3,6 +3,28 @@
 
  import { createEventDispatcher } from "svelte";
  const dispatch = createEventDispatcher();
+
+ let installLabel = "Install in Claude";
+
+ async function installInClaude() {
+   const base = window.location.origin;
+   const prompt = `Install the "procsim-diagram" Claude Code skill by fetching these files and saving them exactly as-is (preserve the directory structure, SKILL.md at the root of the skill folder):
+
+${base}/skills/procsim-diagram/SKILL.md -> .claude/skills/procsim-diagram/SKILL.md
+${base}/skills/procsim-diagram/references/schema.md -> .claude/skills/procsim-diagram/references/schema.md
+${base}/skills/procsim-diagram/references/rhai-handlers.md -> .claude/skills/procsim-diagram/references/rhai-handlers.md
+${base}/skills/procsim-diagram/references/imports-and-themes.md -> .claude/skills/procsim-diagram/references/imports-and-themes.md
+
+Save it under the current project's .claude/skills/ if I'm in a project I want this available for, otherwise under my home directory's ~/.claude/skills/. This skill helps build procsim graph YAML files (this simulator's node/Rhai-script format) from natural-language descriptions of a system or process.`;
+
+   try {
+     await navigator.clipboard.writeText(prompt);
+   } catch (e) {
+     console.error("Failed to copy install prompt:", e);
+   }
+   installLabel = "Prompt copied - please paste it in your Claude";
+   setTimeout(() => (installLabel = "Install in Claude"), 3000);
+ }
 </script>
 
 
@@ -35,6 +57,10 @@
       Fullscreen
     </button>
   </div>
-  <div class="navbar-end"></div>
+  <div class="navbar-end">
+    <button class="btn btn-sm" on:click={installInClaude} title="Copy an install prompt for the procsim-diagram Claude skill">
+      {installLabel}
+    </button>
+  </div>
 
 </div>
