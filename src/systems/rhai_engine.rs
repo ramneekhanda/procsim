@@ -110,8 +110,18 @@ pub fn execute_rhai_engine(
             // survive the call - `scope.rewind` below discards it either way.
             scope.push_dynamic("state", std::mem::take(&mut node.state));
 
+            // Requesting `Dynamic` rather than `()` here means Rhai never
+            // needs to coerce the script's return value into unit - it
+            // can't, since `Dynamic` already accepts anything, including
+            // unit itself. A handler's return value was never meant to mean
+            // anything (on_timer/on_msg/on_init are all fire-and-forget from
+            // the engine's side, everything real happens through send()/
+            // draw()/log() etc.), so there's nothing to lose by not caring
+            // what a script's last statement happens to evaluate to - see
+            // the doc comment on the `ErrorMismatchOutputType` test in this
+            // file's `tests` module for the concrete failure this avoids.
             if let Err(e) =
-                engine.call_fn_with_options::<()>(options, scope, &node.ast, "on_timer", ())
+                engine.call_fn_with_options::<Dynamic>(options, scope, &node.ast, "on_timer", ())
             {
                 c_log!("error running on_timer on node {:?}: {:?}", node.name, e);
             }
@@ -180,7 +190,13 @@ pub fn execute_rhai_engine(
                     let init_size = scope.len();
                     populate_scope(scope, &node.node_data.params);
                     scope.push_dynamic("state", std::mem::take(&mut node.state));
-                    let mut call_res = engine.call_fn_with_options::<()>(
+                    // See the on_timer call above - requesting `Dynamic`
+                    // instead of `()` means a handler's own return value
+                    // (whatever a script's last statement happens to
+                    // evaluate to) can never mismatch what the engine asked
+                    // for, across every one of on_msg/on_message's
+                    // arity-fallback variants below.
+                    let mut call_res = engine.call_fn_with_options::<Dynamic>(
                         CallFnOptions::new().eval_ast(false).rewind_scope(false),
                         scope,
                         &node.ast,
@@ -190,7 +206,7 @@ pub fn execute_rhai_engine(
                     if let Err(ref e) = call_res {
                         if let rhai::EvalAltResult::ErrorFunctionNotFound(f, _) = &**e {
                             if f.starts_with("on_msg") {
-                                call_res = engine.call_fn_with_options::<()>(
+                                call_res = engine.call_fn_with_options::<Dynamic>(
                                     CallFnOptions::new().eval_ast(false).rewind_scope(false),
                                     scope,
                                     &node.ast,
@@ -203,7 +219,7 @@ pub fn execute_rhai_engine(
                     if let Err(ref e) = call_res {
                         if let rhai::EvalAltResult::ErrorFunctionNotFound(f, _) = &**e {
                             if f.starts_with("on_msg") || f.starts_with("on_message") {
-                                call_res = engine.call_fn_with_options::<()>(
+                                call_res = engine.call_fn_with_options::<Dynamic>(
                                     CallFnOptions::new().eval_ast(false).rewind_scope(false),
                                     scope,
                                     &node.ast,
@@ -216,7 +232,7 @@ pub fn execute_rhai_engine(
                     if let Err(ref e) = call_res {
                         if let rhai::EvalAltResult::ErrorFunctionNotFound(f, _) = &**e {
                             if f.starts_with("on_msg") || f.starts_with("on_message") {
-                                call_res = engine.call_fn_with_options::<()>(
+                                call_res = engine.call_fn_with_options::<Dynamic>(
                                     CallFnOptions::new().eval_ast(false).rewind_scope(false),
                                     scope,
                                     &node.ast,
@@ -781,13 +797,17 @@ mod tests {
     }
 
     #[test]
-    fn test_bare_map_remove_as_branch_tail_leaks_return_type() {
-        // Documents the actual bug this test exists to catch - if this
-        // assertion ever starts failing (i.e. the call succeeds), it means
-        // either Rhai's own behavior changed or something about the
-        // engine's call_fn_with_options options changed to no longer be
-        // affected, and the corresponding `let _ = map.remove(...)`
-        // workarounds in the example graphs can be removed.
+    fn test_bare_map_remove_as_branch_tail_leaks_return_type_via_call_fn_unit() {
+        // Documents the underlying Rhai behavior that made this a trap in
+        // the first place - `call_fn::<()>` (what this test calls directly)
+        // is exactly what `execute_rhai_engine` used to call on_timer/on_msg
+        // with, before the fix below. The real fix is engine-side (request
+        // `Dynamic` instead, see `test_call_fn_dynamic_never_errors_on_a_
+        // bare_returning_branch` and the `call_fn_with_options::<Dynamic>`
+        // call sites in this file) - a YAML author no longer needs to avoid
+        // this pattern at all. This test stays as a regression guard on the
+        // underlying Rhai quirk itself, and as documentation of why
+        // `::<Dynamic>` was the right fix rather than a workaround.
         let result = run_branch_ending_in_bare_remove("A");
         assert!(
             result.is_err(),
@@ -838,6 +858,42 @@ mod tests {
         assert!(
             result.is_ok(),
             "expected the let-binding workaround to make call_fn::<()> succeed, got: {result:?}"
+        );
+    }
+
+    /// The actual engine fix: request `Dynamic` (which accepts any return
+    /// value, including unit) instead of `()`, so the mismatch this whole
+    /// test module is about becomes structurally impossible - no YAML-level
+    /// workaround needed, for this pattern or any other "script's last
+    /// statement happens to return something" shape. Uses the exact same
+    /// bare (unfixed) `remove()` script as the failing test above to prove
+    /// the difference is solely the requested output type.
+    #[test]
+    fn test_call_fn_dynamic_never_errors_on_a_bare_returning_branch() {
+        let engine = Engine::new();
+        let ast = engine
+            .compile(
+                r#"
+                fn on_msg(pending, msg_type) {
+                    if msg_type == "A" {
+                        pending.remove("k");
+                    } else if msg_type == "B" {
+                        pending.remove("k");
+                    }
+                }
+                "#,
+            )
+            .unwrap();
+
+        let mut map = rhai::Map::new();
+        map.insert("k".into(), Dynamic::from("value".to_string()));
+
+        let mut scope = Scope::new();
+        let result = engine.call_fn::<Dynamic>(&mut scope, &ast, "on_msg", (map, "A".to_string()));
+        assert!(
+            result.is_ok(),
+            "expected call_fn::<Dynamic> to accept a bare map.remove() return value \
+             with no let-binding needed, got: {result:?}"
         );
     }
 }
