@@ -51,6 +51,34 @@ every field *other than* `from` passes through a relay's `send(next_hop, msg)` c
 unchanged. A relay only needs to forward the message as-is (`send(target, msg)`); it never
 needs to know about or touch `reply_to`.
 
+**A bare `map.remove(key);` as the last statement of an `if`/`else if` branch can crash the
+whole handler - even with the trailing semicolon.** `on_msg`/`on_timer`/`on_init` are invoked
+via Rhai's `call_fn::<()>`, which requires the function to return unit. If the matched branch of
+an `if`/`else if` chain (with no final plain `else`) is *also* the last thing in the function
+body, that branch's own last statement becomes the function's return value - and `Map::remove()`
+returns the value it removed, not `()`. A trailing `;` normally discards a statement's value, but
+this specific combination (native method call, as an `if`-chain branch's tail, as the function's
+own tail) leaks the removed value through anyway, and `call_fn::<()>` then fails with something
+like `ErrorMismatchOutputType("()", "map", position)` - reliably, every single time that branch
+runs, not intermittently. The message this branch was actively sending typically **still went out
+correctly** (an earlier `send()` in the same branch already completed), which is what makes this
+easy to mistake for a harmless cosmetic error - it's not: any queued-but-not-yet-delivered work in
+that same call can be lost depending on engine internals. The fix is trivial - assign the call's
+result to a named local instead of leaving it bare:
+```rhai
+// Don't:
+state.pending.remove(oid);
+// Do:
+let removed = state.pending.remove(oid);
+```
+(Rhai identifiers starting with `_` have their own parse restrictions in this engine version - use
+an ordinary name like `removed`, not `_removed`, even though the value is intentionally unused.)
+This isn't unique to `remove()` - any native method/function call whose return value you don't
+care about, sitting as the literal last statement of a branch that's also the function's own tail
+expression, is worth a defensive `let _ = ...;`-style discard once you've confirmed plain
+underscore-prefixed names parse in whatever Rhai version you're targeting, or a named binding like
+above if they don't.
+
 ## Host functions
 
 | Function | Signature | Notes |
