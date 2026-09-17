@@ -1,0 +1,377 @@
+imports:
+  - from: "theme:cloud"
+
+fns:
+  - &client_fn |
+    fn on_init() {
+      state.seq = 0;
+      update_ui("IDLE", "#64748b");
+    }
+    fn on_timer() {
+      state.seq += 1;
+      log("Client starting checkout #" + state.seq);
+      update_ui("CHECKING OUT #" + state.seq, "#3b82f6");
+      send("api_gateway", #{ type: "CHECKOUT", order_id: state.seq, from: node_name });
+    }
+    fn on_msg(msg) {
+      if msg.type == "ORDER_CONFIRMED" {
+        log("Client: order #" + msg.order_id + " confirmed!");
+        update_ui("ORDER #" + msg.order_id + " CONFIRMED", "#10b981");
+      } else if msg.type == "ORDER_FAILED" {
+        log("Client: order #" + msg.order_id + " failed (" + msg.reason + ")");
+        update_ui("ORDER #" + msg.order_id + " FAILED: " + msg.reason, "#ef4444");
+      }
+    }
+    fn update_ui(status, color) {
+      draw([
+        #{ shape: "rect", w: 160, h: 55, radius: 8, y: 75, fill: "#ffffff", stroke: color, stroke_width: 2 },
+        #{ shape: "text", text: "CLIENT", y: 88, color: "#1e293b", size: 10, bold: true },
+        #{ shape: "text", text: status, y: 66, color: color, size: 8 }
+      ]);
+    }
+
+  - &gateway_fn |
+    fn on_init() {
+      state.pending = #{};
+      update_ui("READY", "#64748b");
+    }
+    fn on_msg(msg) {
+      let oid = msg.order_id.to_string();
+      if msg.type == "CHECKOUT" {
+        state.pending[oid] = msg.from;
+        update_ui("ROUTING #" + msg.order_id, "#f59e0b");
+        send("cache", #{ type: "GET", order_id: msg.order_id, from: node_name });
+      } else if msg.type == "HIT" {
+        update_ui("CACHED AUTH #" + msg.order_id, "#8b5cf6");
+        send("lb", #{ type: "ORDER_REQUEST", order_id: msg.order_id, from: node_name });
+      } else if msg.type == "MISS" {
+        send("auth_service", #{ type: "AUTH_CHECK", order_id: msg.order_id, from: node_name });
+      } else if msg.type == "AUTH_OK" {
+        send("cache", #{ type: "SET", order_id: msg.order_id, from: node_name });
+        update_ui("AUTHORIZED #" + msg.order_id, "#8b5cf6");
+        send("lb", #{ type: "ORDER_REQUEST", order_id: msg.order_id, from: node_name });
+      } else if msg.type == "AUTH_FAIL" {
+        update_ui("AUTH FAILED #" + msg.order_id, "#ef4444");
+        send(state.pending[oid], #{ type: "ORDER_FAILED", order_id: msg.order_id, reason: "auth" });
+        state.pending.remove(oid);
+      } else if msg.type == "ORDER_CONFIRMED" || msg.type == "ORDER_FAILED" {
+        update_ui("REPLYING #" + msg.order_id, "#10b981");
+        send(state.pending[oid], msg);
+        state.pending.remove(oid);
+      }
+    }
+    fn update_ui(status, color) {
+      draw([
+        #{ shape: "rect", w: 170, h: 55, radius: 8, y: 75, fill: "#ffffff", stroke: color, stroke_width: 2 },
+        #{ shape: "text", text: "API GATEWAY", y: 88, color: "#1e293b", size: 10, bold: true },
+        #{ shape: "text", text: status, y: 66, color: color, size: 8 }
+      ]);
+    }
+
+  - &auth_fn |
+    fn on_init() { update_ui("IDLE", "#64748b"); }
+    fn on_msg(msg) {
+      if msg.type == "AUTH_CHECK" {
+        if random_chance(90) {
+          log("auth_service: order #" + msg.order_id + " authorized");
+          update_ui("AUTHORIZED #" + msg.order_id, "#10b981");
+          send(msg.from, #{ type: "AUTH_OK", order_id: msg.order_id });
+        } else {
+          log("auth_service: order #" + msg.order_id + " REJECTED");
+          update_ui("REJECTED #" + msg.order_id, "#ef4444");
+          send(msg.from, #{ type: "AUTH_FAIL", order_id: msg.order_id });
+        }
+      }
+    }
+    fn update_ui(status, color) {
+      draw([
+        #{ shape: "rect", w: 150, h: 50, radius: 8, y: 70, fill: "#ffffff", stroke: color, stroke_width: 2 },
+        #{ shape: "text", text: "AUTH", y: 82, color: "#1e293b", size: 10, bold: true },
+        #{ shape: "text", text: status, y: 62, color: color, size: 8 }
+      ]);
+    }
+
+  - &cache_fn |
+    fn on_init() { state.warm = false; state.hits = 0; state.misses = 0; update_ui(); }
+    fn on_msg(msg) {
+      if msg.type == "GET" {
+        if state.warm {
+          state.hits += 1;
+          send(msg.from, #{ type: "HIT", order_id: msg.order_id });
+        } else {
+          state.misses += 1;
+          send(msg.from, #{ type: "MISS", order_id: msg.order_id });
+        }
+      } else if msg.type == "SET" {
+        state.warm = true;
+      }
+      update_ui();
+    }
+    fn update_ui() {
+      draw([
+        #{ shape: "rect", w: 130, h: 50, radius: 8, y: 70, fill: "#ffffff", stroke: "#a855f7", stroke_width: 2 },
+        #{ shape: "text", text: "AUTH CACHE", y: 82, color: "#1e293b", size: 9, bold: true },
+        #{ shape: "text", text: "hits:" + state.hits + " miss:" + state.misses, y: 62, color: "#a855f7", size: 8 }
+      ]);
+    }
+
+  - &lb_fn |
+    fn on_init() { state.idx = 0; }
+    fn on_msg(msg) {
+      if links.len() == 0 { return; }
+      let target = links[state.idx % links.len()];
+      state.idx += 1;
+      log("lb: routing order #" + msg.order_id + " -> " + target);
+      send(target, msg);
+    }
+
+  - &order_fn |
+    fn on_init() { state.pending = #{}; update_ui("IDLE", "#64748b"); }
+    fn on_msg(msg) {
+      let oid = msg.order_id.to_string();
+      if msg.type == "ORDER_REQUEST" {
+        state.pending[oid] = msg;
+        update_ui("RESERVING STOCK #" + msg.order_id, "#f59e0b");
+        send("inventory_service", #{ type: "RESERVE_STOCK", order_id: msg.order_id, from: node_name });
+      } else if msg.type == "STOCK_OK" {
+        update_ui("CHARGING #" + msg.order_id, "#f59e0b");
+        send("payment_service", #{ type: "CHARGE", order_id: msg.order_id, from: node_name });
+      } else if msg.type == "STOCK_FAIL" {
+        update_ui("OUT OF STOCK #" + msg.order_id, "#ef4444");
+        send(state.pending[oid].from, #{ type: "ORDER_FAILED", order_id: msg.order_id, reason: "stock" });
+        state.pending.remove(oid);
+      } else if msg.type == "PAYMENT_OK" {
+        update_ui("CONFIRMED #" + msg.order_id, "#10b981");
+        send("notification_service", #{ type: "NOTIFY", order_id: msg.order_id });
+        send("orders_db", #{ type: "SAVE_ORDER", order_id: msg.order_id });
+        send(state.pending[oid].from, #{ type: "ORDER_CONFIRMED", order_id: msg.order_id });
+        state.pending.remove(oid);
+      } else if msg.type == "PAYMENT_FAIL" {
+        update_ui("PAYMENT DECLINED #" + msg.order_id, "#ef4444");
+        send(state.pending[oid].from, #{ type: "ORDER_FAILED", order_id: msg.order_id, reason: "payment" });
+        state.pending.remove(oid);
+      }
+    }
+    fn update_ui(status, color) {
+      draw([
+        #{ shape: "rect", w: 165, h: 55, radius: 8, y: 75, fill: "#ffffff", stroke: color, stroke_width: 2 },
+        #{ shape: "text", text: node_name, y: 88, color: "#1e293b", size: 10, bold: true },
+        #{ shape: "text", text: status, y: 66, color: color, size: 8 }
+      ]);
+    }
+
+  - &inventory_fn |
+    fn on_init() { state.stock = 25; update_ui("STOCK: 25", "#64748b"); }
+    fn on_msg(msg) {
+      if msg.type == "RESERVE_STOCK" {
+        if state.stock > 0 {
+          state.stock -= 1;
+          send("inventory_db", #{ type: "WRITE", order_id: msg.order_id, remaining: state.stock });
+          update_ui("STOCK: " + state.stock, "#10b981");
+          send(msg.from, #{ type: "STOCK_OK", order_id: msg.order_id });
+        } else {
+          update_ui("OUT OF STOCK", "#ef4444");
+          send(msg.from, #{ type: "STOCK_FAIL", order_id: msg.order_id });
+        }
+      }
+    }
+    fn update_ui(status, color) {
+      draw([
+        #{ shape: "rect", w: 150, h: 50, radius: 8, y: 70, fill: "#ffffff", stroke: color, stroke_width: 2 },
+        #{ shape: "text", text: "INVENTORY", y: 82, color: "#1e293b", size: 9, bold: true },
+        #{ shape: "text", text: status, y: 62, color: color, size: 8 }
+      ]);
+    }
+
+  - &payment_fn |
+    fn on_init() { update_ui("IDLE", "#64748b"); }
+    fn on_msg(msg) {
+      if msg.type == "CHARGE" {
+        if random_chance(85) {
+          log("payment_service: order #" + msg.order_id + " approved");
+          update_ui("APPROVED #" + msg.order_id, "#10b981");
+          send(msg.from, #{ type: "PAYMENT_OK", order_id: msg.order_id });
+        } else {
+          log("payment_service: order #" + msg.order_id + " DECLINED");
+          update_ui("DECLINED #" + msg.order_id, "#ef4444");
+          send(msg.from, #{ type: "PAYMENT_FAIL", order_id: msg.order_id });
+        }
+      }
+    }
+    fn update_ui(status, color) {
+      draw([
+        #{ shape: "rect", w: 150, h: 50, radius: 8, y: 70, fill: "#ffffff", stroke: color, stroke_width: 2 },
+        #{ shape: "text", text: "PAYMENT", y: 82, color: "#1e293b", size: 9, bold: true },
+        #{ shape: "text", text: status, y: 62, color: color, size: 8 }
+      ]);
+    }
+
+  - &notification_fn |
+    fn on_init() { state.sent = 0; update_ui(); }
+    fn on_msg(msg) {
+      if msg.type == "NOTIFY" {
+        state.sent += 1;
+        log("notification_service: confirmation email sent for order #" + msg.order_id);
+        update_ui();
+      }
+    }
+    fn update_ui() {
+      draw([
+        #{ shape: "rect", w: 150, h: 50, radius: 8, y: 70, fill: "#ffffff", stroke: "#0ea5e9", stroke_width: 2 },
+        #{ shape: "text", text: "NOTIFICATIONS", y: 82, color: "#1e293b", size: 9, bold: true },
+        #{ shape: "text", text: "sent: " + state.sent, y: 62, color: "#0ea5e9", size: 8 }
+      ]);
+    }
+
+  - &sink_db_fn |
+    fn on_init() { state.count = 0; update_ui(); }
+    fn on_msg(msg) {
+      state.count += 1;
+      log(node_name + " persisted record for order #" + msg.order_id);
+      update_ui();
+    }
+    fn update_ui() {
+      draw([
+        #{ shape: "rect", w: 140, h: 50, radius: 8, y: 70, fill: "#ffffff", stroke: "#059669", stroke_width: 2 },
+        #{ shape: "text", text: node_name, y: 82, color: "#1e293b", size: 9, bold: true },
+        #{ shape: "text", text: "rows: " + state.count, y: 62, color: "#059669", size: 8 }
+      ]);
+    }
+
+graph_defn:
+  graph_attrs:
+    title: "E-Commerce Checkout Pipeline"
+    connector_style: curved
+  layout:
+    type: hierarchical
+    direction: lr
+    rank_sep: 280
+    # Every draw()'d status card below floats above its node (y offset up to
+    # 88, height up to 55 -> extends to roughly y=115 from the node's own
+    # center). node_sep is purely structural (the layout engine has no idea
+    # how big a node's overlay is), so it has to be picked bigger than that
+    # reach by hand or a tightly-packed stack's cards overlap the node above
+    # them - 220 leaves a comfortable margin.
+    node_sep: 220
+  groups:
+    - id: edge
+      title: "Edge"
+      direction: tb
+      nodes: [client, api_gateway]
+    - id: auth_tier
+      title: "Auth & Cache"
+      direction: tb
+      nodes: [auth_service, cache]
+    - id: compute_tier
+      title: "Order Service (behind LB)"
+      direction: tb
+      nodes: [lb, order_svc_1, order_svc_2]
+    - id: domain_tier
+      title: "Domain Services"
+      direction: tb
+      nodes: [inventory_service, payment_service, notification_service]
+    - id: storage_tier
+      title: "Storage"
+      direction: tb
+      nodes: [orders_db, inventory_db]
+  icons:
+    - id: client_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f4bb.png
+    - id: gateway_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f310.png
+    - id: lock_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f512.png
+    - id: bolt_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/26a1.png
+    - id: shuffle_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f500.png
+    - id: cart_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f6d2.png
+    - id: package_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f4e6.png
+    - id: card_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f4b3.png
+    - id: mail_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f4e7.png
+    - id: disk_icon
+      url: https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.1/assets/72x72/1f4be.png
+  node_types:
+    - id: client
+      fn: *client_fn
+      attrs: { ticks: { min: 6, max: 9, jitter: true }, icon: client_icon }
+    - id: gateway
+      fn: *gateway_fn
+      attrs: { ticks: 3600, icon: gateway_icon }
+    - id: auth
+      fn: *auth_fn
+      attrs: { ticks: 3600, icon: lock_icon }
+    - id: cache
+      fn: *cache_fn
+      attrs: { ticks: 3600, icon: bolt_icon }
+    - id: lb
+      fn: *lb_fn
+      attrs: { ticks: 3600, icon: shuffle_icon }
+    - id: order_service
+      fn: *order_fn
+      attrs: { ticks: 3600, icon: cart_icon }
+    - id: inventory
+      fn: *inventory_fn
+      attrs: { ticks: 3600, icon: package_icon }
+    - id: payment
+      fn: *payment_fn
+      attrs: { ticks: 3600, icon: card_icon }
+    - id: notification
+      fn: *notification_fn
+      attrs: { ticks: 3600, icon: mail_icon }
+    - id: db
+      fn: *sink_db_fn
+      attrs: { ticks: 3600, icon: disk_icon }
+  graph:
+    - name: client
+      node_type: client
+      group: edge
+      links: []
+    - name: api_gateway
+      node_type: gateway
+      group: edge
+      links: [cache, auth_service, lb]
+    - name: auth_service
+      node_type: auth
+      group: auth_tier
+      links: []
+    - name: cache
+      node_type: cache
+      group: auth_tier
+      links: []
+    - name: lb
+      node_type: lb
+      group: compute_tier
+      links: [order_svc_1, order_svc_2]
+    - name: order_svc_1
+      node_type: order_service
+      group: compute_tier
+      links: [inventory_service, payment_service, notification_service, orders_db]
+    - name: order_svc_2
+      node_type: order_service
+      group: compute_tier
+      links: [inventory_service, payment_service, notification_service, orders_db]
+    - name: inventory_service
+      node_type: inventory
+      group: domain_tier
+      links: [inventory_db]
+    - name: payment_service
+      node_type: payment
+      group: domain_tier
+      links: []
+    - name: notification_service
+      node_type: notification
+      group: domain_tier
+      links: []
+    - name: orders_db
+      node_type: db
+      group: storage_tier
+      links: []
+    - name: inventory_db
+      node_type: db
+      group: storage_tier
+      links: []

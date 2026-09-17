@@ -137,6 +137,19 @@ layout:
 - Any layout: a `graph[].pos` always wins outright; `.offset` nudges the computed position
   instead of replacing it.
 
+**Spacing vs. `draw()` overlays — a trap worth naming explicitly**: `node_sep`/`rank_sep`
+place nodes purely from graph structure — the layout engine has no idea how big any node's
+`draw()` overlay actually is. A status card that floats above its node (the common
+`y: 70-90, h: 50-60` pattern in `references/rhai-handlers.md`) can reach ~100+ units from the
+node's own center. Default `node_sep` (140) or anything you pick without accounting for that
+reach will let one node's card visually overlap the node stacked next to it. Rule of thumb:
+if nodes in the same rank/group carry overlay cards, set `node_sep` to comfortably exceed
+(card height + offset from center), not just "enough room for an icon + label" — 200-260 is a
+safe range for cards in the 50-60px-tall range; bump further for bigger cards. This bit a real
+generated graph (a 12-node pipeline with ~55px cards under `node_sep: 120` — cards visibly
+covered the neighboring node) — treat overlay size as a real input to spacing, not an
+afterthought to fix after the fact.
+
 ## `groups` (`GroupDef`) — clustering + labeled boxes
 
 Two equivalent forms — a list with explicit `id`, or a map keyed by id:

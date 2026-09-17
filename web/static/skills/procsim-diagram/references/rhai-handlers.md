@@ -121,6 +121,11 @@ fn update_ui(status, color) {
 fn on_init() { update_ui("READY", "#64748b"); }
 fn on_msg(msg) { update_ui("PROCESSING", "#f59e0b"); }
 ```
+A card like this reaches roughly `y_offset + h/2` from the node's own center (here,
+`70 + 55/2 ≈ 97`) — if several such nodes sit in the same rank/group, the layout's `node_sep`
+needs room for that reach on top of the node itself, or one node's card visually overlaps the
+node next to it. See the "Spacing vs. `draw()` overlays" note in `references/schema.md` before
+finalizing `layout.node_sep` for any graph where multiple stacked nodes carry cards like this.
 
 **Runtime topology growth** (spawn workers on demand):
 ```rhai
