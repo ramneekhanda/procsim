@@ -114,16 +114,29 @@ pub fn execute_rhai_engine(
                 engine.call_fn_with_options::<()>(options, scope, &node.ast, "on_timer", ())
             {
                 c_log!("error running: {:?}", e);
-            } else {
-                local_message_store.read().unwrap().iter().for_each(|msg| {
-                    message_store.write().unwrap().push((
-                        node.name.clone(),
-                        msg.0.clone(),
-                        msg.1.clone(),
-                    ));
-                });
-                local_message_store.write().unwrap().clear();
             }
+            // Drain unconditionally, not just on Ok - a `send()` earlier in
+            // the handler already queued its entry into `local_message_store`
+            // before any *later* statement in the same call could throw, and
+            // that entry is exactly as real as if the whole call had
+            // succeeded. Gating this behind Ok used to silently discard every
+            // send() a handler made if it happened to error on a later line -
+            // and since `local_message_store` is shared across every node
+            // processed this frame (not per-node-scoped), an undrained entry
+            // here didn't just vanish, it sat there until some *other* node's
+            // successful call drained-and-cleared it, at which point it got
+            // misattributed to that node's name instead. Draining after every
+            // call, success or not, keeps each node's own sends correctly
+            // attributed regardless of what a later statement in the same
+            // handler does.
+            local_message_store.read().unwrap().iter().for_each(|msg| {
+                message_store.write().unwrap().push((
+                    node.name.clone(),
+                    msg.0.clone(),
+                    msg.1.clone(),
+                ));
+            });
+            local_message_store.write().unwrap().clear();
             for msg in local_log_store.write().unwrap().drain(..) {
                 crate::wasm::browser::emit_log_event(&node.name, &msg);
             }
@@ -219,16 +232,23 @@ pub fn execute_rhai_engine(
                         } else {
                             c_log!("error running on_msg / on_message: {:?}", e);
                         }
-                    } else {
-                        local_message_store.read().unwrap().iter().for_each(|msg| {
-                            message_store.write().unwrap().push((
-                                node.name.clone(),
-                                msg.0.clone(),
-                                msg.1.clone(),
-                            ));
-                        });
-                        local_message_store.write().unwrap().clear();
                     }
+                    // Drain unconditionally - see the matching comment on the
+                    // on_timer call above for why gating this behind Ok
+                    // silently discarded a handler's earlier, already-queued
+                    // send() calls whenever a later statement in the same
+                    // call threw. (`ErrorFunctionNotFound` is the one Err
+                    // case where nothing could have been queued - on_msg
+                    // never started running - so draining here is a
+                    // guaranteed no-op for it, not a behavior change.)
+                    local_message_store.read().unwrap().iter().for_each(|msg| {
+                        message_store.write().unwrap().push((
+                            node.name.clone(),
+                            msg.0.clone(),
+                            msg.1.clone(),
+                        ));
+                    });
+                    local_message_store.write().unwrap().clear();
                     for msg in local_log_store.write().unwrap().drain(..) {
                         crate::wasm::browser::emit_log_event(&node.name, &msg);
                     }
@@ -517,8 +537,10 @@ fn send_messages(
             (format!("{}", msg), None)
         };
 
+        let mut found_match = false;
         for (mut msgs, nc) in q.iter_mut() {
             if nc.id1.eq(from) && nc.id2.eq(to) || nc.id2.eq(from) && nc.id1.eq(to) {
+                found_match = true;
                 c_log!("sending message from {} to {}", from, to);
 
                 msgs.msg_inflight.push(Message {
@@ -531,6 +553,20 @@ fn send_messages(
                     bubble_entity: None,
                 });
             }
+        }
+        // No NodeConnector exists between these two names - `send(to, ...)`
+        // silently drops the message otherwise (this is the same failure
+        // mode as a YAML graph missing a `links:` entry between two nodes
+        // that message each other - see the procsim-diagram skill's schema
+        // reference). Surfacing it here, rather than only as silence on the
+        // receiving end, is what made that class of bug traceable at all.
+        if !found_match {
+            c_log!(
+                "send: no connector between {} and {} - message dropped (type={})",
+                from,
+                to,
+                msg_display
+            );
         }
     }
     store.clear();

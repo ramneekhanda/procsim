@@ -97,7 +97,7 @@ fns:
     }
 
   - &cache_fn |
-    fn on_init() { state.warm = false; state.hits = 0; state.misses = 0; update_ui(); }
+    fn on_init() { state.warm = false; state.hits = 0; state.misses = 0; update_ui(state.hits, state.misses); }
     fn on_msg(msg) {
       if msg.type == "GET" {
         if state.warm {
@@ -110,13 +110,20 @@ fns:
       } else if msg.type == "SET" {
         state.warm = true;
       }
-      update_ui();
+      // Rhai functions can't see the caller's script-level vars (no
+      // closures), so `state` has to be passed in explicitly - a bare
+      // `update_ui()` reading `state.hits` inside its own body throws
+      // ErrorVariableNotFound at runtime. This bit hard: the throw happens
+      // *after* send() above already queued the reply, but the engine only
+      // flushes a node's queued outgoing messages if its handler returns Ok
+      // - so the reply was silently discarded, not just the UI update.
+      update_ui(state.hits, state.misses);
     }
-    fn update_ui() {
+    fn update_ui(hits, misses) {
       draw([
         #{ shape: "rect", w: 130, h: 50, radius: 8, y: 70, fill: "#ffffff", stroke: "#a855f7", stroke_width: 2 },
         #{ shape: "text", text: "AUTH CACHE", y: 82, color: "#1e293b", size: 9, bold: true },
-        #{ shape: "text", text: "hits:" + state.hits + " miss:" + state.misses, y: 62, color: "#a855f7", size: 8 }
+        #{ shape: "text", text: "hits:" + hits + " miss:" + misses, y: 62, color: "#a855f7", size: 8 }
       ]);
     }
 
@@ -131,7 +138,7 @@ fns:
     }
 
   - &order_fn |
-    fn on_init() { state.pending = #{}; update_ui("IDLE", "#64748b"); }
+    fn on_init() { state.pending = #{}; update_ui(node_name, "IDLE", "#64748b"); }
     fn on_msg(msg) {
       let oid = msg.order_id.to_string();
       if msg.type == "ORDER_REQUEST" {
@@ -142,31 +149,33 @@ fns:
         // `reply_to` field instead (an ordinary field the engine never
         // touches), which is what the replies below read.
         state.pending[oid] = msg;
-        update_ui("RESERVING STOCK #" + msg.order_id, "#f59e0b");
+        update_ui(node_name, "RESERVING STOCK #" + msg.order_id, "#f59e0b");
         send("inventory_service", #{ type: "RESERVE_STOCK", order_id: msg.order_id, from: node_name });
       } else if msg.type == "STOCK_OK" {
-        update_ui("CHARGING #" + msg.order_id, "#f59e0b");
+        update_ui(node_name, "CHARGING #" + msg.order_id, "#f59e0b");
         send("payment_service", #{ type: "CHARGE", order_id: msg.order_id, from: node_name });
       } else if msg.type == "STOCK_FAIL" {
-        update_ui("OUT OF STOCK #" + msg.order_id, "#ef4444");
+        update_ui(node_name, "OUT OF STOCK #" + msg.order_id, "#ef4444");
         send(state.pending[oid].reply_to, #{ type: "ORDER_FAILED", order_id: msg.order_id, reason: "stock" });
         state.pending.remove(oid);
       } else if msg.type == "PAYMENT_OK" {
-        update_ui("CONFIRMED #" + msg.order_id, "#10b981");
+        update_ui(node_name, "CONFIRMED #" + msg.order_id, "#10b981");
         send("notification_service", #{ type: "NOTIFY", order_id: msg.order_id });
         send("orders_db", #{ type: "SAVE_ORDER", order_id: msg.order_id });
         send(state.pending[oid].reply_to, #{ type: "ORDER_CONFIRMED", order_id: msg.order_id });
         state.pending.remove(oid);
       } else if msg.type == "PAYMENT_FAIL" {
-        update_ui("PAYMENT DECLINED #" + msg.order_id, "#ef4444");
+        update_ui(node_name, "PAYMENT DECLINED #" + msg.order_id, "#ef4444");
         send(state.pending[oid].reply_to, #{ type: "ORDER_FAILED", order_id: msg.order_id, reason: "payment" });
         state.pending.remove(oid);
       }
     }
-    fn update_ui(status, color) {
+    // `node_name` (like `state`) isn't visible inside a separately-defined
+    // Rhai fn either - it has to be passed in just like `status`/`color`.
+    fn update_ui(name, status, color) {
       draw([
         #{ shape: "rect", w: 165, h: 55, radius: 8, y: 75, fill: "#ffffff", stroke: color, stroke_width: 2 },
-        #{ shape: "text", text: node_name, y: 88, color: "#1e293b", size: 10, bold: true },
+        #{ shape: "text", text: name, y: 88, color: "#1e293b", size: 10, bold: true },
         #{ shape: "text", text: status, y: 66, color: color, size: 8 }
       ]);
     }
@@ -218,34 +227,34 @@ fns:
     }
 
   - &notification_fn |
-    fn on_init() { state.sent = 0; update_ui(); }
+    fn on_init() { state.sent = 0; update_ui(state.sent); }
     fn on_msg(msg) {
       if msg.type == "NOTIFY" {
         state.sent += 1;
         log("notification_service: confirmation email sent for order #" + msg.order_id);
-        update_ui();
+        update_ui(state.sent);
       }
     }
-    fn update_ui() {
+    fn update_ui(sent) {
       draw([
         #{ shape: "rect", w: 150, h: 50, radius: 8, y: 70, fill: "#ffffff", stroke: "#0ea5e9", stroke_width: 2 },
         #{ shape: "text", text: "NOTIFICATIONS", y: 82, color: "#1e293b", size: 9, bold: true },
-        #{ shape: "text", text: "sent: " + state.sent, y: 62, color: "#0ea5e9", size: 8 }
+        #{ shape: "text", text: "sent: " + sent, y: 62, color: "#0ea5e9", size: 8 }
       ]);
     }
 
   - &sink_db_fn |
-    fn on_init() { state.count = 0; update_ui(); }
+    fn on_init() { state.count = 0; update_ui(node_name, state.count); }
     fn on_msg(msg) {
       state.count += 1;
       log(node_name + " persisted record for order #" + msg.order_id);
-      update_ui();
+      update_ui(node_name, state.count);
     }
-    fn update_ui() {
+    fn update_ui(name, count) {
       draw([
         #{ shape: "rect", w: 140, h: 50, radius: 8, y: 70, fill: "#ffffff", stroke: "#059669", stroke_width: 2 },
-        #{ shape: "text", text: node_name, y: 82, color: "#1e293b", size: 9, bold: true },
-        #{ shape: "text", text: "rows: " + state.count, y: 62, color: "#059669", size: 8 }
+        #{ shape: "text", text: name, y: 82, color: "#1e293b", size: 9, bold: true },
+        #{ shape: "text", text: "rows: " + count, y: 62, color: "#059669", size: 8 }
       ]);
     }
 
@@ -372,11 +381,16 @@ graph_defn:
     - name: order_svc_1
       node_type: order_service
       group: compute_tier
-      links: [inventory_service, payment_service, notification_service, orders_db]
+      # api_gateway is needed here even though the request arrives via lb,
+      # not directly from api_gateway - a connector only exists between two
+      # names if either side declares it, and this is the only way this
+      # instance's final send(reply_to, ORDER_CONFIRMED/FAILED) back to
+      # api_gateway has a connector to travel across.
+      links: [inventory_service, payment_service, notification_service, orders_db, api_gateway]
     - name: order_svc_2
       node_type: order_service
       group: compute_tier
-      links: [inventory_service, payment_service, notification_service, orders_db]
+      links: [inventory_service, payment_service, notification_service, orders_db, api_gateway]
     - name: inventory_service
       node_type: inventory
       group: domain_tier
