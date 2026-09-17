@@ -176,6 +176,100 @@ fn bow_amount(dist: f32) -> f32 {
     (dist * BOW_FRACTION).clamp(BOW_MIN, BOW_MAX)
 }
 
+/// Target spacing, in world units, between two sibling edges' anchor points
+/// on the same side of a shared node - see `compute_lane_offsets`.
+const LANE_STEP: f32 = 16.0;
+
+/// A node with several edges leaving/arriving through the *same* side of its
+/// box (a fan-out/fan-in - e.g. two load-balanced service instances each
+/// calling the same three downstream services) used to have every one of
+/// those edges computed independently from nothing but its own two
+/// endpoints (`build_connector_path` has no idea any other connector
+/// exists), so they all left from essentially the same point on the box and
+/// drew on top of each other. This assigns each such edge a small, stable
+/// tangential offset - "which lane on this side of the box does this edge
+/// use" - so siblings fan out along the box edge instead of bunching at one
+/// point.
+///
+/// Grouping is per (node, side) - side meaning left/right ("horizontal exit",
+/// the same classification `box_exit_point` makes) vs top/bottom - and
+/// within a group, edges are ordered by their peer's position along the
+/// tangent axis (a horizontal-exit group orders by the peer's *y*; a
+/// vertical-exit group by the peer's *x*), so lane order visually matches
+/// where each edge is actually headed rather than being an arbitrary
+/// tie-break. The offset step is capped so the total spread can't exceed the
+/// node's own box on that axis (an edge's anchor should never wander past
+/// the box's own corner).
+///
+/// Returned keyed by `(node, peer)` (both directions get their own,
+/// independent entry) so a single edge's two ends can each look up their own
+/// node's assignment - `build_connector_path`'s `a_lane`/`b_lane` - without
+/// needing to know anything about the other end's node.
+fn compute_lane_offsets<'a>(
+    desired: &HashMap<(&'a str, &'a str), (&'a str, &'a str)>,
+    all_node_loc: &HashMap<String, Vec3>,
+    extents: &HashMap<&'a str, Vec2>,
+) -> HashMap<(&'a str, &'a str), f32> {
+    let mut incident: HashMap<&str, Vec<&str>> = HashMap::new();
+    for &(a, b) in desired.values() {
+        incident.entry(a).or_default().push(b);
+        incident.entry(b).or_default().push(a);
+    }
+
+    let mut offsets = HashMap::new();
+    for (node, peers) in incident.iter() {
+        if peers.len() < 2 {
+            continue; // no siblings to spread apart from
+        }
+        let Some(center) = all_node_loc.get(*node) else {
+            continue;
+        };
+        let center = center.truncate();
+        let half = extents.get(node).copied().unwrap_or(DEFAULT_HALF_EXTENTS);
+
+        // (peer, tangent coordinate) - horizontal_group orders by the peer's
+        // y (tangent to a left/right exit), vertical_group by the peer's x.
+        let mut horizontal_group: Vec<(&str, f32)> = Vec::new();
+        let mut vertical_group: Vec<(&str, f32)> = Vec::new();
+        for peer in peers {
+            let Some(p) = all_node_loc.get(*peer) else {
+                continue;
+            };
+            let delta = p.truncate() - center;
+            if delta.length() < 1.0 {
+                continue;
+            }
+            let t_x = half.x / delta.x.abs();
+            let t_y = half.y / delta.y.abs();
+            if t_x < t_y {
+                horizontal_group.push((peer, p.y));
+            } else {
+                vertical_group.push((peer, p.x));
+            }
+        }
+
+        for (group, half_extent) in [
+            (&mut horizontal_group, half.y),
+            (&mut vertical_group, half.x),
+        ] {
+            if group.len() < 2 {
+                continue;
+            }
+            group.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+            let n = group.len();
+            // Leaves a margin inside the box edge rather than spreading lanes
+            // flush to the corner.
+            let max_span = half_extent * 1.6;
+            let step = LANE_STEP.min(max_span / (n - 1) as f32);
+            for (i, (peer, _)) in group.iter().enumerate() {
+                let offset = (i as f32 - (n - 1) as f32 / 2.0) * step;
+                offsets.insert((*node, *peer), offset);
+            }
+        }
+    }
+    offsets
+}
+
 /// How far back from each `Step` corner the rounding starts - a visibly
 /// rounded fillet, not just the thin, stroke-width-scaled rounding
 /// `LineJoin::Round` gives a sharp corner on its own. Clamped per-corner to
@@ -256,11 +350,20 @@ fn line_through_rounded_corners(path_builder: &mut PathBuilder, points: &[Vec2],
 /// quadratic bezier through the corner point, not just the thin,
 /// stroke-width-scaled rounding `LineJoin::Round` alone would give a sharp
 /// corner).
+///
+/// `a_lane`/`b_lane` are each endpoint's tangential anchor offset from
+/// `compute_lane_offsets` (`0.0` for a node with no sibling edges sharing its
+/// exit side) - applied to `start`/`end` right after the box-exit inset, so
+/// every downstream computation (corner points, bezier control points, the
+/// `Step` bus position) naturally uses the already-spread point instead of
+/// needing its own separate adjustment.
 fn build_connector_path(
     a: Vec2,
     a_half: Vec2,
+    a_lane: f32,
     b: Vec2,
     b_half: Vec2,
+    b_lane: f32,
     style: ConnectorStyle,
 ) -> Path {
     let delta = b - a;
@@ -281,8 +384,22 @@ fn build_connector_path(
     // distance, so together they can take at most 90%, always leaving some
     // visible gap between them.
     let max_t = dist * 0.45;
-    let (start, horizontal_exit) = box_exit_point(a, dir, a_half, max_t);
-    let (end, horizontal_entry) = box_exit_point(b, -dir, b_half, max_t);
+    let (mut start, horizontal_exit) = box_exit_point(a, dir, a_half, max_t);
+    let (mut end, horizontal_entry) = box_exit_point(b, -dir, b_half, max_t);
+
+    // Nudge each endpoint along the tangent of whichever side it actually
+    // exits/enters through (see `compute_lane_offsets`), clamped so the
+    // offset can't push the point past that box's own corner.
+    if horizontal_exit {
+        start.y = (start.y + a_lane).clamp(a.y - a_half.y * 0.95, a.y + a_half.y * 0.95);
+    } else {
+        start.x = (start.x + a_lane).clamp(a.x - a_half.x * 0.95, a.x + a_half.x * 0.95);
+    }
+    if horizontal_entry {
+        end.y = (end.y + b_lane).clamp(b.y - b_half.y * 0.95, b.y + b_half.y * 0.95);
+    } else {
+        end.x = (end.x + b_lane).clamp(b.x - b_half.x * 0.95, b.x + b_half.x * 0.95);
+    }
 
     path_builder.move_to(start);
     match style {
@@ -310,8 +427,15 @@ fn build_connector_path(
                 );
             } else if horizontal_exit {
                 // Both ends leave/arrive horizontally - bridge the y gap
-                // with a vertical segment at the horizontal midpoint.
-                let mid_x = (start.x + end.x) / 2.0;
+                // with a vertical segment. Its x position is nudged by this
+                // edge's own lane offset (reusing the same value computed
+                // for the anchor spread above - it's already a stable,
+                // per-edge distinguishing value, just repurposed here as a
+                // channel position instead of a y-nudge) so several sibling
+                // edges bridging the same rank gap use distinct vertical
+                // channels instead of stacking on the exact same x.
+                let bus_offset = (a_lane + b_lane) * 0.5;
+                let mid_x = (start.x + end.x) / 2.0 + bus_offset;
                 let points = [
                     start,
                     Vec2::new(mid_x, start.y),
@@ -320,9 +444,11 @@ fn build_connector_path(
                 ];
                 line_through_rounded_corners(&mut path_builder, &points, STEP_CORNER_RADIUS);
             } else {
-                // Both ends leave/arrive vertically - bridge the x gap with
-                // a horizontal segment at the vertical midpoint.
-                let mid_y = (start.y + end.y) / 2.0;
+                // Both ends leave/arrive vertically - same idea, bridging
+                // the x gap with a horizontal segment whose y position is
+                // nudged by this edge's lane offset.
+                let bus_offset = (a_lane + b_lane) * 0.5;
+                let mid_y = (start.y + end.y) / 2.0 + bus_offset;
                 let points = [
                     start,
                     Vec2::new(start.x, mid_y),
@@ -442,6 +568,17 @@ pub fn update_connectors(
             }
         }
 
+        // Only worth computing lane offsets (see `compute_lane_offsets`) on a
+        // frame that's actually spawning a new connector or retracing an
+        // existing one - a fully idle frame (nothing moved, nothing new)
+        // should stay as cheap as it was before this existed.
+        let has_new_edges = desired.keys().any(|k| !existing.contains_key(k));
+        let lane_offsets = if has_new_edges || !query_changed.is_empty() {
+            compute_lane_offsets(&desired, &all_node_loc, &extents)
+        } else {
+            HashMap::new()
+        };
+
         // add connectors for newly-declared edges
         for (key, &(a, b)) in desired.iter() {
             if existing.contains_key(key) {
@@ -451,11 +588,15 @@ pub fn update_connectors(
             let b_loc = all_node_loc.get(b).unwrap();
             let a_half = extents.get(a).copied().unwrap_or(DEFAULT_HALF_EXTENTS);
             let b_half = extents.get(b).copied().unwrap_or(DEFAULT_HALF_EXTENTS);
+            let a_lane = lane_offsets.get(&(a, b)).copied().unwrap_or(0.0);
+            let b_lane = lane_offsets.get(&(b, a)).copied().unwrap_or(0.0);
             let _ = generate_line(
                 a_loc,
                 a_half,
+                a_lane,
                 b_loc,
                 b_half,
+                b_lane,
                 &g.graph_defn.graph_attrs,
                 a,
                 b,
@@ -496,11 +637,21 @@ pub fn update_connectors(
                     .get(conn.id2.as_str())
                     .copied()
                     .unwrap_or(DEFAULT_HALF_EXTENTS);
+                let a_lane = lane_offsets
+                    .get(&(conn.id1.as_str(), conn.id2.as_str()))
+                    .copied()
+                    .unwrap_or(0.0);
+                let b_lane = lane_offsets
+                    .get(&(conn.id2.as_str(), conn.id1.as_str()))
+                    .copied()
+                    .unwrap_or(0.0);
                 *path = build_connector_path(
                     node1_loc.unwrap().truncate(),
                     a_half,
+                    a_lane,
                     node2_loc.unwrap().truncate(),
                     b_half,
+                    b_lane,
                     g.graph_defn.graph_attrs.connector_style,
                 );
                 conn.path = path.0.clone();
@@ -514,8 +665,10 @@ pub fn update_connectors(
 fn generate_line(
     a: &Vec3,
     a_half: Vec2,
+    a_lane: f32,
     b: &Vec3,
     b_half: Vec2,
+    b_lane: f32,
     ga: &GraphAttrs,
     id1: &str,
     id2: &str,
@@ -524,8 +677,10 @@ fn generate_line(
     let path = build_connector_path(
         a.truncate(),
         a_half,
+        a_lane,
         b.truncate(),
         b_half,
+        b_lane,
         ga.connector_style,
     );
     let walking_path = path.0.clone();
@@ -649,6 +804,123 @@ mod tests {
         // max_t (10.0) is smaller than the box's own half-width (80.0) - the
         // short-link clamp must win, not the box edge.
         assert!((p.x - 10.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_compute_lane_offsets_spreads_horizontal_fanout() {
+        let hub = "hub".to_string();
+        let peer_a = "peer_a".to_string();
+        let peer_b = "peer_b".to_string();
+        let peer_c = "peer_c".to_string();
+
+        let mut all_node_loc: HashMap<String, Vec3> = HashMap::new();
+        all_node_loc.insert(hub.clone(), Vec3::new(0.0, 0.0, 0.0));
+        // All three peers sit well to the right of the hub at different
+        // heights, so all three edges exit the hub's right (horizontal) side.
+        all_node_loc.insert(peer_a.clone(), Vec3::new(200.0, -60.0, 0.0));
+        all_node_loc.insert(peer_b.clone(), Vec3::new(200.0, 0.0, 0.0));
+        all_node_loc.insert(peer_c.clone(), Vec3::new(200.0, 60.0, 0.0));
+
+        let mut extents: HashMap<&str, Vec2> = HashMap::new();
+        extents.insert(hub.as_str(), DEFAULT_HALF_EXTENTS);
+        extents.insert(peer_a.as_str(), DEFAULT_HALF_EXTENTS);
+        extents.insert(peer_b.as_str(), DEFAULT_HALF_EXTENTS);
+        extents.insert(peer_c.as_str(), DEFAULT_HALF_EXTENTS);
+
+        let mut desired: HashMap<(&str, &str), (&str, &str)> = HashMap::new();
+        for peer in [&peer_a, &peer_b, &peer_c] {
+            desired.insert(
+                edge_key(hub.as_str(), peer.as_str()),
+                (hub.as_str(), peer.as_str()),
+            );
+        }
+
+        let offsets = compute_lane_offsets(&desired, &all_node_loc, &extents);
+
+        let a = offsets[&(hub.as_str(), peer_a.as_str())];
+        let b = offsets[&(hub.as_str(), peer_b.as_str())];
+        let c = offsets[&(hub.as_str(), peer_c.as_str())];
+
+        // Ordered along the tangent axis (peer y) the same way the peers
+        // themselves are ordered: peer_a (y=-60) < peer_b (y=0) < peer_c (y=60).
+        assert!(a < b, "peer_a's lane should be below peer_b's: {a} vs {b}");
+        assert!(b < c, "peer_b's lane should be below peer_c's: {b} vs {c}");
+        // Symmetric around zero for an evenly-spaced group of three.
+        assert!((a + c).abs() < 0.001);
+        assert!(b.abs() < 0.001);
+
+        // Each peer only has this one connector touching it, so it gets no
+        // lane assignment of its own back toward the hub.
+        assert_eq!(offsets.get(&(peer_a.as_str(), hub.as_str())), None);
+    }
+
+    #[test]
+    fn test_compute_lane_offsets_stays_within_box_bounds() {
+        // A tall, narrow hub with many siblings on one side - the assigned
+        // offsets must never spread wider than the box itself allows.
+        let hub = "hub".to_string();
+        let half = Vec2::new(30.0, 20.0);
+        let mut all_node_loc: HashMap<String, Vec3> = HashMap::new();
+        all_node_loc.insert(hub.clone(), Vec3::new(0.0, 0.0, 0.0));
+        let mut extents: HashMap<&str, Vec2> = HashMap::new();
+        extents.insert(hub.as_str(), half);
+
+        let peers: Vec<String> = (0..8).map(|i| format!("peer_{i}")).collect();
+        for (i, peer) in peers.iter().enumerate() {
+            // Spread the peers out vertically but keep them clearly to the
+            // right of the hub, so every edge exits horizontally.
+            all_node_loc.insert(peer.clone(), Vec3::new(200.0, i as f32 * 10.0 - 35.0, 0.0));
+            extents.insert(peer.as_str(), DEFAULT_HALF_EXTENTS);
+        }
+
+        let mut desired: HashMap<(&str, &str), (&str, &str)> = HashMap::new();
+        for peer in &peers {
+            desired.insert(
+                edge_key(hub.as_str(), peer.as_str()),
+                (hub.as_str(), peer.as_str()),
+            );
+        }
+
+        let offsets = compute_lane_offsets(&desired, &all_node_loc, &extents);
+        for peer in &peers {
+            let offset = offsets[&(hub.as_str(), peer.as_str())];
+            assert!(
+                offset.abs() <= half.y * 0.8 + 0.001,
+                "offset {offset} escaped the hub's own half-height ({})",
+                half.y
+            );
+        }
+    }
+
+    #[test]
+    fn test_build_connector_path_anchor_lane_shifts_start_point() {
+        let half = Vec2::new(40.0, 40.0);
+        let a = Vec2::new(0.0, 0.0);
+        let b = Vec2::new(300.0, 0.0); // due east - both ends exit horizontally
+
+        let no_offset = build_connector_path(a, half, 0.0, b, half, 0.0, ConnectorStyle::Straight);
+        let offset = build_connector_path(a, half, 20.0, b, half, 0.0, ConnectorStyle::Straight);
+
+        let no_offset_start = walk_path(&no_offset.0)[0];
+        let offset_start = walk_path(&offset.0)[0];
+
+        // A due-east link exits `a`'s right edge, so the lane offset (a
+        // tangent-axis nudge) should move the start point's y, not its x.
+        assert!((no_offset_start[0] - offset_start[0]).abs() < 0.001);
+        assert!((offset_start[1] - no_offset_start[1] - 20.0).abs() < 0.5);
+    }
+
+    #[test]
+    fn test_build_connector_path_lane_offset_clamped_to_box() {
+        let half = Vec2::new(20.0, 20.0);
+        let a = Vec2::new(0.0, 0.0);
+        let b = Vec2::new(300.0, 0.0);
+
+        // An absurdly large lane offset must not push the anchor past the
+        // node's own half-extent on that axis.
+        let path = build_connector_path(a, half, 500.0, b, half, 0.0, ConnectorStyle::Straight);
+        let start = walk_path(&path.0)[0];
+        assert!(start[1] <= half.y + 0.01);
     }
 
     #[test]

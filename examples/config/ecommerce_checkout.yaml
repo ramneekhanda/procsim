@@ -43,13 +43,18 @@ fns:
         send("cache", #{ type: "GET", order_id: msg.order_id, from: node_name });
       } else if msg.type == "HIT" {
         update_ui("CACHED AUTH #" + msg.order_id, "#8b5cf6");
-        send("lb", #{ type: "ORDER_REQUEST", order_id: msg.order_id, from: node_name });
+        // `reply_to`, not `from` - `from` gets silently overwritten by the
+        // engine on every hop (see the "why doesn't the reply come back"
+        // note below on order_fn), so it can't carry an identity past the
+        // lb's relay. `reply_to` is an ordinary field the engine never
+        // touches, so it survives that extra hop intact.
+        send("lb", #{ type: "ORDER_REQUEST", order_id: msg.order_id, reply_to: node_name });
       } else if msg.type == "MISS" {
         send("auth_service", #{ type: "AUTH_CHECK", order_id: msg.order_id, from: node_name });
       } else if msg.type == "AUTH_OK" {
         send("cache", #{ type: "SET", order_id: msg.order_id, from: node_name });
         update_ui("AUTHORIZED #" + msg.order_id, "#8b5cf6");
-        send("lb", #{ type: "ORDER_REQUEST", order_id: msg.order_id, from: node_name });
+        send("lb", #{ type: "ORDER_REQUEST", order_id: msg.order_id, reply_to: node_name });
       } else if msg.type == "AUTH_FAIL" {
         update_ui("AUTH FAILED #" + msg.order_id, "#ef4444");
         send(state.pending[oid], #{ type: "ORDER_FAILED", order_id: msg.order_id, reason: "auth" });
@@ -130,6 +135,12 @@ fns:
     fn on_msg(msg) {
       let oid = msg.order_id.to_string();
       if msg.type == "ORDER_REQUEST" {
+        // `msg.from` here is "lb" - the engine stamps `from` with whoever
+        // most recently called send(), so it's clobbered on every relay hop
+        // and can't be trusted past the lb that forwarded this. The
+        // gateway's actual reply address survived that hop under the
+        // `reply_to` field instead (an ordinary field the engine never
+        // touches), which is what the replies below read.
         state.pending[oid] = msg;
         update_ui("RESERVING STOCK #" + msg.order_id, "#f59e0b");
         send("inventory_service", #{ type: "RESERVE_STOCK", order_id: msg.order_id, from: node_name });
@@ -138,17 +149,17 @@ fns:
         send("payment_service", #{ type: "CHARGE", order_id: msg.order_id, from: node_name });
       } else if msg.type == "STOCK_FAIL" {
         update_ui("OUT OF STOCK #" + msg.order_id, "#ef4444");
-        send(state.pending[oid].from, #{ type: "ORDER_FAILED", order_id: msg.order_id, reason: "stock" });
+        send(state.pending[oid].reply_to, #{ type: "ORDER_FAILED", order_id: msg.order_id, reason: "stock" });
         state.pending.remove(oid);
       } else if msg.type == "PAYMENT_OK" {
         update_ui("CONFIRMED #" + msg.order_id, "#10b981");
         send("notification_service", #{ type: "NOTIFY", order_id: msg.order_id });
         send("orders_db", #{ type: "SAVE_ORDER", order_id: msg.order_id });
-        send(state.pending[oid].from, #{ type: "ORDER_CONFIRMED", order_id: msg.order_id });
+        send(state.pending[oid].reply_to, #{ type: "ORDER_CONFIRMED", order_id: msg.order_id });
         state.pending.remove(oid);
       } else if msg.type == "PAYMENT_FAIL" {
         update_ui("PAYMENT DECLINED #" + msg.order_id, "#ef4444");
-        send(state.pending[oid].from, #{ type: "ORDER_FAILED", order_id: msg.order_id, reason: "payment" });
+        send(state.pending[oid].reply_to, #{ type: "ORDER_FAILED", order_id: msg.order_id, reason: "payment" });
         state.pending.remove(oid);
       }
     }
@@ -241,11 +252,23 @@ fns:
 graph_defn:
   graph_attrs:
     title: "E-Commerce Checkout Pipeline"
-    connector_style: curved
+    # `step` (orthogonal routing) instead of `curved`: order_svc_1/order_svc_2
+    # both fan out to inventory_service/payment_service/notification_service/
+    # orders_db, an 8-edge many-to-many bundle. The connector router has no
+    # crossing-avoidance or bundling (every edge is routed independently from
+    # just its own two endpoints), so a fan pattern like this will always
+    # converge visually near the shared targets - `step` at least keeps each
+    # source on its own horizontal lane into a shared vertical bus, which
+    # reads as organized; `curved` bows here just tangle on top of each other.
+    connector_style: step
   layout:
     type: hierarchical
     direction: lr
-    rank_sep: 280
+    # Generous rank/group spacing doesn't remove the fan-in crossings above,
+    # but gives them room to spread out before converging instead of bunching
+    # right at the target nodes' edges.
+    rank_sep: 320
+    group_sep: 400
     # Every draw()'d status card below floats above its node (y offset up to
     # 88, height up to 55 -> extends to roughly y=115 from the node's own
     # center). node_sep is purely structural (the layout engine has no idea
@@ -265,7 +288,7 @@ graph_defn:
     - id: compute_tier
       title: "Order Service (behind LB)"
       direction: tb
-      nodes: [lb, order_svc_1, order_svc_2]
+      nodes: [order_svc_1, order_svc_2]
     - id: domain_tier
       title: "Domain Services"
       direction: tb
@@ -330,7 +353,7 @@ graph_defn:
     - name: client
       node_type: client
       group: edge
-      links: []
+      links: [api_gateway]
     - name: api_gateway
       node_type: gateway
       group: edge
@@ -345,7 +368,6 @@ graph_defn:
       links: []
     - name: lb
       node_type: lb
-      group: compute_tier
       links: [order_svc_1, order_svc_2]
     - name: order_svc_1
       node_type: order_service

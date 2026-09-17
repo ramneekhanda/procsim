@@ -112,6 +112,29 @@ Colors accept hex or common CSS names. `connector_style`:
 - `straight` — a single direct segment, good for dense/simple graphs where step routing
   would just add visual noise.
 
+**Connector overlap in fan-out/fan-in or multi-tier graphs**: the connector router
+(`src/systems/update_connectors.rs`) computes every edge's path independently from just its
+own two endpoints — there is no crossing-avoidance or edge bundling, and it has no awareness
+of any other connector or node on the canvas. This means a many-to-many pattern (e.g. two
+load-balanced service instances each calling the same three downstream services — a 6-edge
+bundle) will visually converge/cross near the shared targets no matter what layout you pick;
+that's an inherent property of the router, not something a spacing tweak "fixes" outright.
+What you *can* do, roughly in order of impact:
+1. Prefer `connector_style: step` over `curved` whenever a graph has real fan-out/fan-in —
+   orthogonal routing gives each source its own lane merging into a shared bus, which stays
+   legible; curved bows from nearby-but-distinct source points tend to visually tangle.
+2. Give it room: bump `rank_sep`/`group_sep` above their defaults so converging edges have
+   space to fan out before bunching at the target, instead of crossing right at the node edge.
+3. If the *real* architecture doesn't strictly require every source independently reaching
+   every target, route through a shared hub/queue node instead — that turns an M×N edge count
+   into M+N and is usually also a more honest model of the system (e.g. an event bus or
+   message queue between producers and consumers, rather than direct point-to-point calls).
+4. `graph[].rank`/`order` overrides can align sources and targets so more edges run parallel
+   instead of crossing, if the default topological ordering puts them at odds.
+Set the reader's expectations honestly: a genuinely dense many-to-many topology will still
+look busy after all of the above — that's expected of this router, not a defect to keep
+chasing.
+
 ## `layout` (`LayoutConfig`)
 
 ```yaml

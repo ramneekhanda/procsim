@@ -28,9 +28,28 @@ exist — omit any you don't need:
 - Any `node_types[].params[].name` — each declared param is a read-only constant directly in
   scope by name (not nested under a `params` object).
 - `msg` — only inside `on_msg(msg)`: the delivered message, a `Dynamic` map/value exactly as
-  it was passed to `send()`. Common convention: give messages a `type` field and switch on it
-  (`if msg.type == "PREPARE" { ... }`), and a `from` field carrying the sender's `node_name`
-  when the recipient needs to reply.
+  it was passed to `send()`, with one exception (see the `from` gotcha immediately below).
+  Common convention: give messages a `type` field and switch on it
+  (`if msg.type == "PREPARE" { ... }`).
+
+**`msg.from` is engine-managed, not script-set — this breaks multi-hop relays if you're not
+careful.** Every time `send()` is called, the engine (`send_messages` in
+`src/systems/rhai_engine.rs`) unconditionally overwrites the message's `from` key with the
+*calling* node's own name, discarding whatever the script put there. For a direct reply
+(A sends to B, B replies with `send(msg.from, ...)`) this is exactly what you want — `msg.from`
+correctly names A. But if a message passes through an intermediary before reaching its real
+destination (a load balancer, a bus, any relay that does `send(next_hop, msg)` with the same
+message object), `from` gets re-stamped with the *relay's* name at that hop, silently
+discarding whoever the original sender was. A downstream handler that stores `msg.from`
+expecting to reply to the original sender will instead reply to the relay - which, if that
+relay's own `on_msg` doesn't specifically handle the reply's `type`, means the reply just
+disappears with no error anywhere.
+
+The fix: never rely on `from` surviving more than one hop. If a reply needs to reach past an
+intermediary, carry that address in your own field instead - e.g. `reply_to: node_name` - since
+every field *other than* `from` passes through a relay's `send(next_hop, msg)` completely
+unchanged. A relay only needs to forward the message as-is (`send(target, msg)`); it never
+needs to know about or touch `reply_to`.
 
 ## Host functions
 
@@ -95,6 +114,10 @@ fn on_msg(msg) {
   state.idx += 1;
 }
 ```
+A relay like this is exactly where the `msg.from` gotcha above bites: forwarding `msg` here
+re-stamps `from` with this load balancer's own name, so whatever it forwards to must not
+expect to reply via `msg.from` and reach the *original* caller - see that section for the
+`reply_to`-field fix if the downstream handler needs to reply past this hop.
 
 **Randomized/flaky failure simulation**:
 ```rhai
