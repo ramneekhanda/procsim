@@ -1,0 +1,134 @@
+# Rhai scripting reference
+
+Each `node_types[].fn` (or per-instance `graph[].fn` override) is a Rhai source string
+defining up to three functions. The engine (`src/systems/rhai_engine.rs`) calls whichever
+exist — omit any you don't need:
+
+- `fn on_init()` — runs once, when the node is created (graph load or `spawn_node`). Seed
+  `state` here.
+- `fn on_timer()` — runs each time the node's `attrs.ticks` timer fires.
+- `fn on_msg(msg)` — runs once per delivered message, when a message this node was `send()`'d
+  arrives. (`on_message` is also recognized as an alias — the canonical name is `on_msg`;
+  prefer it in anything you write.)
+
+## Scope variables available inside handlers
+
+- `state` — a persistent `Dynamic` (map, usually) that round-trips across every call for
+  this node instance. This is the *only* way a node remembers anything between ticks/
+  messages — there is no other persistent storage. Always initialize the fields you use in
+  `on_init` (or guard with `?? default`, e.g. `state.busy ?? false`) since a node created via
+  `spawn_node` without an explicit `on_init` starts with an empty/default state.
+- `links` — a read-only array of this node's linked peer names (`graph[].links`, kept live —
+  `link()`/`unlink()` update it). Iterate it for broadcast (`for peer in links { send(peer, ...) }`)
+  or index it for round-robin (`links[state.idx % links.len()]`) rather than hardcoding peer
+  names, so the script still works if the graph's topology changes.
+- `node_name` — this node's own instance name (`graph[].name`), useful for logging
+  (`node_name + " received X"`) or for reusable scripts shared across many instances via
+  `&anchor` (see `two_phase_commit.yml`'s `cohort_fn`, used by two differently-named nodes).
+- Any `node_types[].params[].name` — each declared param is a read-only constant directly in
+  scope by name (not nested under a `params` object).
+- `msg` — only inside `on_msg(msg)`: the delivered message, a `Dynamic` map/value exactly as
+  it was passed to `send()`. Common convention: give messages a `type` field and switch on it
+  (`if msg.type == "PREPARE" { ... }`), and a `from` field carrying the sender's `node_name`
+  when the recipient needs to reply.
+
+## Host functions
+
+| Function | Signature | Notes |
+|---|---|---|
+| `log` | `log(s)` / `log(dynamic)` / `log(a, b)` | Prints to the app's log panel. The 2-arg form space-joins (`log("count:", state.n)`). |
+| `send` | `send(to: String, msg: Dynamic)` | Queues a message to node `to` (must be a live node — a name in your own `links`, or one from an inbound `msg.from`). Delivered async after the connector's travel animation, arrives as `on_msg(msg)` on the target. |
+| `draw` | `draw(shapes: Array)` / `draw(shape: Map)` | Replaces this node's overlay with the given shape list (see `references/schema.md`'s TemplateShape/draw table for the shape vocabulary). `draw([])` clears it; not calling `draw()` leaves the last one. Works from `on_init` too. |
+| `random_chance` | `random_chance(percent: Int) -> Bool` | `true` with roughly that % probability — use for flaky/failing behavior (`if random_chance(20) { ... simulate a dropped request ... }`) instead of a manually-toggled param. |
+| `random_int` | `random_int(min: Int, max: Int) -> Int` | Half-open `[min, max)`. Degenerate `max <= min` returns `min` (safe to call even when `links.len() == 0` might make `max` 0). |
+| `spawn_node` | `spawn_node(name, node_type, links: Array)` / `spawn_node(name, node_type, links, fn_override: String)` | Creates a new node instance at runtime; its `on_init` runs immediately. `links` must already exist. Use the 4-arg form to give the new instance a bespoke one-off script without inventing a whole new `node_type`. |
+| `despawn` | `despawn(name: String)` | Removes any node by name, including the caller (self-destructing nodes are fine). |
+| `link` / `unlink` | `link(peer: String)` / `unlink(peer: String)` | Adds/removes `peer` from the **calling** node's own `links` — self-scoped by convention, not enforced. Takes effect next tick/message. |
+| `update_node_params` | `update_node_params(p: Map)` | Cheaper alternative to `draw()` when the node uses `attrs.template_ref`/`template`: updates just the named `{{placeholder}}` values and re-renders, without restating every shape. No-op if the node has no template at all. |
+| `explain` | `explain(key, text)` / `explain(key, text, opts)` / `explain(text)` / `explain(text, opts)` | Shows a one-time, sim-pausing narration bubble anchored to the calling node, for "here's what's happening" beats. `key` dedups — a given key only ever shows once per graph load no matter how many times it's called again. The 1-arg-text forms reuse `text` itself as the key. Use sparingly — good for a tutorial/demo walkthrough of a protocol's phases, not for routine per-message chatter (that's what `log()` is for). |
+
+Calling an undeclared/mistyped host function, or the right function with the wrong argument
+count/types, fails to compile silently from the YAML author's perspective (no red squiggly
+outside the live app) — double check spelling and arity against this table for anything
+non-trivial.
+
+## Common patterns
+
+**Broadcast / fan-out** (one sender, many peers, driven by topology not a hardcoded list):
+```rhai
+fn on_timer() {
+  for peer in links {
+    send(peer, #{ type: "PING", from: node_name });
+  }
+}
+```
+
+**Request/reply** (recipient replies to whoever sent it, not a fixed peer):
+```rhai
+fn on_msg(msg) {
+  if msg.type == "REQUEST" {
+    send(msg.from, #{ type: "RESPONSE", from: node_name, result: 42 });
+  }
+}
+```
+
+**Quorum / vote collection** (coordinator waits for N replies before acting — see
+`two_phase_commit.yml` for the full worked example):
+```rhai
+fn on_init() { state.votes = []; }
+fn on_msg(msg) {
+  if msg.type == "VOTE" {
+    state.votes.push(msg.vote);
+    if state.votes.len() == links.len() {
+      // all peers responded — decide and broadcast the outcome
+    }
+  }
+}
+```
+
+**Round-robin routing** (load balancer):
+```rhai
+fn on_init() { state.idx = 0; }
+fn on_msg(msg) {
+  if links.len() == 0 { return; }
+  send(links[state.idx % links.len()], msg);
+  state.idx += 1;
+}
+```
+
+**Randomized/flaky failure simulation**:
+```rhai
+fn on_msg(msg) {
+  if random_chance(15) {
+    log(node_name + " dropped a message (simulated failure)");
+    return;
+  }
+  send(links[0], msg);
+}
+```
+
+**Visible status card via `draw()`** (make internal state changes watchable, not just logged
+— reach for this whenever the description talks about a node's *state* changing, e.g.
+"becomes leader", "marks itself unhealthy"):
+```rhai
+fn update_ui(status, color) {
+  draw([
+    #{ shape: "rect", w: 140, h: 55, radius: 8, y: 70, fill: "#ffffff", stroke: color, stroke_width: 2 },
+    #{ shape: "text", text: node_name, y: 82, color: "#1e293b", size: 10 },
+    #{ shape: "text", text: status, y: 60, color: color, size: 9 }
+  ]);
+}
+fn on_init() { update_ui("READY", "#64748b"); }
+fn on_msg(msg) { update_ui("PROCESSING", "#f59e0b"); }
+```
+
+**Runtime topology growth** (spawn workers on demand):
+```rhai
+fn on_timer() {
+  if links.len() < 3 {
+    let n = "worker_" + (links.len() + 1);
+    spawn_node(n, "worker", []);
+    link(n);
+  }
+}
+```
