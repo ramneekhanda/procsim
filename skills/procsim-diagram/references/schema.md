@@ -93,6 +93,21 @@ graph:
 handler later creates via `spawn_node`) — no dangling/forward references to names that never
 appear.
 
+**A `links` entry isn't just cosmetic — it's what makes `send()` actually deliver.**
+`send(to, msg)` only works between two nodes if a connector exists between them, and a
+connector only gets created for an edge that at least one side declared in its own `links:`.
+If A calls `send("B", ...)` but neither A nor B lists the other in `links`, the message is
+silently dropped — no error in the sim, just nothing arriving at B. This is the single most
+common way a generated graph "half-works": every node that appears as a `send()` target
+anywhere in another node's script needs a `links:` entry somewhere connecting the two, even if
+the actual conversation is one-directional (e.g. a reply address stored from an earlier
+message's `reply_to`/`from`, not the node's own declared `links`). When wiring up any
+multi-hop relay or reply-to-sender pattern, double check that *every* name ever passed to
+`send()` — not just the ones a node's own `links:` visibly lists as its primary targets — has
+a real edge somewhere in the graph. (The engine logs `send: no connector between X and Y -
+message dropped` when this happens, which is the fastest way to confirm a graph that "does
+nothing" has this specific problem.)
+
 ## `graph_attrs` (`GraphAttrs`)
 
 ```yaml
