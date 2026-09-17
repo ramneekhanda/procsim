@@ -113,7 +113,7 @@ pub fn execute_rhai_engine(
             if let Err(e) =
                 engine.call_fn_with_options::<()>(options, scope, &node.ast, "on_timer", ())
             {
-                c_log!("error running: {:?}", e);
+                c_log!("error running on_timer on node {:?}: {:?}", node.name, e);
             }
             // Drain unconditionally, not just on Ok - a `send()` earlier in
             // the handler already queued its entry into `local_message_store`
@@ -230,7 +230,12 @@ pub fn execute_rhai_engine(
                         if let rhai::EvalAltResult::ErrorFunctionNotFound(_, _) = &*e {
                             // Function not defined on node, which is normal if node doesn't handle messages
                         } else {
-                            c_log!("error running on_msg / on_message: {:?}", e);
+                            c_log!(
+                                "error running on_msg / on_message on node {:?} for msg {:?}: {:?}",
+                                node.name,
+                                msg.obj,
+                                e
+                            );
                         }
                     }
                     // Drain unconditionally - see the matching comment on the
@@ -734,5 +739,105 @@ fn populate_scope(scope: &mut Scope, params: &Option<Vec<NodeParams>>) {
                 scope.push_constant(param.name.clone(), default.clone())
             }
         };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rhai::{Dynamic, Engine, Scope};
+
+    /// Reproduces the exact shape order_fn/gateway_fn's on_msg used:
+    /// an if/else-if chain (no trailing `else`) whose matched branch's
+    /// last statement is `map.remove(key);` - WITH a trailing semicolon -
+    /// called via `call_fn::<()>`, the same way `execute_rhai_engine` calls
+    /// on_msg. If this errors, it confirms `Map::remove()`'s return value
+    /// leaks through as the branch's (and therefore the function's) return
+    /// value despite the semicolon, whenever that branch is reached via a
+    /// matched `if`/`else if` used as a function's own tail expression.
+    fn run_branch_ending_in_bare_remove(msg_type: &str) -> Result<(), String> {
+        let engine = Engine::new();
+        let ast = engine
+            .compile(
+                r#"
+                fn on_msg(pending, msg_type) {
+                    if msg_type == "A" {
+                        pending.remove("k");
+                    } else if msg_type == "B" {
+                        pending.remove("k");
+                    }
+                }
+                "#,
+            )
+            .map_err(|e| format!("compile error: {e}"))?;
+
+        let mut map = rhai::Map::new();
+        map.insert("k".into(), Dynamic::from("value".to_string()));
+
+        let mut scope = Scope::new();
+        engine
+            .call_fn::<()>(&mut scope, &ast, "on_msg", (map, msg_type.to_string()))
+            .map(|_| ())
+            .map_err(|e| format!("{e:?}"))
+    }
+
+    #[test]
+    fn test_bare_map_remove_as_branch_tail_leaks_return_type() {
+        // Documents the actual bug this test exists to catch - if this
+        // assertion ever starts failing (i.e. the call succeeds), it means
+        // either Rhai's own behavior changed or something about the
+        // engine's call_fn_with_options options changed to no longer be
+        // affected, and the corresponding `let _ = map.remove(...)`
+        // workarounds in the example graphs can be removed.
+        let result = run_branch_ending_in_bare_remove("A");
+        assert!(
+            result.is_err(),
+            "expected a bare `map.remove(key);` as an if/else-if branch's tail \
+             statement to leak its return value through call_fn::<()>, but it \
+             succeeded: {result:?}"
+        );
+        // The leaked value is whatever `Map::remove()` actually returned -
+        // the *removed value itself* (a String here, since that's what was
+        // stored under "k"), not the map it was removed from. This matches
+        // the two variants seen in the live app: order_svc's `state.pending`
+        // stores whole message maps (leaked type "map"), gateway's stores
+        // plain client-name strings (leaked type "string") - same root
+        // cause, different value type depending on what's in the map.
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("string"),
+            "expected the error to report the removed value's own type (a \
+             string, in this test), got: {err}"
+        );
+    }
+
+    /// The fix actually used in the example graphs: assign the removed
+    /// value to a local (even if unused) so it's no longer the branch's
+    /// trailing expression.
+    #[test]
+    fn test_let_binding_around_map_remove_fixes_it() {
+        let engine = Engine::new();
+        let ast = engine
+            .compile(
+                r#"
+                fn on_msg(pending, msg_type) {
+                    if msg_type == "A" {
+                        let removed = pending.remove("k");
+                    } else if msg_type == "B" {
+                        let removed = pending.remove("k");
+                    }
+                }
+                "#,
+            )
+            .unwrap();
+
+        let mut map = rhai::Map::new();
+        map.insert("k".into(), Dynamic::from("value".to_string()));
+
+        let mut scope = Scope::new();
+        let result = engine.call_fn::<()>(&mut scope, &ast, "on_msg", (map, "A".to_string()));
+        assert!(
+            result.is_ok(),
+            "expected the let-binding workaround to make call_fn::<()> succeed, got: {result:?}"
+        );
     }
 }

@@ -58,11 +58,11 @@ fns:
       } else if msg.type == "AUTH_FAIL" {
         update_ui("AUTH FAILED #" + msg.order_id, "#ef4444");
         send(state.pending[oid], #{ type: "ORDER_FAILED", order_id: msg.order_id, reason: "auth" });
-        state.pending.remove(oid);
+        let removed = state.pending.remove(oid);
       } else if msg.type == "ORDER_CONFIRMED" || msg.type == "ORDER_FAILED" {
         update_ui("REPLYING #" + msg.order_id, "#10b981");
         send(state.pending[oid], msg);
-        state.pending.remove(oid);
+        let removed = state.pending.remove(oid);
       }
     }
     fn update_ui(status, color) {
@@ -157,17 +157,17 @@ fns:
       } else if msg.type == "STOCK_FAIL" {
         update_ui(node_name, "OUT OF STOCK #" + msg.order_id, "#ef4444");
         send(state.pending[oid].reply_to, #{ type: "ORDER_FAILED", order_id: msg.order_id, reason: "stock" });
-        state.pending.remove(oid);
+        let removed = state.pending.remove(oid);
       } else if msg.type == "PAYMENT_OK" {
         update_ui(node_name, "CONFIRMED #" + msg.order_id, "#10b981");
         send("notification_service", #{ type: "NOTIFY", order_id: msg.order_id });
         send("orders_db", #{ type: "SAVE_ORDER", order_id: msg.order_id });
         send(state.pending[oid].reply_to, #{ type: "ORDER_CONFIRMED", order_id: msg.order_id });
-        state.pending.remove(oid);
+        let removed = state.pending.remove(oid);
       } else if msg.type == "PAYMENT_FAIL" {
         update_ui(node_name, "PAYMENT DECLINED #" + msg.order_id, "#ef4444");
         send(state.pending[oid].reply_to, #{ type: "ORDER_FAILED", order_id: msg.order_id, reason: "payment" });
-        state.pending.remove(oid);
+        let removed = state.pending.remove(oid);
       }
     }
     // `node_name` (like `state`) isn't visible inside a separately-defined
