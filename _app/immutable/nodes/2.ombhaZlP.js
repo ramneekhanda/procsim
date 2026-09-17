@@ -1,0 +1,1 @@
+import{P as m}from"../chunks/2.BMzHePCI.js";export{m as component};
