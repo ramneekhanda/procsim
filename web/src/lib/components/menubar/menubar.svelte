@@ -7,7 +7,7 @@
  let installLabel = "Install in Claude";
 
  async function installInClaude() {
-   const base = window.location.origin;
+   const base = window.location.origin + window.location.pathname.replace(/\/$/, "");
    const prompt = `Install the "procsim-diagram" Claude Code skill by fetching these files and saving them exactly as-is (preserve the directory structure, SKILL.md at the root of the skill folder):
 
 ${base}/skills/procsim-diagram/SKILL.md -> .claude/skills/procsim-diagram/SKILL.md
