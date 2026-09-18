@@ -57,7 +57,7 @@ the equivalent nested form):
 fns:
   - &some_fn |
     fn on_init() { state.x = 0; }
-    fn on_timer() { state.x += 1; send(links[0], #{ val: state.x }); }
+    fn on_timer() { state.x += 1; send(links[0], #{ val: state.x, display: "val=" + state.x }); }
     fn on_msg(msg) { log(node_name + " got " + msg.val); }
 
 graph_defn:
@@ -95,6 +95,11 @@ Rules that are easy to get wrong:
   `references/rhai-handlers.md` — read it before writing non-trivial handlers, since a
   function called with the wrong arity/type just silently fails to compile rather than
   giving a friendly error.
+- If `msg` in `send(to, msg)` is a map, always set a `display: String` field on it — that's
+  what renders on the traveling message icon. Skip it and the icon falls back to Rhai's raw
+  map stringification, which is illegible on canvas. Never set `msg.from` yourself — the
+  engine always overwrites it with the sender's own name on every `send()` call, so a
+  script-set value is silently discarded (see `references/rhai-handlers.md`'s `send` entry).
 
 ## Reference files
 

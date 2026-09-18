@@ -70,7 +70,7 @@ tests in that file's `tests` module before reintroducing any workaround in the Y
 | Function | Signature | Notes |
 |---|---|---|
 | `log` | `log(s)` / `log(dynamic)` / `log(a, b)` | Prints to the app's log panel. The 2-arg form space-joins (`log("count:", state.n)`). |
-| `send` | `send(to: String, msg: Dynamic)` | Queues a message to node `to` (must be a live node — a name in your own `links`, or one from an inbound `msg.from`). Delivered async after the connector's travel animation, arrives as `on_msg(msg)` on the target. |
+| `send` | `send(to: String, msg: Dynamic)` | Queues a message to node `to` (must be a live node — a name in your own `links`, or one from an inbound `msg.from`). Delivered async after the connector's travel animation, arrives as `on_msg(msg)` on the target. If `msg` is a map, always give it a `display: String` field — the label shown on the traveling message icon. Omit it and the icon falls back to Rhai's default map stringification (`#{"type": "PING", ...}`), which reads as noise on canvas rather than a message. An optional `icon: String` names an entry in the graph's top-level `icons:` list to swap in a custom icon for that specific message instead of the default dot. Don't bother setting `from` yourself — the engine unconditionally overwrites it with the calling node's own name on every `send()` (see the gotcha below), so a script-set value is always discarded. |
 | `draw` | `draw(shapes: Array)` / `draw(shape: Map)` | Replaces this node's overlay with the given shape list (see `references/schema.md`'s TemplateShape/draw table for the shape vocabulary). `draw([])` clears it; not calling `draw()` leaves the last one. Works from `on_init` too. |
 | `random_chance` | `random_chance(percent: Int) -> Bool` | `true` with roughly that % probability — use for flaky/failing behavior (`if random_chance(20) { ... simulate a dropped request ... }`) instead of a manually-toggled param. |
 | `random_int` | `random_int(min: Int, max: Int) -> Int` | Half-open `[min, max)`. Degenerate `max <= min` returns `min` (safe to call even when `links.len() == 0` might make `max` 0). |
@@ -91,7 +91,7 @@ non-trivial.
 ```rhai
 fn on_timer() {
   for peer in links {
-    send(peer, #{ type: "PING", from: node_name });
+    send(peer, #{ type: "PING", display: "PING" });
   }
 }
 ```
@@ -100,7 +100,7 @@ fn on_timer() {
 ```rhai
 fn on_msg(msg) {
   if msg.type == "REQUEST" {
-    send(msg.from, #{ type: "RESPONSE", from: node_name, result: 42 });
+    send(msg.from, #{ type: "RESPONSE", result: 42, display: "RESPONSE: 42" });
   }
 }
 ```
