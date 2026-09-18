@@ -5,7 +5,7 @@ fns:
     }
     fn on_timer() {
       state.seq += 1;
-      send("worker", #{ id: state.seq });
+      send("worker", #{ id: state.seq, display: "item #" + state.seq });
     }
 
   - &worker_fn |

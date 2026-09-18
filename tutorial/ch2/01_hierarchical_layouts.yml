@@ -5,7 +5,7 @@ fns:
     }
     fn on_timer() {
       state.seq += 1;
-      send("gateway", #{ id: state.seq, payload: "event" });
+      send("gateway", #{ id: state.seq, payload: "event", display: "event #" + state.seq });
     }
 
   - &gateway_fn |
@@ -19,7 +19,7 @@ fns:
 
   - &worker_fn |
     fn on_msg(msg) {
-      send("sink", #{ id: msg.id, processed_by: node_name });
+      send("sink", #{ id: msg.id, processed_by: node_name, display: "processed #" + msg.id });
     }
 
   - &sink_fn |

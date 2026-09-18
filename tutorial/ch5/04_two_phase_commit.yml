@@ -18,7 +18,7 @@ fns:
       // topology (`links`), not a hardcoded peer list, so adding a third
       // cohort in graph_defn.graph is all it takes to widen the quorum.
       for peer in links {
-        send(peer, #{ type: "PREPARE", tx_id: state.tx_id });
+        send(peer, #{ type: "PREPARE", tx_id: state.tx_id, display: "PREPARE #" + state.tx_id });
       }
     }
     fn on_msg(msg) {
@@ -37,7 +37,7 @@ fns:
               "**Phase 2 (Commit)**: All cohorts voted YES. Coordinator issues `GLOBAL_COMMIT`."
             );
             for peer in links {
-              send(peer, #{ type: "GLOBAL_COMMIT", tx_id: state.tx_id });
+              send(peer, #{ type: "GLOBAL_COMMIT", tx_id: state.tx_id, display: "COMMIT #" + state.tx_id });
             }
           }
         }
@@ -63,7 +63,7 @@ fns:
       if msg.type == "PREPARE" {
         log(node_name + " received PREPARE for TX #" + msg.tx_id + " -> voting YES");
         update_ui(node_name, "VOTED YES", "#f59e0b");
-        send(msg.from, #{ type: "VOTE", tx_id: msg.tx_id, vote: "YES" });
+        send(msg.from, #{ type: "VOTE", tx_id: msg.tx_id, vote: "YES", display: "VOTE YES #" + msg.tx_id });
       } else if msg.type == "GLOBAL_COMMIT" {
         log(node_name + " COMMITTED TX #" + msg.tx_id);
         update_ui(node_name, "COMMITTED", "#10b981");

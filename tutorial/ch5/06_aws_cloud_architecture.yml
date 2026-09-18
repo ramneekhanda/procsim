@@ -11,7 +11,7 @@ fns:
     fn on_timer() {
       state.req += 1;
       log("DNS resolving request #" + state.req);
-      send("alb_ingress", #{ id: state.req, path: "/api/order" });
+      send("alb_ingress", #{ id: state.req, path: "/api/order", display: "/api/order #" + state.req });
     }
 
   - &alb_fn |
@@ -29,8 +29,8 @@ fns:
   - &ecs_fn |
     fn on_msg(msg) {
       log(node_name + " processing Req #" + msg.id + " -> saving to Dynamo & notifying SQS");
-      send("orders_db", #{ op: "INSERT", id: msg.id });
-      send("events_queue", #{ event: "ORDER_CREATED", id: msg.id });
+      send("orders_db", #{ op: "INSERT", id: msg.id, display: "INSERT #" + msg.id });
+      send("events_queue", #{ event: "ORDER_CREATED", id: msg.id, display: "ORDER_CREATED #" + msg.id });
     }
 
 graph_defn:
