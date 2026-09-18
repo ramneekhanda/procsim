@@ -4,26 +4,26 @@
  import { createEventDispatcher } from "svelte";
  const dispatch = createEventDispatcher();
 
- let installLabel = "Install in Claude";
+ let installLabel = "Install in your harness";
 
- async function installInClaude() {
+ async function installInHarness() {
    const base = window.location.origin + window.location.pathname.replace(/\/$/, "");
-   const prompt = `Install the "procsim-diagram" Claude Code skill by fetching these files and saving them exactly as-is (preserve the directory structure, SKILL.md at the root of the skill folder):
+   const prompt = `Install the "procsim-diagram" skill by fetching these files and saving them exactly as-is (preserve the directory structure, SKILL.md at the root of the skill folder):
 
-${base}/skills/procsim-diagram/SKILL.md -> .claude/skills/procsim-diagram/SKILL.md
-${base}/skills/procsim-diagram/references/schema.md -> .claude/skills/procsim-diagram/references/schema.md
-${base}/skills/procsim-diagram/references/rhai-handlers.md -> .claude/skills/procsim-diagram/references/rhai-handlers.md
-${base}/skills/procsim-diagram/references/imports-and-themes.md -> .claude/skills/procsim-diagram/references/imports-and-themes.md
+${base}/skills/procsim-diagram/SKILL.md -> procsim-diagram/SKILL.md
+${base}/skills/procsim-diagram/references/schema.md -> procsim-diagram/references/schema.md
+${base}/skills/procsim-diagram/references/rhai-handlers.md -> procsim-diagram/references/rhai-handlers.md
+${base}/skills/procsim-diagram/references/imports-and-themes.md -> procsim-diagram/references/imports-and-themes.md
 
-Save it under the current project's .claude/skills/ if I'm in a project I want this available for, otherwise under my home directory's ~/.claude/skills/. This skill helps build procsim graph YAML files (this simulator's node/Rhai-script format) from natural-language descriptions of a system or process.`;
+Save it wherever your tool or agent looks for skills/instructions/tools (e.g. Claude Code's .claude/skills/, or an equivalent local/project convention for other coding agents), scoped to the current project if I want this available there, otherwise scoped globally/user-wide. This skill helps build procsim graph YAML files (this simulator's node/Rhai-script format) from natural-language descriptions of a system or process.`;
 
    try {
      await navigator.clipboard.writeText(prompt);
    } catch (e) {
      console.error("Failed to copy install prompt:", e);
    }
-   installLabel = "Prompt copied - please paste it in your Claude";
-   setTimeout(() => (installLabel = "Install in Claude"), 3000);
+   installLabel = "Prompt copied - please paste it in your agent";
+   setTimeout(() => (installLabel = "Install in your harness"), 3000);
  }
 </script>
 
@@ -58,7 +58,7 @@ Save it under the current project's .claude/skills/ if I'm in a project I want t
     </button>
   </div>
   <div class="navbar-end">
-    <button class="btn btn-sm" on:click={installInClaude} title="Copy an install prompt for the procsim-diagram Claude skill">
+    <button class="btn btn-sm" on:click={installInHarness} title="Copy an install prompt for the procsim-diagram skill">
       {installLabel}
     </button>
   </div>

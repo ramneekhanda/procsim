@@ -1,0 +1,77 @@
+name: Desktop builds
+
+# Builds the Tauri desktop shell (see web/src-tauri/) for macOS, Windows, and
+# Linux and attaches the installers to a (draft) GitHub Release. Triggered by
+# pushing a `v*` tag; can also be run manually to sanity-check the build
+# without publishing anything (no tag -> tauri-action skips release upload).
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+          - platform: ubuntu-24.04
+          - platform: windows-latest
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Add wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install cargo-make and wasm-bindgen-cli
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-make,wasm-bindgen-cli@0.2.128
+
+      - name: Install npm dependencies
+        run: npm ci --prefix web
+
+      - name: Build wasm module (production profile)
+        run: cargo make -p production build-wasm-module
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: web
+          tagName: ${{ github.ref_name }}
+          releaseName: "Process Simulator ${{ github.ref_name }}"
+          releaseBody: "Desktop build of Process Simulator ${{ github.ref_name }}."
+          releaseDraft: true
+          prerelease: false
