@@ -32,10 +32,9 @@ or AWS plib can itself import further presets, though none of the built-ins curr
 ## Theme presets (`theme:<name>` or bare `<name>`)
 
 Each theme is a `node_templates` + `graph_attrs.message_theme`/`explain_theme` bundle —
-importing one gives your custom node types a consistent visual language for free (still need
-your own `node_types[].attrs.template_ref` to actually opt a type into a theme's cards,
-unless the theme's own doc says otherwise — check `plibs/themes/<name>.yml` for exact
-template ids it defines).
+importing one gives your custom node types a consistent visual language for free, but you
+still need your own `node_types[].attrs.template_ref: <template id>` (+ matching
+`template_params`) to actually opt a type into a theme's cards.
 
 | Name(s) | Vibe |
 |---|---|
@@ -52,6 +51,33 @@ template ids it defines).
 Pick a theme based on the *tone* of what's being simulated if the user hints at one
 ("cyberpunk", "retro", "clean/professional", "dark mode") — otherwise leave it unset (plain
 default styling) rather than guessing one that wasn't asked for.
+
+### Templates & `template_params` each theme provides
+
+Every theme defines a plain **`node`** template (`attrs.template_ref: node`) usable by any
+node type, plus one flagship template with a more elaborate look. Five themes also ship a
+ready-made `node_types` entry already wired to their flagship template — use that type id
+directly in `graph:` instead of writing your own `node_type`/`template_ref` when the
+undecorated default text is fine.
+
+| Theme | `node` template params | Flagship template: params | Ready-made `node_type` |
+|---|---|---|---|
+| `cyberpunk` | `accent_color`, `icon`, `node_name`, `role_tag`, `status_bg`, `status_color`, `status_text` | `cyber_hud`: `neon_border`, `neon_accent`, `icon`, `node_name`, `telemetry`, `badge_bg`, `status_code`, `badge_color` | — |
+| `cloud` | same as above | `cloud_card`: `accent_color`, `icon`, `node_name`, **`role`** (not `role_tag`), `status_bg`, `status_color`, `status_text` | — |
+| `datacenter` | same as above | `rack_blade`: `icon`, `ip_addr`, `led_act`, `led_pwr`, `node_name` | — |
+| `minimal` | same as above, **minus `status_bg`** | `minimal_pill`: `icon`, `node_name`, `status` | — |
+| `synthwave` | same as cyberpunk's | `synth_card`: `icon`, `node_name`, `status_text` | `synth_node` → `synth_card`, ships `status_text: "SYNTH // ACTIVE"` |
+| `nordic` | same as cyberpunk's | `nord_card`: `node_name`, `status_text` | `nord_service` → `nord_card`, ships `status_text: "NORDIC // READY"` |
+| `dracula` | same as cyberpunk's | `dracula_node`: `node_name`, `status_text` | `dracula_service` → `dracula_node`, ships `status_text: "DRACULA // RUNNING"` |
+| `matrix` | same as cyberpunk's | `matrix_blade`: `node_name` | `matrix_core` → `matrix_blade` (no fixed params) |
+| `solarized_light` | same as cyberpunk's | `solar_card`: `node_name`, `status_text` | `solar_node` → `solar_card`, ships `status_text: "SOLAR // ACTIVE"` |
+
+Two gotchas visible in that table: `cloud_card` uses `role` while every other theme's flagship
+uses `role_tag`, and `minimal`'s generic `node` template has no `status_bg` slot — pass those
+exact key names or the placeholder is simply left unfilled (`{{name}}` renders literally
+rather than erroring). A ready-made `node_type` still needs its own `graph[]` entry with a
+`name`/`links` — importing the theme only makes the type *available*, it doesn't add an
+instance to the graph.
 
 ### Writing a custom `message_theme` / `explain_theme` by hand
 
