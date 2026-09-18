@@ -18,10 +18,13 @@ use bevy_mod_picking::prelude::*;
 use bevy_tweening::{lens::*, *};
 use std::time::Duration;
 
-const ICON_WIDTH: f32 = 64.0;
-const ICON_HEIGHT: f32 = 64.0;
-const TEXT_DISTANCE_FROM_BOTTOM: f32 = 8.0;
-const FONT_SIZE: f32 = 24.0;
+// `pub(crate)` (not just `const`) so `update_connectors.rs`'s `node_half_extents`
+// can compute the same default icon+label footprint this module's own
+// selection-highlight box uses - see that function's doc comment.
+pub(crate) const ICON_WIDTH: f32 = 64.0;
+pub(crate) const ICON_HEIGHT: f32 = 64.0;
+pub(crate) const TEXT_DISTANCE_FROM_BOTTOM: f32 = 8.0;
+pub(crate) const FONT_SIZE: f32 = 24.0;
 const BOUNDING_BOX_PADDING: f32 = 8.0;
 pub const TICK_BAR_WIDTH: f32 = 32.0;
 const TICK_BAR_HEIGHT: f32 = 3.0;

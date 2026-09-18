@@ -15,7 +15,7 @@ fns:
           "**Producer**: Generating its first message to the processor downstream."
         );
       }
-      send("processor", #{ seq: state.seq, payload: "item_" + state.seq });
+      send("processor", #{ seq: state.seq, payload: "item_" + state.seq, display: "item_" + state.seq });
     }
 
   - &processor_fn |

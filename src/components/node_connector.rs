@@ -17,4 +17,11 @@ pub struct NodeConnector {
     /// delivery reads on the edge itself, not only on the traveling message
     /// icon.
     pub flash: f32,
+    /// This connector's own base stroke color, randomized once at spawn time
+    /// (see `update_connectors::generate_line`) rather than every connector
+    /// sharing `graph_attrs.connection_color` - fixed for the connector's
+    /// lifetime so it doesn't flicker to a new color on every retrace.
+    /// `update_connector_style` blends from this toward `ACCENT_COLOR` the
+    /// same way it used to blend from the single graph-wide color.
+    pub base_color: Color,
 }

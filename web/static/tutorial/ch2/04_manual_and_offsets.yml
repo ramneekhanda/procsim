@@ -5,7 +5,7 @@ fns:
     }
     fn on_timer() {
       state.count += 1;
-      send("server", #{ seq: state.count });
+      send("server", #{ seq: state.count, display: "seq #" + state.count });
     }
 
   - &server_fn |

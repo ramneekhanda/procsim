@@ -9,7 +9,7 @@ fns:
     }
     fn on_timer() {
       state.seq += 1;
-      send("lambda_exec", #{ action: "process_job", id: state.seq });
+      send("lambda_exec", #{ action: "process_job", id: state.seq, display: "process_job #" + state.seq });
     }
 
 graph_defn:

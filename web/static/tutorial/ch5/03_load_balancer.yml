@@ -12,7 +12,8 @@ fns:
       // path itself (see lb_fn.on_msg below).
       send("load_balancer", #{
         type: "REQ",
-        id: state.req_id
+        id: state.req_id,
+        display: "Req #" + state.req_id
       });
     }
     fn on_msg(msg) {
@@ -72,7 +73,8 @@ fns:
           type: "RESP",
           id: msg.id,
           reply_to: msg.reply_to,
-          worker: node_name
+          worker: node_name,
+          display: "Resp #" + msg.id
         });
       }
     }

@@ -6,7 +6,7 @@ fns:
     fn on_timer() {
       state.token += 1;
       log(`Leader origin passing token #${state.token}`);
-      send(links[0], #{ token: state.token, hops: 0 });
+      send(links[0], #{ token: state.token, hops: 0, display: "token #" + state.token });
     }
     fn on_msg(msg) {
       log(`Token #${msg.token} completed full ring circuit (${msg.hops} hops)!`);

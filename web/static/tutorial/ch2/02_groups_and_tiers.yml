@@ -5,7 +5,7 @@ fns:
     }
     fn on_timer() {
       state.count += 1;
-      send("gateway", #{ req: state.count, path: "/api/checkout" });
+      send("gateway", #{ req: state.count, path: "/api/checkout", display: "/api/checkout #" + state.count });
     }
 
   - &gateway_fn |
@@ -16,13 +16,13 @@ fns:
 
   - &auth_fn |
     fn on_msg(msg) {
-      send("users_db", #{ req: msg.req, validated: true });
+      send("users_db", #{ req: msg.req, validated: true, display: "validate #" + msg.req });
     }
 
   - &orders_fn |
     fn on_msg(msg) {
-      send("orders_db", #{ req: msg.req, status: "created" });
-      send("cache", #{ key: `req_${msg.req}`, val: "cached" });
+      send("orders_db", #{ req: msg.req, status: "created", display: "order #" + msg.req });
+      send("cache", #{ key: `req_${msg.req}`, val: "cached", display: "cache #" + msg.req });
     }
 
   - &noop_fn |

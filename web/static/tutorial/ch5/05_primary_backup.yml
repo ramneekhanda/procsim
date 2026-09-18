@@ -13,7 +13,8 @@ fns:
         type: "WRITE",
         tx: state.tx,
         key: "user_bal",
-        val: 100 + state.tx
+        val: 100 + state.tx,
+        display: "WRITE #" + state.tx
       });
     }
     fn on_msg(msg) {
@@ -41,7 +42,7 @@ fns:
         // links: [replica_1, replica_2]) - fan out off that directly
         // instead of a second, hand-maintained copy that could drift from it.
         for peer in links {
-          send(peer, #{ type: "REPLICATE", tx: msg.tx, key: msg.key, val: msg.val });
+          send(peer, #{ type: "REPLICATE", tx: msg.tx, key: msg.key, val: msg.val, display: "REPLICATE #" + msg.tx });
         }
       } else if msg.type == "ACK" {
         let key = msg.tx.to_string();
@@ -51,7 +52,7 @@ fns:
             let reply_to = state.pending_tx[key].reply_to;
             log("Primary achieved Quorum for TX #" + msg.tx + " -> confirming to client");
             update_ui("COMMITTED #" + msg.tx, "#10b981");
-            send(reply_to, #{ type: "WRITE_OK", tx: msg.tx });
+            send(reply_to, #{ type: "WRITE_OK", tx: msg.tx, display: "WRITE_OK #" + msg.tx });
             // Done with this transaction's bookkeeping - drop it rather
             // than letting pending_tx grow without bound as TXs commit.
             state.pending_tx.remove(key);
@@ -82,7 +83,7 @@ fns:
         state.replicated_count += 1;
         log(node_name + " synced TX #" + msg.tx);
         update_ui(node_name, state.replicated_count);
-        send(msg.from, #{ type: "ACK", tx: msg.tx });
+        send(msg.from, #{ type: "ACK", tx: msg.tx, display: "ACK #" + msg.tx });
       }
     }
     fn update_ui(name, replicated_count) {
